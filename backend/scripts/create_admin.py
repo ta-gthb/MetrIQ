@@ -3,27 +3,22 @@
     python backend/scripts/create_admin.py --email admin@metriq.local \
         --name "Platform Administrator" --password "ChangeMe123!"
 
-When --password is omitted a strong temporary password is generated and printed
-once. Passwords are never written to the database in clear text.
+Kept for convenience; manage_admin.py is the fuller tool (list, rotate
+password, rename, enable/disable, delete). When --password is omitted a strong
+temporary password is generated and printed once, and passwords must be at
+least 8 characters. Nothing is ever stored in clear text.
 """
 
 from __future__ import annotations
 
 import argparse
-
 import sys
 from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts._bootstrap import banner, ok  # noqa: E402
-from scripts.seed_identity import seed_roles_and_permissions  # noqa: E402
-
-from app.database import session_scope  # noqa: E402
-from app.models import Laboratory, User  # noqa: E402
-from app.security.passwords import generate_temporary_password, hash_password  # noqa: E402
-from app.security.permissions import SUPER_ADMIN  # noqa: E402
+from scripts._bootstrap import banner, ok, warn  # noqa: E402
 
 
 def main() -> int:
@@ -35,46 +30,25 @@ def main() -> int:
     parser.add_argument("--laboratory-code", default=None)
     args = parser.parse_args()
 
-    password = args.password or generate_temporary_password()
-    generated = args.password is None
-
-    from sqlalchemy import select
+    from app.database import session_scope
+    from scripts.manage_admin import upsert_super_admin
 
     with session_scope() as db:
-        seed_roles_and_permissions(db)
-        laboratory = None
-        if args.laboratory_code:
-            laboratory = db.execute(
-                select(Laboratory).where(Laboratory.code == args.laboratory_code)
-            ).scalars().first()
-            if laboratory is None:
-                print(f"  [!!] laboratory '{args.laboratory_code}' was not found; continuing without one")
+        result = upsert_super_admin(
+            db,
+            email=args.email,
+            full_name=args.name,
+            password=args.password,
+            laboratory_code=args.laboratory_code,
+        )
+        ok(f"Super Admin {'created' if result.created else 'updated'}: {result.user.email}")
 
-        user = db.execute(select(User).where(User.email == args.email.lower())).scalars().first()
-        if user is None:
-            user = User(
-                email=args.email.lower(),
-                full_name=args.name,
-                role_code=SUPER_ADMIN,
-                is_active=True,
-                is_email_verified=True,
-                auth_provider="local",
-                laboratory_id=laboratory.id if laboratory else None,
-            )
-            db.add(user)
-            action = "created"
-        else:
-            user.role_code = SUPER_ADMIN
-            user.is_active = True
-            action = "updated"
-        user.full_name = args.name
-        user.password_hash = hash_password(password)
-        db.flush()
-        ok(f"Super Admin {action}: {user.email}")
+    if result.previous_role and result.previous_role != "SUPER_ADMIN":
+        warn(f"that account was a {result.previous_role} and has been promoted to Super Admin")
 
-    if generated:
+    if result.generated:
         print()
-        print(f"  Temporary password (shown once): {password}")
+        print(f"  Temporary password (shown once): {result.password}")
         print("  Change it immediately after the first sign-in.")
     return 0
 

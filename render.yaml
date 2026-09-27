@@ -17,14 +17,16 @@ services:
   - type: web
     name: metriq-api
     runtime: python
-    plan: starter
+    plan: free
     region: singapore
     branch: main
     buildCommand: pip install --root-user-action=ignore -r backend/requirements.txt
-    # Reference data only. Both scripts are idempotent, so they are safe to run
-    # on every deploy. Demo accounts are deliberately NOT created here - use
-    # `python backend/scripts/create_admin.py` once to provision the first admin.
-    preDeployCommand: python backend/scripts/init_db.py && python backend/scripts/seed_rules.py
+    # The free plan provides no pre-deploy command and no shell, so the service
+    # provisions itself at start-up: AUTO_INIT_DB creates missing tables and
+    # AUTO_SEED_REFERENCE seeds the roles/rules/catalogue when they are absent.
+    # Both are idempotent. Demo accounts are deliberately never created here -
+    # provision the first administrator from your own machine with
+    # `python backend/scripts/manage_admin.py create --email you@lab.example`.
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
     healthCheckPath: /health
     autoDeploy: true
@@ -35,6 +37,12 @@ services:
         value: production
       - key: DEBUG
         value: "false"
+
+      # Self-provisioning start-up (see the note above the start command).
+      - key: AUTO_INIT_DB
+        value: "true"
+      - key: AUTO_SEED_REFERENCE
+        value: "true"
 
       # hybrid verifies Supabase-issued JWTs *and* the tokens this API mints at
       # /auth/login. Setting this to `supabase` alone locks out every account

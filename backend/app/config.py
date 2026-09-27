@@ -73,6 +73,14 @@ class Settings(BaseSettings):
         default_factory=lambda: ["nameplate_photograph", "test_setup_photograph"]
     )
 
+    # --- Bootstrap --------------------------------------------------------
+    # A deployed instance provisions itself at start-up because Render's free
+    # plan offers neither a pre-deploy command nor a shell. Create any missing
+    # table, then seed roles/rules/catalogue when they are absent. Both steps
+    # are idempotent; seeding is skipped once the data is present.
+    AUTO_INIT_DB: bool = True
+    AUTO_SEED_REFERENCE: bool = True
+
     # --- AI ---------------------------------------------------------------
     AI_ENABLED: bool = True
     AI_PROVIDER: Literal["stub", "openai", "azure_openai", "custom"] = "stub"
@@ -114,7 +122,7 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
-    @field_validator("DEBUG", "AI_ENABLED", mode="before")
+    @field_validator("DEBUG", "AI_ENABLED", "AUTO_INIT_DB", "AUTO_SEED_REFERENCE", mode="before")
     @classmethod
     def _lenient_bool(cls, value):
         """Interpret common deployment flags without failing startup.

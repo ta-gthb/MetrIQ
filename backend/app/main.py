@@ -17,8 +17,6 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app import __version__
 from app.config import settings
-from app.database import engine
-from app.models import Base
 from app.routers import (
     admin,
     ai,
@@ -34,6 +32,7 @@ from app.routers import (
     workflow,
 )
 from app.services.attachment_service.storage import get_storage
+from app.services.reference_data.bootstrap import database_status, initialise_database
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -44,11 +43,17 @@ logger = logging.getLogger("metriq")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Local/dev convenience: create the schema when it is absent. Production
-    # deployments run scripts/init_db.py as an explicit release step.
-    Base.metadata.create_all(bind=engine)
-    Path(settings.REPORT_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
-    Path(settings.STORAGE_LOCAL_PATH).mkdir(parents=True, exist_ok=True)
+    # Self-provisioning start-up: create the schema and seed the reference
+    # catalogue when they are missing (AUTO_INIT_DB / AUTO_SEED_REFERENCE).
+    initialise_database()
+    try:
+        storage = get_storage()
+        logger.info("storage backend ready: %s", storage.name)
+    except Exception as exc:  # a broken bucket must not stop the API from booting
+        logger.error(
+            "STORAGE UNAVAILABLE (%s): %s. Uploads and report downloads will fail.",
+            settings.STORAGE_BACKEND, exc,
+        )
     logger.info(
         "MetrIQ %s starting (env=%s, auth=%s, storage=%s, ai=%s)",
         __version__, settings.ENVIRONMENT, settings.AUTH_PROVIDER,
@@ -151,6 +156,7 @@ def health() -> dict:
         "name": settings.APP_NAME,
         "version": __version__,
         "environment": settings.ENVIRONMENT,
+        "database": database_status(),
         "auth_provider": settings.AUTH_PROVIDER,
         "storage_backend": storage,
         "ai_provider": settings.AI_PROVIDER,

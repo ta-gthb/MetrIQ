@@ -36,7 +36,7 @@ python scripts/init_db.py
 python scripts/seed_rules.py
 python scripts/seed_identity.py
 python scripts/seed_db.py
-python scripts/create_admin.py --email admin@metriq.local \
+python scripts/manage_admin.py create --email admin@metriq.local \
        --name "Platform Administrator" --password "MetrIQ@2026"
 
 python -m uvicorn app.main:app --port 8000
@@ -136,8 +136,9 @@ backend/
     rules/             expression evaluator + versioned rule JSON
     services/          test_engine, calculation_engine, compliance_engine,
                        report_engine, ai_service, audit_service, metrology_service
-  scripts/             init_db, reset_db, seed_rules, seed_identity, seed_db, create_admin
-  tests/               131 tests
+  scripts/             init_db, reinit_db, reset_db, seed_rules, seed_identity,
+                       seed_db, manage_admin, create_admin
+  tests/               142 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
@@ -170,7 +171,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 131 tests
+python -m pytest -q      # 142 tests
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and
@@ -188,7 +189,11 @@ immutability and hash stability, and the AI disable/fallback behaviour.
 
 The deployed service is stateless: evidence uploads and generated PDF/DOCX
 reports are both written to the Supabase bucket, so nothing depends on the
-Render filesystem. `vercel.json` proxies `/api/*` to the Render service so the
+Render filesystem. Render's free plan has no shell and no pre-deploy command, so
+the application creates its schema and seeds the R76 catalogue as it boots
+(`AUTO_INIT_DB`, `AUTO_SEED_REFERENCE`), and `backend/scripts/manage_admin.py`
+and `backend/scripts/reinit_db.py` are run from a local machine against
+`DATABASE_URL`. `vercel.json` proxies `/api/*` to the Render service so the
 browser stays same-origin and no CORS configuration is needed.
 
 Full runbook, including the Supabase project setup, the exact environment

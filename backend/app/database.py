@@ -61,6 +61,10 @@ def _engine_options(url: str) -> dict[str, Any]:
         options["pool_size"] = 5
         options["max_overflow"] = 10
         options["pool_recycle"] = 1800
+        # Bound the wait so start-up checks and request handlers fail fast
+        # (with a usable message) instead of hanging when the database host is
+        # unreachable - a wrong Supabase host would otherwise stall /health.
+        options["connect_args"] = {"connect_timeout": 10}
     return options
 
 
