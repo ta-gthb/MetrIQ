@@ -1,0 +1,363 @@
+{
+  "standard": "OIML R 76-1",
+  "version_label": "r76-1-2006-v1",
+  "notes": [
+    "Test catalogue for the OIML R 76-1:2006 baseline (PRD 10.2).",
+    "Applicability expressions are evaluated against the instrument context by",
+    "app/rules/expressions.py. Phase 2 entries are seeded inactive and become",
+    "available when the laboratory enables them."
+  ],
+  "tests": [
+    {
+      "test_code": "T-WP",
+      "name": "Weighing performance",
+      "clause_reference": "OIML R 76-1:2006 T.3.1 / A.4.4",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 10,
+      "description": "Error of indication determined at loads distributed over the weighing range, compared with the applicable MPE.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "additional_load", "label": "Additional load to changeover dL", "type": "decimal", "unit": "instrument", "required": false},
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Load point"
+      },
+      "validation_rules": {
+        "min_rows": 1,
+        "non_negative_fields": ["load", "indication", "additional_load"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "digital_indication_error",
+        "apply_zero_correction": true,
+        "require_additional_load": false,
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "mpe"},
+      "report_section_mapping": {"section": "tests", "number": "6.1", "title": "Weighing performance"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-REP",
+      "name": "Repeatability",
+      "clause_reference": "OIML R 76-1:2006 T.3.2 / 3.5.2",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 20,
+      "description": "Repeated weighings of the same load; the spread of the resulting errors shall not exceed the MPE for that load.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "additional_load", "label": "Additional load to changeover dL", "type": "decimal", "unit": "instrument", "required": false},
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Run"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "repeatability_spread",
+        "require_additional_load": false,
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "mpe"},
+      "report_section_mapping": {"section": "tests", "number": "6.2", "title": "Repeatability"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-ECC",
+      "name": "Eccentricity using weights",
+      "clause_reference": "OIML R 76-1:2006 T.3.3",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 30,
+      "description": "Application of a load at eccentric positions; the difference from the centre position shall not exceed the MPE.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "position_label", "label": "Position", "type": "text", "required": true},
+          {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "additional_load", "label": "Additional load to changeover dL", "type": "decimal", "unit": "instrument", "required": false}
+        ],
+        "row_label": "Position"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "eccentricity_difference",
+        "reference_position": "centre",
+        "require_additional_load": false,
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "mpe"},
+      "report_section_mapping": {"section": "tests", "number": "6.3", "title": "Eccentricity"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-ZR",
+      "name": "Zero return",
+      "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 40,
+      "description": "Deviation of the zero indication after removing the load, relative to the initial zero reading.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "label", "label": "Stage", "type": "text", "required": true},
+          {"key": "value", "label": "Indication at zero", "type": "decimal", "unit": "instrument", "required": true}
+        ],
+        "row_label": "Stage"
+      },
+      "validation_rules": {"min_rows": 2, "required_fields": ["value"], "non_negative_fields": []},
+      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:zero_return"},
+      "report_section_mapping": {"section": "tests", "number": "6.4", "title": "Zero return"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-CREEP",
+      "name": "Creep",
+      "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 50,
+      "description": "Change in indication under a constant load held near maximum capacity over the observation period.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "elapsed_seconds", "label": "Elapsed time (s)", "type": "decimal", "required": true},
+          {"key": "value", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "temperature_c", "label": "Temperature (C)", "type": "decimal", "required": false}
+        ],
+        "row_label": "Reading"
+      },
+      "validation_rules": {"min_rows": 2, "required_fields": ["value"], "non_negative_fields": ["elapsed_seconds"]},
+      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:creep"},
+      "report_section_mapping": {"section": "tests", "number": "6.5", "title": "Creep"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-TEMP-NL",
+      "name": "Temperature effect on no-load indication",
+      "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2",
+      "category": "influence",
+      "phase": "MVP",
+      "sequence_no": 60,
+      "description": "Variation of the no-load indication over the specified temperature range for electronic instruments.",
+      "applicability_expression": {
+        "all": [
+          {"field": "instrument.is_electronic", "op": "eq", "value": true,
+           "description": "Influence-factor test applies to electronic instruments"}
+        ]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "temperature_c", "label": "Temperature (C)", "type": "decimal", "required": true},
+          {"key": "value", "label": "No-load indication", "type": "decimal", "unit": "instrument", "required": true}
+        ],
+        "row_label": "Temperature point"
+      },
+      "validation_rules": {"min_rows": 2, "required_fields": ["value", "temperature_c"]},
+      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:temperature_no_load"},
+      "report_section_mapping": {"section": "tests", "number": "6.6", "title": "Temperature effect on no-load indication"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-SENS",
+      "name": "Sensitivity",
+      "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 70,
+      "description": "Response of the instrument to a defined change of the applied load.",
+      "applicability_expression": {
+        "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "load", "label": "Applied load", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true}
+        ],
+        "row_label": "Step"
+      },
+      "validation_rules": {"min_rows": 2, "required_fields": ["load", "indication"], "non_negative_fields": ["load", "indication"]},
+      "calculation_rules": {"method": "sensitivity_response", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:sensitivity"},
+      "report_section_mapping": {"section": "tests", "number": "6.7", "title": "Sensitivity"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-DISC",
+      "name": "Discrimination",
+      "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 80,
+      "description": "The indication shall change by at least one d when an additional load of 1.4 d is applied.",
+      "applicability_expression": {
+        "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "load", "label": "Additional load applied", "type": "decimal", "unit": "instrument", "required": false},
+          {"key": "value", "label": "Change in indication", "type": "decimal", "unit": "instrument", "required": true}
+        ],
+        "row_label": "Trial"
+      },
+      "validation_rules": {"min_rows": 1, "required_fields": ["value"]},
+      "calculation_rules": {"method": "minimum_changeover", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "gte", "limit_source": "tolerance:discrimination"},
+      "report_section_mapping": {"section": "tests", "number": "6.8", "title": "Discrimination"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-STAB",
+      "name": "Stability of equilibrium",
+      "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7",
+      "category": "metrological",
+      "phase": "MVP",
+      "sequence_no": 90,
+      "description": "Variation of the indication during the stability observation period.",
+      "applicability_expression": {
+        "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "elapsed_seconds", "label": "Elapsed time (s)", "type": "decimal", "required": false},
+          {"key": "value", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true}
+        ],
+        "row_label": "Reading"
+      },
+      "validation_rules": {"min_rows": 2, "required_fields": ["value"]},
+      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:stability"},
+      "report_section_mapping": {"section": "tests", "number": "6.9", "title": "Stability of equilibrium"},
+      "evidence_requirements": {"required": false, "recommended": []}
+    },
+    {
+      "test_code": "T-CHK-CON",
+      "name": "Examination of construction",
+      "clause_reference": "OIML R 76-1:2006 6 / T.4",
+      "category": "construction",
+      "phase": "MVP",
+      "sequence_no": 200,
+      "description": "Conformity checklist for the construction of the instrument.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "checklist",
+        "columns": [
+          {"key": "item_code", "label": "Item", "type": "text", "required": true},
+          {"key": "conforms", "label": "Conforms", "type": "boolean", "required": true},
+          {"key": "remarks", "label": "Remarks", "type": "text", "required": false}
+        ],
+        "row_label": "Checklist item"
+      },
+      "validation_rules": {"min_rows": 1},
+      "calculation_rules": {
+        "method": "checklist_all_conform",
+        "rule_id": "R76-CONST",
+        "clause_reference": "OIML R 76-1:2006 6",
+        "mandatory_items": [
+          "CON-01", "CON-02", "CON-03", "CON-04", "CON-06", "CON-07"
+        ]
+      },
+      "compliance_rules": {"comparator": "lte"},
+      "report_section_mapping": {"section": "checklist", "number": "7.1", "title": "Examination of construction"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-CHK-ID",
+      "name": "Identification and markings",
+      "clause_reference": "OIML R 76-1:2006 7 / T.4",
+      "category": "construction",
+      "phase": "MVP",
+      "sequence_no": 210,
+      "description": "Presence and consistency of the markings required on the instrument.",
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "checklist",
+        "columns": [
+          {"key": "item_code", "label": "Item", "type": "text", "required": true},
+          {"key": "conforms", "label": "Present and consistent", "type": "boolean", "required": true},
+          {"key": "remarks", "label": "Remarks", "type": "text", "required": false}
+        ],
+        "row_label": "Checklist item"
+      },
+      "validation_rules": {"min_rows": 1},
+      "calculation_rules": {
+        "method": "checklist_all_conform",
+        "rule_id": "R76-MARKING",
+        "clause_reference": "OIML R 76-1:2006 7",
+        "mandatory_items": [
+          "ID-01", "ID-02", "ID-03", "ID-04", "ID-05", "ID-06", "ID-09"
+        ]
+      },
+      "compliance_rules": {"comparator": "lte"},
+      "report_section_mapping": {"section": "checklist", "number": "7.2", "title": "Identification and markings"},
+      "evidence_requirements": {"required": false, "recommended": ["nameplate_photograph"]}
+    }
+  ],
+  "phase2_tests": [
+    {"test_code": "T-TILT", "name": "Tilting", "clause_reference": "OIML R 76-1:2006 T.3.6", "category": "influence", "sequence_no": 100,
+     "description": "Effect of tilting on the indication (phase 2).", "applicability_expression": {"always": true}},
+    {"test_code": "T-TARE", "name": "Tare", "clause_reference": "OIML R 76-1:2006 T.3.7", "category": "metrological", "sequence_no": 110,
+     "description": "Tare device behaviour (phase 2).", "applicability_expression": {"all": [{"field": "instrument.has_tare_device", "op": "eq", "value": true}]}},
+    {"test_code": "T-WARMUP", "name": "Warm-up time", "clause_reference": "OIML R 76-1:2006 T.3.8", "category": "influence", "sequence_no": 120,
+     "description": "Performance after warm-up (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
+    {"test_code": "T-VOLT", "name": "Voltage variation, dips and interruptions", "clause_reference": "OIML R 76-1:2006 T.3.9", "category": "influence", "sequence_no": 130,
+     "description": "Performance under power-supply disturbance (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
+    {"test_code": "T-EMC", "name": "Electrical bursts, surges, ESD and RF immunity", "clause_reference": "OIML R 76-1:2006 T.3.10", "category": "influence", "sequence_no": 140,
+     "description": "Immunity tests (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
+    {"test_code": "T-DAMP", "name": "Damp heat, span stability and endurance", "clause_reference": "OIML R 76-1:2006 T.3.11", "category": "influence", "sequence_no": 150,
+     "description": "Environmental and endurance tests (phase 2).", "applicability_expression": {"always": true}}
+  ],
+  "construction_checklist_items": [
+    {"item_code": "CON-01", "label": "Metrological characteristics are marked and consistent"},
+    {"item_code": "CON-02", "label": "No feature that could facilitate fraudulent use"},
+    {"item_code": "CON-03", "label": "Level indicator present and effective"},
+    {"item_code": "CON-04", "label": "Zero-setting device operates correctly"},
+    {"item_code": "CON-05", "label": "Tare device (where fitted) operates correctly"},
+    {"item_code": "CON-06", "label": "Indication is clear, with correct unit and decimal marker"},
+    {"item_code": "CON-07", "label": "Adjustment means are sealed or secured"},
+    {"item_code": "CON-08", "label": "Software identification available where applicable"},
+    {"item_code": "CON-09", "label": "Construction measures for electromagnetic immunity are present"},
+    {"item_code": "CON-10", "label": "Power-supply / battery state indication where applicable"}
+  ],
+  "identification_checklist_items": [
+    {"item_code": "ID-01", "label": "Manufacturer name or mark"},
+    {"item_code": "ID-02", "label": "Type or model designation"},
+    {"item_code": "ID-03", "label": "Serial number"},
+    {"item_code": "ID-04", "label": "Accuracy class mark"},
+    {"item_code": "ID-05", "label": "Maximum capacity Max and minimum capacity Min"},
+    {"item_code": "ID-06", "label": "Verification scale interval e (and d where different)"},
+    {"item_code": "ID-07", "label": "Space for verification / approval markings"},
+    {"item_code": "ID-08", "label": "Temperature range or special operating conditions"},
+    {"item_code": "ID-09", "label": "Unit of measurement is indicated"},
+    {"item_code": "ID-10", "label": "Country of manufacture or importer identification"}
+  ]
+}

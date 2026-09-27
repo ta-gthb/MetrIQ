@@ -1,0 +1,171 @@
+"""Manufacturer, applicant, instrument and equipment schemas (FR-03, FR-04)."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import date
+from decimal import Decimal
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.common import ORMModel
+
+VALID_CLASSES = {"I", "II", "III", "IIII", "1", "2", "3", "4"}
+
+
+class ManufacturerBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    code: str | None = None
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    city: str | None = None
+    country: str | None = "India"
+    is_active: bool = True
+
+
+class ManufacturerCreate(ManufacturerBase):
+    pass
+
+
+class ManufacturerOut(ORMModel, ManufacturerBase):
+    id: uuid.UUID
+
+
+class ApplicantBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    code: str | None = None
+    organisation_type: str | None = None
+    contact_person: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    city: str | None = None
+    country: str | None = "India"
+    is_active: bool = True
+
+
+class ApplicantCreate(ApplicantBase):
+    pass
+
+
+class ApplicantOut(ORMModel, ApplicantBase):
+    id: uuid.UUID
+
+
+class InstrumentRangeIn(BaseModel):
+    range_no: int = 1
+    min_capacity: Decimal
+    max_capacity: Decimal
+    verification_scale_interval: Decimal = Field(gt=0)
+    actual_scale_interval: Decimal | None = None
+    unit: str = "g"
+
+    @field_validator("unit")
+    @classmethod
+    def _mass_unit(cls, value: str) -> str:
+        from app.utils.units import is_mass_unit, normalise_unit
+
+        if not is_mass_unit(value):
+            raise ValueError(f"unsupported mass unit '{value}'")
+        return normalise_unit(value)
+
+
+class InstrumentRangeOut(ORMModel):
+    id: uuid.UUID
+    range_no: int
+    min_capacity: Decimal
+    max_capacity: Decimal
+    verification_scale_interval: Decimal
+    actual_scale_interval: Decimal | None = None
+    unit: str
+
+
+class InstrumentBase(BaseModel):
+    manufacturer_id: uuid.UUID | None = None
+    model: str = Field(min_length=1, max_length=160)
+    type_designation: str | None = None
+    serial_number: str | None = None
+    instrument_class: str
+    max_capacity: Decimal = Field(gt=0)
+    min_capacity: Decimal | None = None
+    verification_scale_interval: Decimal = Field(gt=0)
+    actual_scale_interval: Decimal | None = None
+    unit: str = "g"
+    is_electronic: bool = True
+    is_multi_range: bool = False
+    is_multi_interval: bool = False
+    has_tare_device: bool = False
+    has_zero_device: bool = True
+    has_level_indicator: bool = True
+    temperature_range: str | None = None
+    power_supply: str | None = None
+    configuration: dict | None = None
+    remarks: str | None = None
+
+    @field_validator("instrument_class")
+    @classmethod
+    def _known_class(cls, value: str) -> str:
+        normalised = value.strip().upper()
+        if normalised not in VALID_CLASSES:
+            raise ValueError("instrument class must be one of I, II, III or IIII")
+        return {"1": "I", "2": "II", "3": "III", "4": "IIII"}.get(normalised, normalised)
+
+    @field_validator("unit")
+    @classmethod
+    def _mass_unit(cls, value: str) -> str:
+        from app.utils.units import is_mass_unit, normalise_unit
+
+        if not is_mass_unit(value):
+            raise ValueError(f"unsupported mass unit '{value}'")
+        return normalise_unit(value)
+
+
+class InstrumentCreate(InstrumentBase):
+    ranges: list[InstrumentRangeIn] = Field(default_factory=list)
+
+
+class InstrumentOut(ORMModel, InstrumentBase):
+    id: uuid.UUID
+    ranges: list[InstrumentRangeOut] = Field(default_factory=list)
+    manufacturer: "ManufacturerOut | None" = None
+
+
+class TestEquipmentBase(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    equipment_type: str = "weights"
+    manufacturer: str | None = None
+    model: str | None = None
+    serial_no: str | None = None
+    nominal_value: str | None = None
+    unit: str | None = None
+    accuracy_class: str | None = None
+    laboratory_id: uuid.UUID | None = None
+    is_active: bool = True
+
+
+class TestEquipmentCreate(TestEquipmentBase):
+    pass
+
+
+class EquipmentCalibrationCreate(BaseModel):
+    certificate_no: str | None = None
+    issued_by: str | None = None
+    issue_date: date | None = None
+    valid_until: date | None = None
+    uncertainty: str | None = None
+
+
+class EquipmentCalibrationOut(ORMModel, EquipmentCalibrationCreate):
+    id: uuid.UUID
+    equipment_id: uuid.UUID
+
+
+class TestEquipmentOut(ORMModel, TestEquipmentBase):
+    id: uuid.UUID
+    calibrations: list[EquipmentCalibrationOut] = Field(default_factory=list)
+
+
+InstrumentOut.model_rebuild()

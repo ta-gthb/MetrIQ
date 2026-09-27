@@ -1,0 +1,60 @@
+# Render Blueprint for MetrIQ.
+# The FastAPI service also serves the bundled frontend, so this single service
+# is a complete deployment. See docs/deployment/README.md.
+services:
+  - type: web
+    name: metriq-api
+    runtime: python
+    plan: starter
+    region: singapore
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    preDeployCommand: python backend/scripts/init_db.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: metriq-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: AUTH_PROVIDER
+        value: supabase
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWKS_URL
+        sync: false
+      - key: STORAGE_BACKEND
+        value: supabase
+      - key: STORAGE_BUCKET
+        value: metriq-evidence
+      - key: STORAGE_LOCAL_PATH
+        value: /var/data/storage
+      - key: REPORT_STORAGE_PATH
+        value: /var/data/reports
+      - key: AI_PROVIDER
+        value: stub
+      - key: AI_ENABLED
+        value: "true"
+      - key: AI_API_KEY
+        sync: false
+      - key: REPORT_LABORATORY_NAME
+        value: MetrIQ Regional Legal Metrology Laboratory
+      - key: REPORT_LABORATORY_CODE
+        value: LAB-001
+      - key: CORS_ALLOW_ORIGIN_REGEX
+        value: https://.*\.vercel\.app

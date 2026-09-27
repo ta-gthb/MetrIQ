@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MetrIQ - OIML R 76 test report automation</title>
+  <link rel="icon" href="/assets/logo.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="auth-page">
+  <main class="card auth-card" id="landing">
+    <div class="brand" style="margin-bottom:14px">
+      <img src="/assets/logo.svg" alt="" />
+      <div><div class="brand-name">MetrIQ</div>
+        <div class="brand-sub">NAWI OIML R 76 platform</div></div>
+    </div>
+    <h1>Type evaluation, from observation to signed report</h1>
+    <p class="muted">A rules-driven workflow for non-automatic weighing instruments:
+      versioned OIML R 76 rule sets, a deterministic error-and-MPE engine, structured
+      evidence, a traceable review workflow and bounded AI assistance.</p>
+    <ul class="muted small">
+      <li>Deterministic decimal arithmetic - PASS/FAIL is never typed by hand.</li>
+      <li>Every result cites the rule version and clause it was evaluated against.</li>
+      <li>AI extracts and warns; it never decides compliance.</li>
+      <li>Answers cite the exact rule version, clause and test code they came from.</li>
+    </ul>
+    <div class="inline mt-4">
+      <a class="btn btn-primary" href="/login.html" id="enter">Sign in</a>
+      <a class="btn" href="/dashboard.html">Open dashboard</a>
+      <a class="btn" href="/assistant.html">Ask the R 76 assistant</a>
+    </div>
+  </main>
+  <script type="module">
+    import { getSession } from '/js/api.js';
+    if (getSession() && getSession().access_token) {
+      const enter = document.getElementById('enter');
+      enter.textContent = 'Continue as ' + (getSession().user.full_name || 'user');
+      enter.href = '/dashboard.html';
+    }
+  </script>
+</body>
+</html>

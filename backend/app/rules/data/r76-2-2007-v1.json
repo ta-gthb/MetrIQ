@@ -1,0 +1,28 @@
+{
+  "standard": "OIML R 76-2",
+  "edition": "2007",
+  "version_label": "r76-2-2007-v1",
+  "status": "active",
+  "review_status": "pending_domain_review",
+  "effective_from": "2007-01-01",
+  "source_reference": "https://www.oiml.org/en/files/pdf_r/r076-2-e07.pdf",
+  "notes": [
+    "OIML R 76-2:2007, Non-automatic weighing instruments - Part 2: Test report format.",
+    "REVIEW REQUIRED: section numbering and wording must be validated against the laboratory's",
+    "authorized report template before production use (PRD 17.4)."
+  ],
+  "sections": [
+    {"key": "cover", "number": "0", "title": "Cover page and report identification", "required": true},
+    {"key": "applicant", "number": "1", "title": "Applicant and manufacturer", "required": true},
+    {"key": "instrument", "number": "2", "title": "Instrument identification and metrological characteristics", "required": true},
+    {"key": "conditions", "number": "3", "title": "Laboratory and test conditions", "required": true},
+    {"key": "equipment", "number": "4", "title": "Test equipment and traceability", "required": true},
+    {"key": "summary", "number": "5", "title": "Summary of applicable tests and results", "required": true},
+    {"key": "tests", "number": "6", "title": "Individual test records", "required": true},
+    {"key": "checklist", "number": "7", "title": "Construction and identification checklist", "required": false},
+    {"key": "evidence", "number": "8", "title": "Evidence and attachments", "required": false},
+    {"key": "review", "number": "9", "title": "Review, approval and signatures", "required": true},
+    {"key": "versions", "number": "10", "title": "Ruleset, template and revision history", "required": true},
+    {"key": "verification", "number": "11", "title": "Document verification (hash / QR)", "required": false}
+  ]
+}

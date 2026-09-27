@@ -1,0 +1,112 @@
+{
+  "standard": "OIML R 76-1",
+  "edition": "2006",
+  "version_label": "r76-1-2006-v1",
+  "status": "active",
+  "review_status": "pending_domain_review",
+  "effective_from": "2006-01-01",
+  "source_reference": "https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf",
+  "notes": [
+    "OIML R 76-1:2006, Non-automatic weighing instruments - Part 1: Metrological and technical requirements - Tests.",
+    "REVIEW REQUIRED: the numeric values below are configuration data, not verified metrological truth.",
+    "Before production use a qualified metrology authority must confirm every band, tolerance and clause",
+    "reference against the controlled copy of the standard and against the laboratory's approved procedures.",
+    "Resolution policy: m = load / e. The first band whose upper bound is not exceeded wins, so a boundary",
+    "value such as m = 500 belongs to the band '0 <= m <= 500'."
+  ],
+  "verification_stage": "verification",
+  "mpe": {
+    "clause_reference": "OIML R 76-1:2006 5.2.2 / Table 1 (initial verification)",
+    "unit": "e",
+    "rule_version": "r76-1-2006-v1",
+    "bands": {
+      "I": [
+        {"min_m": 0, "max_m": 50000, "factor": "0.5", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 50000, "max_m": 200000, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 200000, "max_m": null, "factor": "1.5", "clause_reference": "OIML R 76-1:2006 Table 1"}
+      ],
+      "II": [
+        {"min_m": 0, "max_m": 5000, "factor": "0.5", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 5000, "max_m": 20000, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 20000, "max_m": null, "factor": "1.5", "clause_reference": "OIML R 76-1:2006 Table 1"}
+      ],
+      "III": [
+        {"min_m": 0, "max_m": 500, "factor": "0.5", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 500, "max_m": 2000, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 2000, "max_m": null, "factor": "1.5", "clause_reference": "OIML R 76-1:2006 Table 1"}
+      ],
+      "IIII": [
+        {"min_m": 0, "max_m": 50, "factor": "0.5", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 50, "max_m": 200, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 Table 1"},
+        {"min_m": 200, "max_m": null, "factor": "1.5", "clause_reference": "OIML R 76-1:2006 Table 1"}
+      ]
+    },
+    "in_service_bands": {
+      "I": [
+        {"min_m": 0, "max_m": 50000, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 50000, "max_m": 200000, "factor": "2.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 200000, "max_m": null, "factor": "3.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"}
+      ],
+      "II": [
+        {"min_m": 0, "max_m": 5000, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 5000, "max_m": 20000, "factor": "2.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 20000, "max_m": null, "factor": "3.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"}
+      ],
+      "III": [
+        {"min_m": 0, "max_m": 500, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 500, "max_m": 2000, "factor": "2.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 2000, "max_m": null, "factor": "3.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"}
+      ],
+      "IIII": [
+        {"min_m": 0, "max_m": 50, "factor": "1.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 50, "max_m": 200, "factor": "2.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"},
+        {"min_m": 200, "max_m": null, "factor": "3.0", "clause_reference": "OIML R 76-1:2006 5.2.2 - REVIEW REQUIRED"}
+      ]
+    },
+    "at_zero": {
+      "factor": "0.25",
+      "unit": "e",
+      "applies_to": ["electronic"],
+      "rule_id": "R76-MPE-ZERO",
+      "rule_version": "r76-1-2006-v1",
+      "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.2.1 - REVIEW REQUIRED"
+    }
+  },
+  "tolerances": {
+    "zero_return": {
+      "factor": "0.5", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-ZR-01",
+      "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
+      "description": "Deviation of the zero indication after unloading shall not exceed 0.5 e."
+    },
+    "creep": {
+      "factor": "0.5", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-CREEP-01",
+      "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
+      "description": "Change in indication under constant load over the observation period."
+    },
+    "temperature_no_load": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-TEMP-NL-01",
+      "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
+      "description": "Effect of temperature on the no-load indication."
+    },
+    "sensitivity": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-SENS-01",
+      "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5 - REVIEW REQUIRED",
+      "description": "Response of the instrument to a defined change of load."
+    },
+    "discrimination": {
+      "factor": "1.0", "unit": "d", "comparator": "gte", "rule_id": "R76-DISC-01",
+      "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6 - REVIEW REQUIRED",
+      "description": "Indication shall change by at least one d for an additional load of 1.4 d."
+    },
+    "stability": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-STAB-01",
+      "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
+      "description": "Variation of the indication during the stability observation period."
+    },
+    "eccentricity_mpe": {
+      "factor": "1.0", "unit": "mpe", "comparator": "abs_lte", "rule_id": "R76-ECC-01",
+      "clause_reference": "OIML R 76-1:2006 T.3.5 - REVIEW REQUIRED",
+      "description": "The eccentricity difference is compared against the MPE for the applied load."
+    }
+  }
+}
