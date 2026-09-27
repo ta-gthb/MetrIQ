@@ -53,7 +53,7 @@ cd backend
 python -m pytest -q
 ```
 
-The suite (127 tests) covers the calculation engine boundaries, the API
+The suite (131 tests) covers the calculation engine boundaries, the API
 contract, authentication/authorization, the review workflow and the AI
 fallback behaviour. It runs against a throwaway SQLite database; no external
 services are needed.
@@ -103,6 +103,7 @@ development default except the production secrets.
 | `REPORT_STORAGE_PATH` | `./var/reports` | Generated PDF/DOCX |
 | `MAX_UPLOAD_BYTES` | `26214400` (25 MB) | |
 | `SIGNED_URL_TTL_SECONDS` | `900` | Signed download lifetime |
+| `REQUIRED_EVIDENCE_CATEGORIES` | `nameplate_photograph,test_setup_photograph` | Photographs that must be attached before submission |
 
 ### AI
 

@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -157,3 +158,32 @@ def store_upload(
         request_id=request_id,
     )
     return attachment
+
+
+def evidence_requirements(db: Session, case) -> dict:
+    """Report whether the mandatory photographic evidence is present.
+
+    A case may not be submitted for technical review until every category in
+    ``settings.REQUIRED_EVIDENCE_CATEGORIES`` has at least one attachment whose
+    content type is an image. The check is deliberately category-based rather
+    than count-based so a duplicate upload cannot satisfy two requirements.
+    """
+    from app.models import AttachmentCategory  # local import avoids a cycle
+
+    required = [item for item in settings.REQUIRED_EVIDENCE_CATEGORIES if item in set(AttachmentCategory.ALL)]
+    rows = db.execute(
+        select(Attachment.category, Attachment.content_type).where(Attachment.case_id == case.id)
+    ).all()
+
+    images = {
+        category
+        for category, content_type in rows
+        if category and (content_type or "").startswith("image/")
+    }
+    missing = [category for category in required if category not in images]
+    return {
+        "required": required,
+        "present": [category for category in required if category in images],
+        "missing": missing,
+        "satisfied": not missing,
+    }

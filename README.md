@@ -63,7 +63,8 @@ Demo accounts all use the password `MetrIQ@2026`:
 2. Register a class III instrument: model, Max/Min, verification scale interval
    `e`, actual scale interval `d`, unit. The test plan is generated from the
    active rule set and the instrument characteristics.
-3. In **Instrument**, upload a nameplate photo and run the AI extraction; compare
+3. In **Instrument**, attach the two mandatory photographs (nameplate and test setup)
+   and run the AI nameplate extraction; compare
    the AI reading with the recorded values side by side (advisory, nothing is
    written).
 4. In **Execution**, enter weighing-performance observations. The engine shows
@@ -106,7 +107,9 @@ laboratory and record scope, a reviewer-correction loop, an exceptional
 override mechanism that can never set `PASS`/`FAIL`, and an append-only audit
 trail with before/after values and reasons.
 
-**Evidence** - validated file uploads (extension, MIME, size), SHA-256 recorded,
+**Evidence** - two photographs are mandatory for every new evaluation (the instrument
+nameplate and the test setup); submission is blocked until both are attached. All
+uploads are validated (extension, MIME, size), SHA-256 recorded,
 signed download URLs, and advisory AI classification.
 
 **Reports** - a frozen JSON snapshot of versions, results, rules and evidence
@@ -134,7 +137,7 @@ backend/
     services/          test_engine, calculation_engine, compliance_engine,
                        report_engine, ai_service, audit_service, metrology_service
   scripts/             init_db, reset_db, seed_rules, seed_identity, seed_db, create_admin
-  tests/               127 tests
+  tests/               131 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
@@ -157,7 +160,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 | Tests | `GET /cases/{id}/tests`, `GET/PATCH /tests/{id}`, `PUT /tests/{id}/observations`, `POST /tests/{id}/validate`, `POST /tests/{id}/calculate`, `POST /tests/{id}/anomaly-check`, `POST /tests/{id}/anomaly-disposition`, `POST /tests/{id}/override` |
 | Workflow | `POST /cases/{id}/submit`, `/verify`, `/request-correction`, `/approve`, `/reject`, `/finalize`, `/cancel` |
 | Reports | `POST /cases/{id}/reports/generate`, `GET /cases/{id}/reports`, `GET /reports`, `GET /reports/{id}/snapshot`, `/revisions`, `/download?fmt=pdf\|docx` |
-| Evidence | `POST/GET /cases/{id}/attachments`, `GET /attachments/{id}/download`, `POST /attachments/{id}/classify`, `PATCH /attachments/{id}` |
+| Evidence | `POST/GET /cases/{id}/attachments`, `GET /cases/{id}/evidence-requirements`, `GET /attachments/{id}/download`, `POST /attachments/{id}/classify`, `PATCH /attachments/{id}` |
 | Standards | `GET /standards`, `/rules`, `/rulesets`, `/test-definitions`, `/report-templates`, `POST /rulesets/{id}/activate`, `POST /calculations/mpe`, `/calculations/preview` |
 | AI | `GET/PATCH /ai/features`, `POST /ai/nameplate-extract`, `/ai/anomaly-check`, `/ai/classify`, `/ai/knowledge`, `/ai/disposition` |
 | Admin | `GET/POST/PATCH /users`, `POST /users/{id}/reset-password`, `GET/POST/PATCH /laboratories`, `GET /admin/roles`, `/admin/permissions`, `GET/PUT /settings`, `GET /audit-logs` |
@@ -167,7 +170,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 127 tests
+python -m pytest -q      # 131 tests
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and

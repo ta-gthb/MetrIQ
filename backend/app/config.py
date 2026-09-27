@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     )
     SIGNED_URL_TTL_SECONDS: int = 900
 
+    # Photographic evidence that must be present before a case may be submitted
+    # for technical review ("two clear images": the instrument nameplate and the
+    # test setup). Order is preserved so the UI lists them in a stable sequence.
+    REQUIRED_EVIDENCE_CATEGORIES: list[str] = Field(
+        default_factory=lambda: ["nameplate_photograph", "test_setup_photograph"]
+    )
+
     # --- AI ---------------------------------------------------------------
     AI_ENABLED: bool = True
     AI_PROVIDER: Literal["stub", "openai", "azure_openai", "custom"] = "stub"
@@ -124,7 +131,7 @@ class Settings(BaseSettings):
             return False
         return value
 
-    @field_validator("ALLOWED_UPLOAD_EXTENSIONS", mode="before")
+    @field_validator("ALLOWED_UPLOAD_EXTENSIONS", "REQUIRED_EVIDENCE_CATEGORIES", mode="before")
     @classmethod
     def _split_extensions(cls, value):
         if isinstance(value, str):

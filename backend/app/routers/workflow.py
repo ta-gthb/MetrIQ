@@ -103,6 +103,24 @@ def submit_case(
             },
         )
 
+    from app.services.attachment_service.service import evidence_requirements
+
+    evidence = evidence_requirements(db, case)
+    if not evidence["satisfied"]:
+        missing_labels = [category.replace("_", " ") for category in evidence["missing"]]
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": (
+                    "At least two clear photographs are required before submission: "
+                    + " and ".join(missing_labels)
+                    + ". Attach them in the instrument or execution step of the evaluation."
+                ),
+                "missing_evidence": evidence["missing"],
+                "evidence_requirements": evidence,
+            },
+        )
+
     previous = case.status
     case.status = CaseStatus.TESTING_COMPLETED
     case.submitted_at = utcnow()

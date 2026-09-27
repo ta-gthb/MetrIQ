@@ -16,6 +16,7 @@ from app.routers._helpers import get_case_or_404
 from app.security.permissions import P
 from app.security.scope import case_editable_by
 from app.services import audit_service
+from app.services.attachment_service.service import evidence_requirements
 from app.services.attachment_service import (
     AttachmentValidationError,
     sign_key,
@@ -115,6 +116,19 @@ def list_attachments(
         select(Attachment).where(Attachment.case_id == case.id).order_by(Attachment.created_at.desc())
     ).scalars().all()
     return [_serialise(row) for row in rows]
+
+
+@router.get(
+    "/cases/{case_id}/evidence-requirements",
+    summary="Mandatory photographic evidence still outstanding for a case",
+)
+def case_evidence_requirements(
+    case_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    case = get_case_or_404(db, case_id, user)
+    return evidence_requirements(db, case)
 
 
 @router.get("/attachments/{attachment_id}/download", summary="Download evidence via a signed URL")

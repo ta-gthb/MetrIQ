@@ -11,8 +11,10 @@ from __future__ import annotations
 import itertools
 import os
 import shutil
+import struct
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -56,6 +58,24 @@ from scripts.seed_rules import (  # noqa: E402
 )
 
 API = "/api/v1"
+
+
+def png_bytes(width: int = 8, height: int = 8, rgb: tuple[int, int, int] = (90, 120, 160)) -> bytes:
+    """A tiny valid PNG, built with the standard library only."""
+
+    raw = b"".join(b"\x00" + bytes(rgb) * width for _ in range(height))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        payload = tag + data
+        return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload) & 0xFFFFFFFF)
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(raw))
+        + chunk(b"IEND", b"")
+    )
 
 INSTRUMENT_TEMPLATE: dict[str, str] = {
     "model": "TEST-BENCH-30K",
@@ -258,10 +278,30 @@ def fill_case(client, tokens):
 
 
 @pytest.fixture
-def case_factory(client, tokens, new_case, fill_case, accounts):
+def attach_evidence(client, tokens):
+    """Upload the mandatory photographs (or a chosen subset) to a case."""
+
+    def _attach(case_id: str, categories=("nameplate_photograph", "test_setup_photograph"), role=ENGINEER):
+        uploaded = []
+        for category in categories:
+            response = client.post(
+                f"{API}/cases/{case_id}/attachments",
+                files={"file": (f"{category}.png", png_bytes(), "image/png")},
+                data={"category": category, "caption": f"{category} test fixture", "auto_classify": "false"},
+                headers=tokens[role],
+            )
+            assert response.status_code == 201, response.text
+            uploaded.append(response.json())
+        return uploaded
+
+    return _attach
+
+
+@pytest.fixture
+def case_factory(client, tokens, new_case, fill_case, attach_evidence, accounts):
     """A fully recorded case with a named reviewer and approver attached."""
 
-    def _build(**overrides) -> dict:
+    def _build(*, evidence: bool = True, **overrides) -> dict:
         case = new_case(**overrides)
         case_id = case["id"]
         response = client.post(
@@ -276,6 +316,8 @@ def case_factory(client, tokens, new_case, fill_case, accounts):
         )
         assert response.status_code == 200, response.text
         detail = fill_case(case_id)
+        if evidence:
+            attach_evidence(case_id)
         detail["_fixture_ids"] = {
             "engineer": accounts["user_ids"][ENGINEER],
             "reviewer": accounts["user_ids"][REVIEWER],

@@ -56,6 +56,7 @@ const state = {
   audit: [],
   workflow: [],
   attachments: [],
+  evidenceReq: null,
   reports: [],
   step: initialStep,
   validation: {},
@@ -118,7 +119,7 @@ function caseStepStatus(stepKey) {
 /* ---------------------------------------------------------------- loading */
 
 async function loadAll() {
-  const [kase, tests, plan, conditions, audit, workflow, attachments, reports] = await Promise.all([
+  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports] = await Promise.all([
     api.get('/cases/' + caseId),
     api.get('/cases/' + caseId + '/tests'),
     api.get('/cases/' + caseId + '/test-plan'),
@@ -126,6 +127,7 @@ async function loadAll() {
     api.get('/cases/' + caseId + '/audit-logs'),
     api.get('/cases/' + caseId + '/workflow-actions'),
     api.get('/cases/' + caseId + '/attachments'),
+    api.get('/cases/' + caseId + '/evidence-requirements').catch(() => null),
     api.get('/cases/' + caseId + '/reports').catch(() => []),
   ]);
   state.case = kase;
@@ -135,6 +137,7 @@ async function loadAll() {
   state.audit = audit;
   state.workflow = workflow;
   state.attachments = attachments;
+  state.evidenceReq = evidenceReq;
   state.reports = reports || [];
   if (!selectedTestId || !tests.some((item) => item.id === selectedTestId)) {
     selectedTestId = tests.length ? tests[0].id : null;
@@ -385,6 +388,7 @@ function stepInstrument() {
     '<div class="table-wrap"><table><thead><tr><th>#</th><th class="num">Min</th><th class="num">Max</th>' +
       '<th class="num">e</th><th class="num">d</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     nameplatePanel() +
+    requiredEvidencePanel() +
     '</div>';
 }
 
@@ -436,6 +440,7 @@ function instrumentValue(key, instrument) {
 }
 
 function bindInstrument() {
+  bindRequiredEvidence();
   const button = document.getElementById('run-nameplate');
   const dismiss = document.getElementById('dismiss-extraction');
   if (dismiss) dismiss.addEventListener('click', () => { state.aiExtraction = null; render(); });
@@ -813,6 +818,57 @@ function anomalyPanel(test) {
       '</div>').join('') + '</div>';
 }
 
+function requiredEvidencePanel() {
+  const req = state.evidenceReq;
+  if (!req || !req.required.length) return '';
+  const editable = canEditTests();
+  const rows = req.required.map((category) => {
+    const present = req.present.indexOf(category) >= 0;
+    const slot = present || !editable
+      ? ''
+      : '<span class="inline"><input type="file" id="req-file-' + category + '" accept="image/*" style="max-width:190px" />' +
+        '<button class="btn-sm" data-upload-required="' + category + '">Upload</button></span>';
+    return '<div class="inline" style="justify-content:space-between;margin-bottom:6px">' +
+      '<span>' + (present ? '<span class="pill pill-pass">attached</span>' : '<span class="pill pill-warn">required</span>') +
+      ' <span class="small">' + escapeHtml(statusLabel(category)) + '</span>' +
+      (present ? '<span class="faint small" style="margin-left:8px">' + escapeHtml(req.present.length + '/' + req.required.length) + ' attachments</span>' : '') + '</span>' +
+      slot + '</div>';
+  }).join('');
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Mandatory photographs</h3>' +
+    (req.satisfied
+      ? '<span class="pill pill-pass">complete</span>'
+      : '<span class="pill pill-warn">' + req.missing.length + ' outstanding</span>') + '</div>' +
+    '<div class="hint">Two clear photographs are required before this evaluation can be submitted ' +
+    'for technical review: the instrument nameplate and the test setup.</div>' +
+    rows + '</div>';
+}
+
+async function uploadRequiredEvidence(category) {
+  const input = document.getElementById('req-file-' + category);
+  if (!input || !input.files.length) { toast('Choose an image to upload.', 'warn'); return; }
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  form.append('category', category);
+  form.append('caption', statusLabel(category));
+  form.append('auto_classify', 'false');
+  if (selectedTestId) form.append('test_instance_id', selectedTestId);
+  try {
+    await api.upload('/cases/' + caseId + '/attachments', form);
+    state.attachments = await api.get('/cases/' + caseId + '/attachments');
+    state.evidenceReq = await api.get('/cases/' + caseId + '/evidence-requirements');
+    toast(statusLabel(category) + ' attached.', 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+function bindRequiredEvidence() {
+  document.querySelectorAll('[data-upload-required]').forEach((button) => {
+    button.addEventListener('click', () => uploadRequiredEvidence(button.dataset.uploadRequired));
+  });
+}
+
 function evidencePanel() {
   const rows = state.attachments.length
     ? '<div class="table-wrap mt-2"><table><tbody>' + state.attachments.map((item) =>
@@ -829,7 +885,8 @@ function evidencePanel() {
       '<input id="evidence-caption" placeholder="Caption" style="max-width:220px" />' +
       '<select id="evidence-category" style="max-width:180px"><option value="">Auto-classify</option>' +
         ATTACHMENT_CATEGORIES.map((c) => '<option value="' + c + '">' + statusLabel(c) + '</option>').join('') + '</select>' +
-      '<button class="btn-sm" id="upload-evidence">Upload</button></div>' + rows + '</div>';
+      '<button class="btn-sm" id="upload-evidence">Upload</button></div>' + rows + '</div>' +
+    requiredEvidencePanel();
 }
 /* ------------------------------------------------------ step 20 interactions */
 
@@ -1068,6 +1125,7 @@ async function uploadEvidence() {
   try {
     const created = await api.upload('/cases/' + caseId + '/attachments', form);
     state.attachments = await api.get('/cases/' + caseId + '/attachments');
+    state.evidenceReq = await api.get('/cases/' + caseId + '/evidence-requirements').catch(() => state.evidenceReq);
     toast('Evidence uploaded' + (created.classification && created.classification.category
       ? ' and classified as ' + statusLabel(created.classification.category) + ' (advisory).' : '.'), 'success');
     render();
@@ -1122,6 +1180,7 @@ function bindExecution() {
     button.addEventListener('click', () => runDisposition(test, button.dataset.obs, button.dataset.disposition));
   });
   document.getElementById('upload-evidence')?.addEventListener('click', uploadEvidence);
+  bindRequiredEvidence();
 }
 
 /* ----------------------------------------------------------- step 21: summary */
@@ -1145,6 +1204,7 @@ function stepSummary() {
   const unresolved = state.tests.filter((t) => t.applicability_status !== 'NOT_APPLICABLE' && t.status !== 'COMPLETED');
   const failed = state.tests.filter((t) => t.result_status === 'FAIL');
   const canSubmit = can('cases.submit') && ['DRAFT', 'ASSIGNED', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'TESTING_COMPLETED'].includes(state.case.status);
+  const evidenceReady = !state.evidenceReq || state.evidenceReq.satisfied;
   let banner = '';
   if (failed.length) {
     banner = '<div class="banner fail"><div><strong>' + failed.length + ' test(s) failed</strong>' +
@@ -1156,6 +1216,13 @@ function stepSummary() {
     banner = '<div class="banner pass"><div><strong>All applicable tests are resolved</strong>' +
       'The case is ready for technical review.</div></div>';
   }
+  // Shown alongside the test banner: the two blockers are independent and the
+  // engineer can clear the photographs while the tests are still running.
+  if (!evidenceReady) {
+    banner += '<div class="banner warn"><div><strong>Mandatory photographs outstanding</strong>' +
+      'Attach ' + state.evidenceReq.missing.map((c) => escapeHtml(statusLabel(c))).join(' and ') +
+      ' before submitting. They can be uploaded in the instrument or execution step.</div></div>';
+  }
   return '<div class="card"><div class="step-head"><span class="step-no">21</span>' +
     '<div style="flex:1"><h2>Validation and summary</h2>' +
     '<div class="faint small">Every result below cites the rule and clause the engine evaluated it against.</div></div>' +
@@ -1165,8 +1232,11 @@ function stepSummary() {
     '<div class="table-wrap mt-3"><table><thead><tr><th>Code</th><th>Test</th><th>Applicability</th><th>Status</th>' +
       '<th>Result</th><th class="num">Measured</th><th class="num">Limit</th><th>Rule</th><th>Clause</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>' +
-    (canSubmit ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-submit">Submit for technical review</button>' +
-      '<span class="faint small">Blocked until every applicable test is complete and no test has failed.</span></div>' : '') +
+    (canSubmit ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-submit"' +
+      (evidenceReady ? '' : ' disabled title="Attach the mandatory photographs first"') + '>Submit for technical review</button>' +
+      '<span class="faint small">' + (evidenceReady
+        ? 'Blocked until every applicable test is complete and no test has failed.'
+        : 'Attach the mandatory nameplate and test-setup photographs before submitting.') + '</span></div>' : '') +
     '</div>';
 }
 

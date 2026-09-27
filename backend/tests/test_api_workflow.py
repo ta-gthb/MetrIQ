@@ -142,6 +142,78 @@ def test_a_waiver_unblocks_submission(client, tokens, case_factory):
     assert submitted.json()["status"] == "TESTING_COMPLETED"
 
 
+def test_submission_is_blocked_without_the_two_mandatory_photographs(client, tokens, case_factory):
+    """A new evaluation needs the nameplate and test-setup images (PRD 19.3)."""
+    case = case_factory(evidence=False)
+    response = client.post(
+        f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
+    )
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert detail["missing_evidence"] == ["nameplate_photograph", "test_setup_photograph"]
+    assert "two clear photographs" in detail["message"]
+    assert detail["evidence_requirements"]["satisfied"] is False
+
+
+def test_one_photograph_is_not_enough(client, tokens, case_factory, attach_evidence):
+    case = case_factory(evidence=False)
+    attach_evidence(case["id"], categories=("nameplate_photograph",))
+
+    response = client.post(
+        f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["missing_evidence"] == ["test_setup_photograph"]
+
+    attach_evidence(case["id"], categories=("test_setup_photograph",))
+    accepted = client.post(
+        f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
+    )
+    assert accepted.status_code == 200, accepted.text
+
+
+def test_a_non_image_does_not_satisfy_the_photograph_requirement(client, tokens, case_factory):
+    case = case_factory(evidence=False)
+    for category in ("nameplate_photograph", "test_setup_photograph"):
+        uploaded = client.post(
+            f"{API}/cases/{case['id']}/attachments",
+            files={"file": (f"{category}.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf")},
+            data={"category": category, "auto_classify": "false"},
+            headers=tokens[ENGINEER],
+        )
+        assert uploaded.status_code == 201, uploaded.text
+
+    response = client.post(
+        f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
+    )
+    assert response.status_code == 422, response.text
+    assert set(response.json()["detail"]["missing_evidence"]) == {
+        "nameplate_photograph", "test_setup_photograph"
+    }
+
+
+def test_evidence_requirements_endpoint_reports_progress(client, tokens, case_factory, attach_evidence):
+    case = case_factory(evidence=False)
+    empty = client.get(
+        f"{API}/cases/{case['id']}/evidence-requirements", headers=tokens[ENGINEER]
+    )
+    assert empty.status_code == 200, empty.text
+    assert empty.json() == {
+        "required": ["nameplate_photograph", "test_setup_photograph"],
+        "present": [],
+        "missing": ["nameplate_photograph", "test_setup_photograph"],
+        "satisfied": False,
+    }
+
+    attach_evidence(case["id"], categories=("test_setup_photograph",))
+    partial = client.get(
+        f"{API}/cases/{case['id']}/evidence-requirements", headers=tokens[ENGINEER]
+    ).json()
+    assert partial["present"] == ["test_setup_photograph"]
+    assert partial["missing"] == ["nameplate_photograph"]
+    assert partial["satisfied"] is False
+
+
 def test_correction_request_returns_the_case_to_the_engineer(client, tokens, case_factory):
     case_id = case_factory()["id"]
     client.post(f"{API}/cases/{case_id}/submit", json={}, headers=tokens[ENGINEER])

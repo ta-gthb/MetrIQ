@@ -12,6 +12,8 @@ calculations and compliance results are produced by the deterministic engine.
 from __future__ import annotations
 
 import argparse
+import struct
+import zlib
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -133,6 +135,30 @@ def _get_or_create(db, model, defaults: dict | None = None, **filters):
         db.add(instance)
         db.flush()
     return instance
+
+
+def _placeholder_png(label: str, rgb: tuple[int, int, int]) -> bytes:
+    """A small valid PNG used as stand-in demonstration evidence.
+
+    Built from the standard library so the seed has no imaging dependency. The
+    pixels encode nothing; the point is a real, byte-valid image of the kind the
+    mandatory-evidence rule accepts.
+    """
+    width, height = 240, 160
+    raw = b"".join(b"\x00" + bytes(rgb) * width for _ in range(height))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        payload = tag + data
+        return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload) & 0xFFFFFFFF)
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"tEXt", b"Description\x00" + label.encode("ascii", "replace"))
+        + chunk(b"IDAT", zlib.compress(raw, 6))
+        + chunk(b"IEND", b"")
+    )
 
 
 def seed_laboratory(db) -> Laboratory:
@@ -429,7 +455,25 @@ def seed_demo_case(db, *, laboratory: Laboratory, users: dict, masters: dict, eq
             test_instance.completed_at = utcnow()
             test_instance.completed_by = users[ENGINEER].id
     db.flush()
-    ok(f"demo case {case.application_no} with {len(case.tests)} planned tests")
+
+    from app.services.attachment_service import store_upload
+
+    for category, caption, rgb in (
+        ("nameplate_photograph", "Instrument nameplate - Class III, Max 30 kg, e = d = 10 g", (58, 74, 102)),
+        ("test_setup_photograph", "Test setup - instrument levelled on the bench with the standard weights", (74, 96, 122)),
+    ):
+        store_upload(
+            db,
+            case=case,
+            filename=f"{case.application_no}-{category}.png",
+            data=_placeholder_png(caption, rgb),
+            content_type="image/png",
+            caption=caption,
+            category=category,
+            actor=users[ENGINEER],
+        )
+    db.flush()
+    ok(f"demo case {case.application_no} with {len(case.tests)} planned tests and 2 mandatory photographs")
     return case
 
 
