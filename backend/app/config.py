@@ -8,10 +8,10 @@ expected to be injected by the hosting platform (Render).
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     STORAGE_LOCAL_PATH: str = "./var/storage"
     REPORT_STORAGE_PATH: str = "./var/reports"
     MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
-    ALLOWED_UPLOAD_EXTENSIONS: list[str] = Field(
+    ALLOWED_UPLOAD_EXTENSIONS: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             ".pdf", ".docx", ".doc", ".xlsx", ".csv", ".txt",
             ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp",
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # Photographic evidence that must be present before a case may be submitted
     # for technical review ("two clear images": the instrument nameplate and the
     # test setup). Order is preserved so the UI lists them in a stable sequence.
-    REQUIRED_EVIDENCE_CATEGORIES: list[str] = Field(
+    REQUIRED_EVIDENCE_CATEGORIES: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["nameplate_photograph", "test_setup_photograph"]
     )
 
@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     )
 
     # --- CORS -------------------------------------------------------------
-    CORS_ORIGINS: list[str] = Field(
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
             "http://localhost:8000",

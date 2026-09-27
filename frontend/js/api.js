@@ -1,12 +1,27 @@
 /* MetrIQ API client.
  *
- * The browser talks to the same origin that serves these files, so the API
- * prefix is relative. Authorization is carried as a bearer token; the backend
+ * By default the browser talks to the same origin that serves these files: the
+ * bundled backend mounts this folder, and on Vercel a rewrite proxies /api to
+ * the Render service. Authorization is carried as a bearer token; the backend
  * is the security boundary and re-checks every permission and record scope on
  * each request (PRD 16.3).
+ *
+ * To call the API directly instead (bypassing the proxy), set an absolute base
+ * before this module loads, e.g. in the page head:
+ *
+ *   <script>window.METRIQ_API_BASE = 'https://metriq-api.onrender.com';</script>
+ *
+ * Either form is accepted, with or without a trailing /api/v1.
  */
 
-const API_BASE = '/api/v1';
+function resolveApiBase() {
+  const configured = typeof window !== 'undefined' ? window.METRIQ_API_BASE : '';
+  const base = String(configured || '').trim().replace(/\/+$/, '');
+  if (!base) return '/api/v1';
+  return base.endsWith('/api/v1') ? base : base + '/api/v1';
+}
+
+const API_BASE = resolveApiBase();
 const SESSION_KEY = 'metriq.session';
 
 function readSession() {

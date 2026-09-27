@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 
 from app.security.permissions import APPROVER, ENGINEER, REVIEWER, SUPER_ADMIN
 
@@ -68,6 +69,60 @@ def test_full_lifecycle_produces_a_locked_report(client, tokens, case_factory):
     assert set(report["formats"]) == {"pdf", "docx"}
     assert len(report["content_hash"]) == 64
     assert report["verification_code"]
+
+
+def test_report_artefacts_are_written_to_the_object_store(client, tokens, case_factory):
+    """Deployed instances must not depend on local disk (Render is ephemeral).
+
+    The bytes live behind the configured storage backend - Supabase Storage in a
+    deployment - under the reserved ``reports/`` prefix, never an absolute path.
+    """
+    from app.database import SessionLocal
+    from app.models import GeneratedReport, ReportRevision
+    from app.services.attachment_service.storage import get_storage
+    from app.services.report_engine.service import ARTEFACT_PREFIX
+    from sqlalchemy import select
+
+    payload = run_lifecycle(client, tokens, case_factory())
+    storage = get_storage()
+    report_id = uuid.UUID(payload["report"]["id"])
+
+    with SessionLocal() as db:
+        report = db.execute(
+            select(GeneratedReport).where(GeneratedReport.id == report_id)
+        ).scalars().one()
+        revisions = db.execute(
+            select(ReportRevision).where(ReportRevision.report_id == report.id)
+        ).scalars().all()
+
+    assert {row.format for row in revisions} == {"pdf", "docx"}
+    for row in revisions:
+        assert row.storage_key.startswith(f"{ARTEFACT_PREFIX}/"), row.storage_key
+        assert row.storage_key == f"{ARTEFACT_PREFIX}/{report.report_no}-R{row.revision_no}.{row.format}"
+        assert storage.exists(row.storage_key), row.storage_key
+        assert storage.read(row.storage_key)
+
+
+def test_a_missing_report_artefact_reports_410_not_500(client, tokens, case_factory):
+    payload = run_lifecycle(client, tokens, case_factory())
+    report_id = uuid.UUID(payload["report"]["id"])
+
+    # Simulate an artefact that has been purged from the bucket.
+    from app.database import SessionLocal
+    from app.models import ReportRevision
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        for row in db.execute(
+            select(ReportRevision).where(ReportRevision.report_id == report_id)
+        ).scalars().all():
+            row.storage_key = "reports/does-not-exist.pdf"
+        db.commit()
+
+    response = client.get(
+        f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[APPROVER]
+    )
+    assert response.status_code == 410, response.text
 
 
 def test_a_finalized_case_cannot_be_edited(client, tokens, case_factory):

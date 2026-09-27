@@ -1,6 +1,18 @@
-# Render Blueprint for MetrIQ.
-# The FastAPI service also serves the bundled frontend, so this single service
-# is a complete deployment. See docs/deployment/README.md.
+# Render Blueprint for the MetrIQ API.
+#
+# The service is stateless: PostgreSQL lives in Supabase, and both the evidence
+# files and the generated PDF/DOCX report artefacts are written to a Supabase
+# Storage bucket. No Render disk is required, so the service can be restarted or
+# redeployed without losing anything.
+#
+# The FastAPI app also mounts ./frontend at /, so this single service can serve
+# the whole application if you would rather not deploy the UI separately. When
+# the frontend is deployed to Vercel instead, this service is just the API.
+#
+# Values marked `sync: false` are secrets: Render prompts for them on first
+# deploy and never stores them in the repository.
+#
+# See docs/deployment/README.md for the full runbook.
 services:
   - type: web
     name: metriq-api
@@ -9,52 +21,75 @@ services:
     region: singapore
     branch: main
     buildCommand: pip install -r backend/requirements.txt
-    preDeployCommand: python backend/scripts/init_db.py
+    # Reference data only. Both scripts are idempotent, so they are safe to run
+    # on every deploy. Demo accounts are deliberately NOT created here - use
+    # `python backend/scripts/create_admin.py` once to provision the first admin.
+    preDeployCommand: python backend/scripts/init_db.py && python backend/scripts/seed_rules.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --app-dir backend
     healthCheckPath: /health
     autoDeploy: true
-    disk:
-      name: metriq-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.10
+        value: "3.12.10"
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
         value: "false"
+
+      # hybrid verifies Supabase-issued JWTs *and* the tokens this API mints at
+      # /auth/login. Setting this to `supabase` alone locks out every account
+      # that signs in through this service, so leave it as hybrid.
       - key: AUTH_PROVIDER
-        value: supabase
+        value: hybrid
+
+      # Supabase connection pooler URI, e.g.
+      # postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
       - key: DATABASE_URL
         sync: false
+
+      # Signs the tokens issued by /auth/login. Render generates a strong value.
       - key: JWT_SECRET
         generateValue: true
+
+      # Exact browser origins allowed to call the API directly. Only needed when
+      # the UI calls this service cross-origin; the bundled Vercel rewrite proxy
+      # makes the calls same-origin, which needs no CORS at all. Comma-separated,
+      # no trailing slash, e.g. https://metriq.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_ALLOW_ORIGIN_REGEX
+        value: https://.*\.vercel\.app
+
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
       - key: SUPABASE_JWKS_URL
         sync: false
+
+      # Evidence files and report artefacts are stored in this bucket.
       - key: STORAGE_BACKEND
         value: supabase
       - key: STORAGE_BUCKET
         value: metriq-evidence
-      - key: STORAGE_LOCAL_PATH
-        value: /var/data/storage
-      - key: REPORT_STORAGE_PATH
-        value: /var/data/reports
+      - key: SIGNED_URL_TTL_SECONDS
+        value: "900"
+
+      # stub keeps the app fully functional with no external AI calls. Switch to
+      # openai and set AI_API_KEY to enable live extraction and anomaly review;
+      # the compliance engine never depends on it either way.
       - key: AI_PROVIDER
         value: stub
       - key: AI_ENABLED
         value: "true"
       - key: AI_API_KEY
         sync: false
+
       - key: REPORT_LABORATORY_NAME
         value: MetrIQ Regional Legal Metrology Laboratory
       - key: REPORT_LABORATORY_CODE
         value: LAB-001
-      - key: CORS_ALLOW_ORIGIN_REGEX
-        value: https://.*\.vercel\.app

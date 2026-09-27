@@ -14,8 +14,10 @@ RUN pip install --upgrade pip && pip install -r backend/requirements.txt
 COPY backend backend
 COPY frontend frontend
 
-# Writable paths for local storage when no external bucket is configured.
-RUN mkdir -p /app/var/storage /app/var/reports
+# Writable paths for the local storage backend. Evidence and report artefacts
+# both live under here; point STORAGE_BACKEND at supabase to keep the container
+# itself stateless.
+RUN mkdir -p /app/var/storage
 ENV STORAGE_LOCAL_PATH=/app/var/storage \
     REPORT_STORAGE_PATH=/app/var/reports
 

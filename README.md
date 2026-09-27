@@ -177,6 +177,23 @@ Coverage includes calculation-engine boundaries, the API contract, auth and
 authorization, the submit -> verify -> approve -> finalize lifecycle, report
 immutability and hash stability, and the AI disable/fallback behaviour.
 
+## Deployment
+
+| Piece | Host | Config |
+| --- | --- | --- |
+| API (FastAPI) | Render | `render.yaml` |
+| UI (static, no build step) | Vercel | `vercel.json` |
+| Database (PostgreSQL) | Supabase | `DATABASE_URL` (connection pooler) |
+| Evidence + report artefacts | Supabase Storage | `STORAGE_BACKEND=supabase`, `STORAGE_BUCKET` |
+
+The deployed service is stateless: evidence uploads and generated PDF/DOCX
+reports are both written to the Supabase bucket, so nothing depends on the
+Render filesystem. `vercel.json` proxies `/api/*` to the Render service so the
+browser stays same-origin and no CORS configuration is needed.
+
+Full runbook, including the Supabase project setup, the exact environment
+variables and a verification checklist: `docs/deployment/README.md`.
+
 ## Documentation
 
 - `docs/architecture/` - context, containers, auth flow, ERD, storage, report

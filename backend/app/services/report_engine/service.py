@@ -10,7 +10,6 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models import EvaluationCase, GeneratedReport, ReportRevision
 from app.services import audit_service
 from app.services.report_engine.docx import render_docx
@@ -23,6 +22,40 @@ from app.services.report_engine.snapshot import (
 )
 
 RENDERERS = {"pdf": render_pdf, "docx": render_docx}
+
+# Report artefacts live in the same object store as the evidence files, under a
+# reserved prefix, so a deployed instance holds no durable state on local disk
+# (Render's filesystem is ephemeral). See docs/deployment/README.md.
+ARTEFACT_PREFIX = "reports"
+CONTENT_TYPES = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+def artefact_key(report_no: str, revision_no: int, fmt: str) -> str:
+    return f"{ARTEFACT_PREFIX}/{report_no}-R{revision_no}.{fmt.lower()}"
+
+
+def read_artefact(storage_key: str | None) -> bytes | None:
+    """Read a stored report artefact, or ``None`` if it is no longer available.
+
+    Keys written since deployment are object-store keys. Rows created before the
+    artefacts moved off local disk recorded an absolute path instead, so both
+    shapes are accepted on read.
+    """
+    from app.services.attachment_service.storage import StorageError, get_storage
+
+    if not storage_key:
+        return None
+    if not storage_key.startswith(f"{ARTEFACT_PREFIX}/"):
+        legacy = Path(storage_key)
+        if legacy.is_file():
+            return legacy.read_bytes()
+    try:
+        return get_storage().read(storage_key)
+    except StorageError:
+        return None
 
 
 def render_document(snapshot: dict, fmt: str) -> bytes:
@@ -42,12 +75,6 @@ def next_report_number(db: Session, case: EvaluationCase) -> str:
     return f"RPT-{year}-{count + 1:05d}"
 
 
-def _storage_dir() -> Path:
-    path = Path(settings.REPORT_STORAGE_PATH).resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def _stored_artefacts(db: Session, report: GeneratedReport, formats: tuple[str, ...]) -> dict[str, bytes]:
     """Return the already-rendered bytes for a locked report.
 
@@ -62,9 +89,9 @@ def _stored_artefacts(db: Session, report: GeneratedReport, formats: tuple[str, 
     for row in rows:
         if row.format not in formats:
             continue
-        path = Path(row.storage_key)
-        if path.is_file():
-            artefacts[row.format] = path.read_bytes()
+        payload = read_artefact(row.storage_key)
+        if payload is not None:
+            artefacts[row.format] = payload
         elif report.data_snapshot:
             artefacts[row.format] = render_document(report.data_snapshot, row.format)
     return artefacts
@@ -147,21 +174,22 @@ def generate_report(
         report.locked_at = datetime.now(timezone.utc)
         report.locked_by = getattr(actor, "id", None)
 
+    from app.services.attachment_service.storage import get_storage
+
     artefacts: dict[str, bytes] = {}
-    directory = _storage_dir()
+    storage = get_storage()
     for fmt in formats:
         payload = render_document(snapshot, fmt)
         artefacts[fmt] = payload
         checksum = hashlib.sha256(payload).hexdigest()
-        filename = f"{report.report_no}-R{revision_no}.{fmt}"
-        path = directory / filename
-        path.write_bytes(payload)
+        key = artefact_key(report.report_no, revision_no, fmt)
+        storage.save(key, payload, CONTENT_TYPES.get(fmt))
         db.add(
             ReportRevision(
                 report_id=report.id,
                 revision_no=revision_no,
                 format=fmt,
-                storage_key=str(path),
+                storage_key=key,
                 size_bytes=len(payload),
                 sha256=checksum,
                 case_revision_no=case.revision_no,

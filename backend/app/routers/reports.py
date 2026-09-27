@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
@@ -25,6 +24,7 @@ from app.security.permissions import P
 from app.security.scope import laboratory_filter
 from app.services import audit_service
 from app.services.report_engine import generate_report
+from app.services.report_engine.service import read_artefact
 
 router = APIRouter(tags=["Reports"])
 
@@ -195,15 +195,9 @@ def download_report(
     if revision_row is None:
         raise HTTPException(status_code=404, detail=f"No {fmt.upper()} revision has been generated yet.")
 
-    path = Path(revision_row.storage_key)
-    if revision_row.storage_key.startswith("http"):
-        from app.services.attachment_service.storage import get_storage
-
-        payload_bytes = get_storage().read(revision_row.storage_key)
-    else:
-        if not path.exists():
-            raise HTTPException(status_code=410, detail="The stored report artefact is no longer available.")
-        payload_bytes = path.read_bytes()
+    payload_bytes = read_artefact(revision_row.storage_key)
+    if payload_bytes is None:
+        raise HTTPException(status_code=410, detail="The stored report artefact is no longer available.")
 
     audit_service.record(
         db, event_type="DOWNLOAD", entity_type="generated_report", entity_id=report.id, actor=user,
