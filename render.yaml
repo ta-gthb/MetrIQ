@@ -20,7 +20,7 @@ services:
     plan: starter
     region: singapore
     branch: main
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: pip install --root-user-action=ignore -r backend/requirements.txt
     # Reference data only. Both scripts are idempotent, so they are safe to run
     # on every deploy. Demo accounts are deliberately NOT created here - use
     # `python backend/scripts/create_admin.py` once to provision the first admin.

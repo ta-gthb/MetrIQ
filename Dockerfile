@@ -9,7 +9,8 @@ WORKDIR /app
 
 # System dependencies kept minimal: psycopg2-binary and reportlab ship wheels.
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip install --upgrade pip && pip install -r backend/requirements.txt
+RUN pip install --root-user-action=ignore --upgrade pip \
+    && pip install --root-user-action=ignore -r backend/requirements.txt
 
 COPY backend backend
 COPY frontend frontend
