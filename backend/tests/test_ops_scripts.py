@@ -54,6 +54,39 @@ def temporary_super_admin():
             db.commit()
 
 
+def test_deployment_defaults_are_committed_and_carry_no_secrets():
+    """The file a deployed service reads instead of a dashboard round-trip."""
+    from app.config import DEPLOYMENT_DEFAULTS
+    from scripts._bootstrap import read_env_file
+
+    assert DEPLOYMENT_DEFAULTS.is_file(), "the committed deployment defaults are missing"
+    values = read_env_file(DEPLOYMENT_DEFAULTS)
+
+    # Without this, start-up resolves unqualified names against `public` and
+    # every login fails with "column users.role_code does not exist".
+    assert values["DB_SCHEMA"] == "metriq"
+    assert values["AUTO_INIT_DB"] == "true"
+
+    for key in values:
+        assert "PASSWORD" not in key.upper()
+        assert "SECRET" not in key.upper()
+        assert not key.upper().endswith("KEY")
+
+
+def test_environment_variables_override_the_committed_deployment_defaults(monkeypatch):
+    """Anything set on the host still wins, including an explicit empty value."""
+    from app.config import Settings
+
+    monkeypatch.delenv("DB_SCHEMA", raising=False)
+    assert Settings().DB_SCHEMA == "metriq"
+
+    monkeypatch.setenv("DB_SCHEMA", "public")
+    assert Settings().DB_SCHEMA == "public"
+
+    monkeypatch.setenv("DB_SCHEMA", "")
+    assert Settings().DB_SCHEMA is None, "an empty value must fall back to public"
+
+
 def test_health_reports_database_readiness(client):
     body = client.get("/health").json()
     assert body["database"] == "ok"

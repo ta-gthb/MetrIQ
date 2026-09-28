@@ -3,21 +3,37 @@
 All secrets are read from environment variables only (PRD 19.1). A development
 `.env` file may be used locally via pydantic-settings, but production values are
 expected to be injected by the hosting platform (Render).
+
+Values are resolved in this order, last one wins:
+
+1. the defaults declared on Settings below
+2. `deployment.env` at the repository root - committed, non-secret, and the
+   reason a deployed service needs no dashboard round-trip for values such as
+   DB_SCHEMA
+3. `.env` (gitignored, local only)
+4. real environment variables, which always win - so anything set on Render
+   overrides every file here
 """
 
 from __future__ import annotations
 
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
+# Resolved next to the repository, not the working directory, so the file is
+# found whether the app is started from the root or from backend/.
+DEPLOYMENT_DEFAULTS = Path(__file__).resolve().parents[2] / "deployment.env"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(DEPLOYMENT_DEFAULTS, ".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,

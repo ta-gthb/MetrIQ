@@ -111,7 +111,7 @@ development default except the production secrets.
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///./metriq.db` | Supabase **session pooler** URI in production |
 | `SQL_ECHO` | `false` | Log SQL |
-| `DB_SCHEMA` | - | PostgreSQL schema for MetrIQ's tables; set it when the database is shared with another application |
+| `DB_SCHEMA` | `metriq` (see below) | PostgreSQL schema for MetrIQ's tables; set it when the database is shared with another application |
 
 #### Sharing a database with another application
 
@@ -135,6 +135,21 @@ python backend/scripts/manage_admin.py create --schema metriq --email you@lab.ex
 Leave `DB_SCHEMA` empty for the default `public` schema. A Supabase project
 dedicated to MetrIQ avoids the situation entirely and is the simpler choice when
 you have one to spare.
+
+#### Where a value comes from
+
+Configuration is resolved in this order, and the last one that sets a value wins:
+
+1. the defaults declared in `backend/app/config.py`
+2. `deployment.env` at the repository root - **committed**, non-secret, and the
+   reason a deploy picks up `DB_SCHEMA` without anyone opening a dashboard.
+   It carries `DB_SCHEMA=metriq`, `AUTO_INIT_DB` and `AUTO_SEED_REFERENCE`
+3. `.env` (gitignored) - your local overrides
+4. real environment variables, so anything set on Render overrides every file
+
+Nothing secret may go in `deployment.env`; a test asserts that. Change the
+deployed schema by editing that file and pushing, or by setting `DB_SCHEMA` in
+the Render dashboard, which takes precedence over it.
 
 ### Bootstrap
 
