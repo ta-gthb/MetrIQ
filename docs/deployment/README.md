@@ -321,6 +321,22 @@ reports/<report_no>-R<n>.pdf|docx      generated report artefacts
    python backend/scripts/seed_db.py
    ```
 
+   The sign-in page lists six demonstration accounts and fills in the password
+   `MetrIQ@2026` when one is picked. They exist **only** after this command has run
+   against that database - otherwise every button on the page reports a failed
+   sign-in, which looks like a broken deployment but is a missing seed.
+
+   Seeding never overwrites an existing account, so the Super Admin created in step
+   5 keeps its own generated password and the `admin@metriq.local` button will keep
+   failing until the two are aligned:
+
+   ```bash
+   python backend/scripts/manage_admin.py set-password --email admin@metriq.local
+   ```
+
+   These credentials are published in the UI. Change them before the instance is
+   anything other than a demonstration.
+
 The Render filesystem is ephemeral and no disk is attached: nothing is lost
 because PostgreSQL, evidence and report artefacts all live in Supabase.
 
