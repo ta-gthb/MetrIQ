@@ -195,6 +195,18 @@ function createForm() {
           </div>
         </div>
       </div>
+      <div class="card mt-3">
+        <h3>Mandatory photographs</h3>
+        <div class="hint">Two clear photographs are required before this evaluation can be
+          submitted for technical review: the instrument nameplate and the test setup. Attach them
+          here, or later in the Instrument or Execution step of the evaluation.</div>
+        <div class="grid cols-2">
+          <div class="field"><label for="create-nameplate">Instrument nameplate</label>
+            <input type="file" id="create-nameplate" accept="image/*" /></div>
+          <div class="field"><label for="create-test-setup">Test setup</label>
+            <input type="file" id="create-test-setup" accept="image/*" /></div>
+        </div>
+      </div>
       <div class="inline mt-3">
         <button class="btn-primary" type="submit">Create evaluation and generate test plan</button>
         <span class="save-state faint">The applicable R 76 test plan is generated from the
@@ -296,8 +308,38 @@ function bindCreate() {
         },
       };
       const created = await api.post('/cases', payload);
-      toast('Evaluation created and test plan generated.', 'success');
-      window.location.href = `/evaluation.html?case=${created.id}`;
+
+      const photographs = [
+        ['nameplate_photograph', 'Instrument nameplate', document.getElementById('create-nameplate').files[0]],
+        ['test_setup_photograph', 'Test setup', document.getElementById('create-test-setup').files[0]],
+      ].filter(([, , file]) => file);
+      let evidenceWarning = '';
+      if (photographs.length) submit.textContent = 'Attaching photographs\u2026';
+      for (const [category, caption, file] of photographs) {
+        const attachment = new FormData();
+        attachment.append('file', file);
+        attachment.append('category', category);
+        attachment.append('caption', caption);
+        attachment.append('auto_classify', 'false');
+        try {
+          await api.upload('/cases/' + created.id + '/attachments', attachment);
+        } catch (error) {
+          evidenceWarning = formatApiError(error);
+        }
+      }
+
+      const outstanding = photographs.length < 2 || Boolean(evidenceWarning);
+      toast(
+        outstanding
+          ? 'Evaluation created. Two clear photographs are still required before submission.'
+          : 'Evaluation created, test plan generated and photographs attached.',
+        outstanding ? 'warn' : 'success',
+      );
+      // Land on the step that carries the mandatory-photograph panel whenever the
+      // evidence is still outstanding, so the next action is in front of the user.
+      window.location.href = outstanding
+        ? `/evaluation.html?case=${created.id}&step=instrument`
+        : `/evaluation.html?case=${created.id}`;
     } catch (error) {
       toast(formatApiError(error), 'error');
       submit.disabled = false; submit.textContent = 'Create evaluation and generate test plan';
