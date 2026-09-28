@@ -138,7 +138,7 @@ backend/
                        report_engine, ai_service, audit_service, metrology_service
   scripts/             init_db, reinit_db, reset_db, seed_rules, seed_identity,
                        seed_db, manage_admin, create_admin
-  tests/               142 tests
+  tests/               175 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
@@ -171,12 +171,15 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 142 tests
+python -m pytest -q      # 175 tests
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and
 authorization, the submit -> verify -> approve -> finalize lifecycle, report
-immutability and hash stability, and the AI disable/fallback behaviour.
+immutability and hash stability, the AI disable/fallback behaviour, and a
+per-role pass (`tests/test_role_functionality.py`) that drives each of the six
+roles through the work only that role may do and proves the read-only role
+cannot write.
 
 ## Deployment
 

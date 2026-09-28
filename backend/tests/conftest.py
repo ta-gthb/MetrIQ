@@ -158,6 +158,18 @@ OBSERVATIONS: dict[str, list[dict]] = {
 }
 
 
+@pytest.fixture(scope="session")
+def observations() -> dict[str, list[dict]]:
+    """The reference observation sets that must resolve to PASS."""
+    return OBSERVATIONS
+
+
+@pytest.fixture(scope="session")
+def png_factory():
+    """Build a tiny, valid PNG for evidence uploads."""
+    return png_bytes
+
+
 @pytest.fixture(scope="session", autouse=True)
 def database():
     """Create the schema and seed reference data once per session."""

@@ -246,7 +246,7 @@ def update_case(
     case_id: uuid.UUID,
     payload: CaseUpdateRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(require_any_permission(P.CASES_EDIT, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
     case = get_case_or_404(db, case_id, user)
     if not case_editable_by(user, case):
@@ -320,7 +320,7 @@ def assign_case(
 def regenerate_plan(
     case_id: uuid.UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(require_any_permission(P.CASES_EDIT, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
     case = get_case_or_404(db, case_id, user)
     if not case_editable_by(user, case):
@@ -361,7 +361,7 @@ def add_condition(
     case_id: uuid.UUID,
     payload: EnvironmentalConditionIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(require_any_permission(P.CASES_EDIT, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> EnvironmentalCondition:
     case = get_case_or_404(db, case_id, user)
     if not case_editable_by(user, case):

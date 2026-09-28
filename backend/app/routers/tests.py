@@ -287,7 +287,7 @@ def calculate_test(
 def anomaly_check(
     test_id: uuid.UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(require_any_permission(P.AI_USE, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
     instance, case = _load_test(db, test_id, user)
     service = get_ai_service(db, actor=user)
