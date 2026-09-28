@@ -16,12 +16,16 @@ from scripts._bootstrap import banner, ok  # noqa: E402  (path bootstrap first)
 from app.config import settings  # noqa: E402
 from app.database import engine  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.services.reference_data.bootstrap import ensure_schema, require_schema  # noqa: E402
 
 
 def main() -> None:
     banner("MetrIQ - initialise database schema")
     print(f"  target: {engine.url.render_as_string(hide_password=True)}")
-    Base.metadata.create_all(bind=engine)
+    if settings.DB_SCHEMA:
+        print(f"  schema: {settings.DB_SCHEMA}")
+    ensure_schema()
+    require_schema()
     tables = sorted(Base.metadata.tables)
     ok(f"schema ready with {len(tables)} tables")
     for name in tables:
@@ -31,7 +35,10 @@ def main() -> None:
     print("        python backend/scripts/seed_identity.py")
     print("        python backend/scripts/create_admin.py")
     print("        python backend/scripts/seed_db.py")
-    if settings.DATABASE_URL.startswith("sqlite"):
+    if settings.DB_SCHEMA:
+        print()
+        print(f"  NOTE: tables live in the '{settings.DB_SCHEMA}' schema; other schemas are untouched.")
+    elif settings.DATABASE_URL.startswith("sqlite"):
         print()
         print("  NOTE: SQLite is being used. Configure DATABASE_URL for PostgreSQL in production.")
 

@@ -83,7 +83,9 @@ class RuleVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     threshold: Mapped[str | None] = mapped_column(String(120))
     unit: Mapped[str | None] = mapped_column(String(24))
     applicability: Mapped[dict | None] = mapped_column(JSONType)
-    rounding_policy: Mapped[str | None] = mapped_column(String(60))
+    # Free-text policy description. The shipped ruleset uses up to 74
+    # characters, which PostgreSQL rejects outright at String(60).
+    rounding_policy: Mapped[str | None] = mapped_column(String(200))
     review_status: Mapped[str] = mapped_column(String(40), default="pending_domain_review")
     reviewed_by: Mapped[str | None] = mapped_column(String(160))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

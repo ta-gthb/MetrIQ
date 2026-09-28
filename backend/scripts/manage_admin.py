@@ -13,8 +13,10 @@ instance, whose free plan offers no shell:
     python backend/scripts/manage_admin.py delete --email me@lab.example --yes
 
 Pass --url "<connection string>" to target a database without exporting
-DATABASE_URL first. Passwords are stored hashed and must be at least 8
-characters; when omitted a strong password is generated and printed once.
+DATABASE_URL first, and --schema <name> to keep MetrIQ's tables in a dedicated
+PostgreSQL schema when the database is shared with another application.
+Passwords are stored hashed and must be at least 8 characters; when omitted a
+strong password is generated and printed once.
 """
 
 from __future__ import annotations
@@ -43,6 +45,7 @@ def context() -> SimpleNamespace:
     if _CONTEXT is None:
         from sqlalchemy import select
 
+        from app.config import settings
         from app.database import engine, session_scope
         from app.models import Laboratory, User
         from app.security.passwords import generate_temporary_password, hash_password
@@ -51,6 +54,7 @@ def context() -> SimpleNamespace:
 
         _CONTEXT = SimpleNamespace(
             select=select,
+            settings=settings,
             engine=engine,
             session_scope=session_scope,
             Laboratory=Laboratory,
@@ -278,6 +282,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--url", default=argparse.SUPPRESS,
         help="database to manage; defaults to DATABASE_URL (or .env)",
     )
+    common.add_argument(
+        "--schema", default=argparse.SUPPRESS,
+        help="PostgreSQL schema for MetrIQ's tables (DB_SCHEMA) when the database is shared",
+    )
 
     parser = argparse.ArgumentParser(
         prog="manage_admin.py",
@@ -332,13 +340,25 @@ def main(argv: list[str] | None = None) -> int:
     url = getattr(args, "url", None)
     if url:
         os.environ["DATABASE_URL"] = url
+    schema = getattr(args, "schema", None)
+    if schema:
+        os.environ["DB_SCHEMA"] = schema
 
     banner("MetrIQ - Super Admin management")
     ctx = context()
     print(f"  target: {ctx.engine.url.render_as_string(hide_password=True)}")
+    if ctx.settings.DB_SCHEMA:
+        print(f"  schema: {ctx.settings.DB_SCHEMA}")
     print()
 
     try:
+        # Provision the schema first, so a fresh or shared database works
+        # without a separate init step, and report incompatible tables clearly
+        # instead of failing later with a raw column error.
+        from app.services.reference_data import bootstrap
+
+        bootstrap.ensure_schema()
+        bootstrap.require_schema()
         return args.func(args) or 0
     except (LookupError, PermissionError, ValueError, RuntimeError) as exc:
         print(f"  [!!] {exc}")

@@ -193,7 +193,8 @@ Render filesystem. Render's free plan has no shell and no pre-deploy command, so
 the application creates its schema and seeds the R76 catalogue as it boots
 (`AUTO_INIT_DB`, `AUTO_SEED_REFERENCE`), and `backend/scripts/manage_admin.py`
 and `backend/scripts/reinit_db.py` are run from a local machine against
-`DATABASE_URL`. `vercel.json` proxies `/api/*` to the Render service so the
+`DATABASE_URL`. Set `DB_SCHEMA` when the database is shared with another
+application, so MetrIQ's tables cannot collide with its `public` schema. `vercel.json` proxies `/api/*` to the Render service so the
 browser stays same-origin and no CORS configuration is needed.
 
 Full runbook, including the Supabase project setup, the exact environment

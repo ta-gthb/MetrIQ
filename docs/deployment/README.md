@@ -97,6 +97,30 @@ development default except the production secrets.
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///./metriq.db` | Supabase **session pooler** URI in production |
 | `SQL_ECHO` | `false` | Log SQL |
+| `DB_SCHEMA` | - | PostgreSQL schema for MetrIQ's tables; set it when the database is shared with another application |
+
+#### Sharing a database with another application
+
+If the database already holds another application's tables, MetrIQ must not use
+`public`: names such as `users` and `audit_logs` collide, and `create_all` never
+alters a table that already exists - so the failure surfaces later as a raw
+`column users.role_code does not exist`. Set `DB_SCHEMA` and MetrIQ keeps its
+tables in their own schema, which is created automatically at start-up:
+
+```
+DB_SCHEMA=metriq
+```
+
+The other application's `public` tables are left completely untouched. Provision
+the schema and create the administrator from your machine:
+
+```bash
+python backend/scripts/manage_admin.py create --schema metriq --email you@lab.example
+```
+
+Leave `DB_SCHEMA` empty for the default `public` schema. A Supabase project
+dedicated to MetrIQ avoids the situation entirely and is the simpler choice when
+you have one to spare.
 
 ### Bootstrap
 
@@ -439,3 +463,5 @@ grants.
 | Sign-in returns `503` "A database error occurred" | The API cannot reach the database at all | `curl /health`; if `"database"` is not `"ok"`, fix `DATABASE_URL` (session pooler, port 5432, percent-encoded password) and redeploy |
 | `/health` shows `"storage_backend":"local"` in production | `STORAGE_BACKEND` was never set on the service | Set `STORAGE_BACKEND=supabase` and `STORAGE_BUCKET=metriq-evidence`, then redeploy - local files do not survive a restart |
 | `401` for an account just created with `manage_admin.py` | The script and the service are pointing at different databases | Compare the `target:` line printed by the script with the `DATABASE_URL` set on Render |
+| `column users.role_code does not exist` | Another application's `users` table already exists in `public`, and `create_all` never alters an existing table | Set `DB_SCHEMA=metriq` on the service and in your scripts, then re-run `manage_admin.py create --schema metriq` |
+| Seeding fails with `value too long for type character varying(N)` | A seeded value is wider than its declared column; SQLite does not enforce widths | Already covered by `tests/test_ops_scripts.py`, which asserts the shipped data fits - run the suite after editing the seed JSON |

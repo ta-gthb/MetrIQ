@@ -7,6 +7,7 @@ expected to be injected by the hosting platform (Render).
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -34,6 +35,12 @@ class Settings(BaseSettings):
     # suite runnable without external infrastructure.
     DATABASE_URL: str = "sqlite:///./metriq.db"
     SQL_ECHO: bool = False
+    # Optional PostgreSQL schema for MetrIQ's own tables. Leave empty for the
+    # default (public / SQLite behaviour). Set it when the database is shared
+    # with another application: tables are then created in - and resolved from -
+    # this schema, so a name collision such as another app's `users` table
+    # cannot shadow MetrIQ's.
+    DB_SCHEMA: str | None = None
 
     # --- Authentication ---------------------------------------------------
     # "supabase" verifies Supabase-issued RS256/HS256 JWTs against JWKS.
@@ -114,6 +121,20 @@ class Settings(BaseSettings):
         ]
     )
     CORS_ALLOW_ORIGIN_REGEX: str | None = r"https://.*\.vercel\.app"
+
+    @field_validator("DB_SCHEMA", mode="before")
+    @classmethod
+    def _validate_schema(cls, value):
+        if value is None:
+            return None
+        name = str(value).strip()
+        if not name:
+            return None
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            raise ValueError(
+                "DB_SCHEMA must be a plain SQL identifier (letters, digits and underscore)"
+            )
+        return name
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

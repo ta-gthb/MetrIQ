@@ -33,6 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Drop, recreate and reseed the MetrIQ database.",
     )
     parser.add_argument("--url", default=None, help="database to reinitialise; defaults to DATABASE_URL")
+    parser.add_argument(
+        "--schema", default=None,
+        help="PostgreSQL schema for MetrIQ's tables (DB_SCHEMA) when the database is shared",
+    )
     parser.add_argument("--yes", action="store_true", help="required: confirms the data loss")
     parser.add_argument("--force", action="store_true", help="also run when ENVIRONMENT=production")
     parser.add_argument("--admin-email", default="admin@metriq.local")
@@ -46,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.url:
         os.environ["DATABASE_URL"] = args.url
+    if args.schema:
+        os.environ["DB_SCHEMA"] = args.schema
 
     from app.config import settings
     from app.database import engine, session_scope
@@ -70,6 +76,14 @@ def main(argv: list[str] | None = None) -> int:
         print("  Check DATABASE_URL. For Supabase use the session pooler on port 5432 and")
         print("  percent-encode reserved characters in the password (@ -> %40, : -> %3A, / -> %2F).")
         return 3
+
+    conflicts = bootstrap.schema_problems()
+    if conflicts:
+        warn("these pre-existing tables do not match the MetrIQ schema and will be replaced:")
+        for problem in conflicts[:4]:
+            print(f"        - {problem}")
+        warn("if this database is shared with another application, stop now and use")
+        warn("DB_SCHEMA=<name> instead, so only MetrIQ's own tables are touched")
 
     warn(f"dropping all tables in {target}")
     Base.metadata.drop_all(bind=engine)

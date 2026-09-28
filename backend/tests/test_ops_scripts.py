@@ -190,3 +190,68 @@ def test_reinit_db_refuses_without_confirmation(tmp_path):
     )
     assert result.returncode == 1
     assert "--yes" in result.stdout
+
+
+def test_seeded_reference_rows_fit_their_column_widths(accounts):
+    """PostgreSQL enforces VARCHAR(n); SQLite silently accepts longer values.
+
+    A seeded value wider than its declared column makes the ruleset fail to load
+    on Supabase with StringDataRightTruncation - and no local SQLite run can
+    catch it, so the contract is asserted here instead.
+    """
+    from app.models import (
+        ReportTemplate,
+        ReportTemplateVersion,
+        Rule,
+        RuleVersion,
+        Standard,
+        StandardVersion,
+        TestDefinition,
+    )
+
+    models = [
+        Standard,
+        StandardVersion,
+        Rule,
+        RuleVersion,
+        ReportTemplate,
+        ReportTemplateVersion,
+        TestDefinition,
+    ]
+    inspected = 0
+    oversized: list[str] = []
+    with SessionLocal() as db:
+        for model in models:
+            for row in db.execute(select(model)).scalars().all():
+                inspected += 1
+                for column in model.__table__.columns:
+                    limit = getattr(column.type, "length", None)
+                    value = getattr(row, column.name, None)
+                    if limit and isinstance(value, str) and len(value) > limit:
+                        oversized.append(
+                            f"{model.__name__}.{column.name}: {len(value)} > {limit}"
+                        )
+
+    assert inspected > 0, "reference data was not seeded"
+    assert oversized == [], "seeded values exceed their column width: " + "; ".join(oversized)
+
+
+def test_db_schema_setting_is_validated():
+    """DB_SCHEMA is interpolated into DDL, so only a plain identifier is allowed."""
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    assert Settings(DB_SCHEMA="metriq").DB_SCHEMA == "metriq"
+    assert Settings(DB_SCHEMA="").DB_SCHEMA is None
+    assert Settings(DB_SCHEMA=None).DB_SCHEMA is None
+    with pytest.raises(ValidationError):
+        Settings(DB_SCHEMA="metriq; DROP TABLE users")
+    with pytest.raises(ValidationError):
+        Settings(DB_SCHEMA="not a schema")
+
+
+def test_tables_are_not_schema_qualified_by_default():
+    """Schema qualification is opt-in: the suite runs on plain SQLite."""
+    assert Base.metadata.schema is None
+    assert "users" in Base.metadata.tables

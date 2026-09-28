@@ -5,16 +5,33 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Uuid
+from sqlalchemy import DateTime, MetaData, String, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.config import settings
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _metadata_schema() -> str | None:
+    """The schema MetrIQ's tables live in, when one is configured.
+
+    Resolved once, at import, so the tables carry the schema from the moment
+    they are declared and every statement is generated schema-qualified. That
+    matters when a database is shared with another application: unqualified DDL
+    would otherwise skip tables that exist under the same name in `public`.
+    """
+    if settings.DATABASE_URL.startswith("sqlite"):
+        return None
+    return settings.DB_SCHEMA
+
+
 class Base(DeclarativeBase):
     """Declarative base for every MetrIQ table."""
+
+    metadata = MetaData(schema=_metadata_schema())
 
 
 class UUIDPrimaryKeyMixin:

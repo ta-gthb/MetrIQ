@@ -55,6 +55,12 @@ services:
       - key: DATABASE_URL
         sync: false
 
+      # PostgreSQL schema for MetrIQ's own tables. Leave blank for `public`;
+      # set it (for example `metriq`) when the database is shared with another
+      # application, so colliding names such as `users` cannot clash.
+      - key: DB_SCHEMA
+        sync: false
+
       # Signs the tokens issued by /auth/login. Render generates a strong value.
       - key: JWT_SECRET
         generateValue: true

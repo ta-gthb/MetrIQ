@@ -89,6 +89,22 @@ engine: Engine = create_engine(DATABASE_URL, **_engine_options(DATABASE_URL))
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
+if not DATABASE_URL.startswith("sqlite") and settings.DB_SCHEMA:
+
+    @event.listens_for(engine, "connect")
+    def _set_search_path(dbapi_connection, _record):  # pragma: no cover - driver hook
+        """Resolve MetrIQ's tables from DB_SCHEMA before public.
+
+        `options=-csearch_path=...` is unreliable through connection poolers, so
+        the path is set with a plain statement, which every pooler forwards.
+        """
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute(f'SET search_path TO "{settings.DB_SCHEMA}", public')
+        finally:
+            cursor.close()
+
+
 if DATABASE_URL.startswith("sqlite"):
 
     @event.listens_for(engine, "connect")
