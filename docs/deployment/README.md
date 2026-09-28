@@ -65,6 +65,20 @@ Useful scripts:
 All scripts run from any working directory and read `DATABASE_URL` from the
 environment or the nearest `.env`.
 
+`manage_admin.py` and `reinit_db.py` also run with **no arguments at all**, which
+is the easiest way to use them from another machine: they ask what you want to do
+and prompt for every value they need. Passwords are typed without being echoed,
+and `reinit_db.py` makes you type `REINITIALISE` before it drops anything.
+
+```bash
+python backend/scripts/manage_admin.py
+python backend/scripts/reinit_db.py
+```
+
+A value passed as a flag is never asked for again, and when stdin is not a
+terminal (a pipe, a CI job) the scripts never prompt - they behave exactly as
+they did before, so both styles can be mixed.
+
 ### 1.1 Tests
 
 ```bash
@@ -382,6 +396,12 @@ machine: each reads `DATABASE_URL` and also accepts
   python backend/scripts/reinit_db.py --yes --admin-email you@lab.example
   ```
 
+  Run it with **no arguments** instead and it asks for the connection string, the
+  schema and the new Super Admin account, then requires the word `REINITIALISE`
+  before touching anything. If the target schema already holds tables that do not
+  match MetrIQ's own - the signature of a database shared with another application
+  - the guided run stops instead of dropping them.
+
   It refuses to run without `--yes`, and refuses when `ENVIRONMENT=production`
   unless `--force` is added. `--no-admin` skips the account and
   `--admin-password` chooses the password. Objects already in the storage bucket
@@ -402,8 +422,16 @@ machine: each reads `DATABASE_URL` and also accepts
   python backend/scripts/manage_admin.py delete       --email you@lab.example --yes
   ```
 
-  Passwords must be at least 8 characters; omitting `--password` generates one
-  and prints it once. `disable` and `delete` refuse to touch the last active
+  Run it with **no arguments** for a menu of the same actions, or give a command
+  without its flags (`manage_admin.py set-password`) and it prompts for what is
+  missing:
+
+  ```bash
+  python backend/scripts/manage_admin.py
+  ```
+
+  Passwords must be at least 8 characters; omitting `--password` - or leaving the
+  prompt blank - generates one and prints it once. `disable` and `delete` refuse to touch the last active
   Super Admin, so you cannot lock yourself out. `create_admin.py` remains as a
   shortcut for `manage_admin.py create`.
 

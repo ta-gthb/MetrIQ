@@ -3,12 +3,19 @@
 Render's free plan has no shell and no pre-deploy command, so this is the
 supported way to (re)initialise the deployed database from your own device:
 
+    python backend/scripts/reinit_db.py
+
+It can run with no arguments at all, which is the easiest way to do this from
+another machine: it asks for the connection string, the schema and the new
+Super Admin account, and makes you type REINITIALISE before anything happens.
+The flags below remain for scripted use:
+
     python backend/scripts/reinit_db.py --yes
     python backend/scripts/reinit_db.py --url "postgresql://...:5432/postgres" --yes
     python backend/scripts/reinit_db.py --yes --admin-email me@lab.example
 
-DESTRUCTIVE: every table is dropped, so all cases, users, audit history and
-generated report rows are deleted. Objects already in the storage bucket are
+DESTRUCTIVE: every MetrIQ table in the target schema is dropped, so all cases,
+users, audit history and generated report rows are deleted. Objects already in the storage bucket are
 left where they are; they simply become unreferenced. After a re-run the
 instance is immediately usable again, because the reference catalogue and a
 Super Admin account are recreated in the same pass.
@@ -24,7 +31,16 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts._bootstrap import banner, ok, warn  # noqa: E402
+from scripts._bootstrap import (  # noqa: E402
+    banner,
+    confirm,
+    interactive,
+    mask_url,
+    ok,
+    prompt,
+    prompt_secret,
+    warn,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,8 +62,68 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def collect_inputs(args) -> bool:
+    """Guided session: gather the target and the account. False = cancelled."""
+    banner("MetrIQ - reinitialise database (DESTRUCTIVE)")
+
+    configured = os.environ.get("DATABASE_URL") or ""
+    if configured:
+        print(f"  DATABASE_URL is currently {mask_url(configured)}")
+    print("  Leave the URL blank to use that one. Text typed here does not reach")
+    print("  your shell history, and the password is never echoed.")
+    print()
+
+    url = prompt("Database URL", allow_blank=True)
+    if url:
+        args.url = url
+    elif not configured:
+        warn("no DATABASE_URL is set and none was entered")
+        return False
+
+    print()
+    print("  Use a dedicated schema such as 'metriq' when this database is shared with")
+    print("  another application, so only MetrIQ's own tables are touched.")
+    args.schema = prompt("Schema", default=os.environ.get("DB_SCHEMA") or "public")
+
+    print()
+    print("  " + "-" * 68)
+    warn(f"every MetrIQ table in {mask_url(args.url or configured)} (schema {args.schema})")
+    warn("will be dropped: all cases, users, audit history and generated reports.")
+    print("  " + "-" * 68)
+    if prompt("Type REINITIALISE to continue", allow_blank=True) != "REINITIALISE":
+        return False
+    args.yes = True
+
+    print()
+    if confirm("Recreate a Super Admin account as well?", default=True):
+        args.admin_email = prompt("Admin email", default=args.admin_email)
+        args.admin_name = prompt("Admin display name", default=args.admin_name)
+        secret = prompt_secret("Admin password (blank to generate one)")
+        if secret:
+            args.admin_password = secret
+    else:
+        args.no_admin = True
+
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    if argv is None:
+        argv = sys.argv[1:]
+
+    # No flags at all on a real terminal means "ask me everything".
+    guided = not argv and interactive()
+    if guided:
+        args = parser.parse_args([])
+        print()
+        if not collect_inputs(args):
+            print()
+            warn("cancelled - nothing was changed")
+            return 1
+    else:
+        args = parser.parse_args(argv)
+
     if args.url:
         os.environ["DATABASE_URL"] = args.url
     if args.schema:
@@ -58,17 +134,23 @@ def main(argv: list[str] | None = None) -> int:
     from app.models import Base
     from app.services.reference_data import bootstrap
 
-    banner("MetrIQ - reinitialise database (DESTRUCTIVE)")
+    if not guided:
+        banner("MetrIQ - reinitialise database (DESTRUCTIVE)")
     target = engine.url.render_as_string(hide_password=True)
     print(f"  target: {target}")
+    if settings.DB_SCHEMA:
+        print(f"  schema: {settings.DB_SCHEMA}")
     print()
 
     if not args.yes:
         warn("this drops every table; re-run with --yes to confirm")
         return 1
     if settings.ENVIRONMENT == "production" and not args.force:
-        warn(f"ENVIRONMENT is 'production'; add --force if {target} really is the intended target")
-        return 2
+        if guided and confirm(f"ENVIRONMENT is 'production'. Reinitialise {target} anyway?"):
+            args.force = True
+        else:
+            warn(f"ENVIRONMENT is 'production'; add --force if {target} really is the intended target")
+            return 2
 
     connected, detail = bootstrap.probe_connection()
     if not connected:
@@ -77,11 +159,20 @@ def main(argv: list[str] | None = None) -> int:
         print("  percent-encode reserved characters in the password (@ -> %40, : -> %3A, / -> %2F).")
         return 3
 
-    conflicts = bootstrap.schema_problems()
+    # Only tables that already exist count here: a database that has never been
+    # initialised is not a shared one.
+    conflicts = bootstrap.schema_problems(include_missing=False)
     if conflicts:
         warn("these pre-existing tables do not match the MetrIQ schema and will be replaced:")
         for problem in conflicts[:4]:
             print(f"        - {problem}")
+        if guided:
+            # The operator already answered the prompts, so never drop tables
+            # that belong to whatever else lives in this database.
+            warn("stopping: this looks like a shared database")
+            warn(f"re-run and enter the dedicated schema (for example 'metriq') "
+                 f"instead of {settings.DB_SCHEMA or 'public'}")
+            return 1
         warn("if this database is shared with another application, stop now and use")
         warn("DB_SCHEMA=<name> instead, so only MetrIQ's own tables are touched")
 

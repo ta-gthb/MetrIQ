@@ -62,7 +62,9 @@ def ensure_schema() -> int:
     return len(Base.metadata.tables)
 
 
-def schema_problems(bind: Engine | None = None) -> list[str]:
+def schema_problems(
+    bind: Engine | None = None, *, include_missing: bool = True
+) -> list[str]:
     """Tables that exist but do not carry the columns this application needs.
 
     ``create_all`` only creates *missing* tables. A pre-existing table with a
@@ -70,6 +72,12 @@ def schema_problems(bind: Engine | None = None) -> list[str]:
     database, for instance - is left untouched and then fails at query time
     with a raw ``UndefinedColumn``. Checking up front turns that into an
     actionable message.
+
+    ``include_missing=False`` answers the narrower question the destructive
+    re-initialisation asks before it drops anything: which tables that already
+    exist here would MetrIQ's own DDL take over? An absent table is not a
+    conflict, so a database that has never been initialised does not look
+    like a shared one.
     """
     target = bind if bind is not None else engine
     expected = {
@@ -121,7 +129,8 @@ def schema_problems(bind: Engine | None = None) -> list[str]:
     problems: list[str] = []
     for name, columns in expected.items():
         if name not in present:
-            problems.append(f"missing table '{name}'")
+            if include_missing:
+                problems.append(f"missing table '{name}'")
             continue
         missing = sorted(columns - present[name])
         if missing:

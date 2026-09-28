@@ -3,7 +3,15 @@
 Only accounts whose role is SUPER_ADMIN are touched. The script runs against
 whatever DATABASE_URL points at, so the same command manages a local SQLite
 file or the deployed database - the supported way to administer a Render
-instance, whose free plan offers no shell:
+instance, whose free plan offers no shell.
+
+Run it with no arguments and it asks what to do, then prompts for the values
+it needs. Passwords are typed without being echoed:
+
+    python backend/scripts/manage_admin.py
+
+The flags below stay available for scripted use - anything passed as a flag is
+never asked for again:
 
     python backend/scripts/manage_admin.py create --email me@lab.example
     python backend/scripts/manage_admin.py list
@@ -32,9 +40,19 @@ from typing import Any
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts._bootstrap import banner, ok, warn  # noqa: E402
+from scripts._bootstrap import (  # noqa: E402
+    banner,
+    confirm,
+    interactive,
+    ok,
+    prompt,
+    prompt_choice,
+    prompt_secret,
+    warn,
+)
 
 MIN_PASSWORD_LENGTH = 8
+DEFAULT_FULL_NAME = "Platform Administrator"
 
 _CONTEXT: SimpleNamespace | None = None
 
@@ -295,8 +313,8 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command")
 
     create = subcommands.add_parser("create", parents=[common], help="create or update the Super Admin")
-    create.add_argument("--email", required=True)
-    create.add_argument("--name", default="Platform Administrator")
+    create.add_argument("--email", default=None)
+    create.add_argument("--name", default=DEFAULT_FULL_NAME)
     create.add_argument("--password", default=None)
     create.add_argument("--laboratory-code", default=None)
     create.set_defaults(func=command_create)
@@ -305,37 +323,135 @@ def build_parser() -> argparse.ArgumentParser:
     listing.set_defaults(func=command_list)
 
     rotate = subcommands.add_parser("set-password", parents=[common], help="rotate the password")
-    rotate.add_argument("--email", required=True)
+    rotate.add_argument("--email", default=None)
     rotate.add_argument("--password", default=None)
     rotate.set_defaults(func=command_set_password)
 
     rename = subcommands.add_parser("set-email", parents=[common], help="change the login email")
-    rename.add_argument("--email", required=True)
-    rename.add_argument("--new-email", required=True)
+    rename.add_argument("--email", default=None)
+    rename.add_argument("--new-email", default=None)
     rename.set_defaults(func=command_set_email)
 
     enable = subcommands.add_parser("enable", parents=[common], help="re-activate the account")
-    enable.add_argument("--email", required=True)
+    enable.add_argument("--email", default=None)
     enable.set_defaults(func=lambda args: command_set_active(args, True))
 
     disable = subcommands.add_parser("disable", parents=[common], help="block sign-in for the account")
-    disable.add_argument("--email", required=True)
+    disable.add_argument("--email", default=None)
     disable.set_defaults(func=lambda args: command_set_active(args, False))
 
     delete = subcommands.add_parser("delete", parents=[common], help="remove the account")
-    delete.add_argument("--email", required=True)
+    delete.add_argument("--email", default=None)
     delete.add_argument("--yes", action="store_true", help="required: confirms the deletion")
     delete.set_defaults(func=command_delete)
 
     return parser
 
 
+GUIDED_ACTIONS = (
+    ("create", "create or update the Super Admin account"),
+    ("list", "show every Super Admin account"),
+    ("set-password", "rotate a login password"),
+    ("set-email", "change a login email"),
+    ("enable", "re-activate a disabled account"),
+    ("disable", "block sign-in for an account"),
+    ("delete", "remove an account"),
+)
+
+ACTIONS_NEEDING_EMAIL = ("create", "set-password", "set-email", "enable", "disable", "delete")
+ACTIONS_WITH_PASSWORD = ("create", "set-password")
+
+
+def guided_argv() -> list[str]:
+    """Ask what to do and for the values it needs. Returns argv, or [] to cancel."""
+    print("  What would you like to do?")
+    print()
+    command = prompt_choice("Choice", GUIDED_ACTIONS, default="create")
+    argv = [command]
+
+    email = None
+    if command in ACTIONS_NEEDING_EMAIL:
+        email = prompt("Super Admin email")
+        argv += ["--email", email]
+
+    if command == "set-email":
+        argv += ["--new-email", prompt("New login email")]
+
+    if command == "create":
+        argv += ["--name", prompt("Display name", default=DEFAULT_FULL_NAME)]
+        code = prompt("Laboratory code (blank for none)", allow_blank=True)
+        if code:
+            argv += ["--laboratory-code", code]
+
+    if command in ACTIONS_WITH_PASSWORD:
+        secret = prompt_secret("Password (blank to generate one)")
+        if secret:
+            argv += ["--password", secret]
+
+    if command == "delete":
+        if not confirm(f"Permanently delete {email}?"):
+            return []
+        argv.append("--yes")
+
+    return argv
+
+
+def resolve_inputs(args, parser: argparse.ArgumentParser) -> None:
+    """Prompt for anything the chosen command still needs.
+
+    A value given on the command line is never asked for twice, and with no
+    terminal to ask on a missing value stays an argparse error.
+    """
+
+    def required(value, flag: str, label: str) -> str:
+        if value:
+            return value
+        if not interactive():
+            parser.error(
+                f"the {args.command} command needs --{flag}; run manage_admin.py "
+                "with no arguments for guided prompts"
+            )
+        return prompt(label)
+
+    if args.command in ACTIONS_NEEDING_EMAIL:
+        args.email = required(getattr(args, "email", None), "email", "Super Admin email")
+
+    if args.command == "set-email":
+        args.new_email = required(
+            getattr(args, "new_email", None), "new-email", "New login email"
+        )
+
+    if args.command in ACTIONS_WITH_PASSWORD and not args.password:
+        # A blank answer keeps the generate-and-print-once behaviour.
+        args.password = prompt_secret("Password (blank to generate one)") or None
+
+    # Without a terminal the existing "--yes to confirm" gate still applies.
+    if args.command == "delete" and not args.yes and interactive():
+        args.yes = confirm(f"Permanently delete {args.email}?")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    if argv is None:
+        argv = sys.argv[1:]
+
+    announced = False
+    if not argv and interactive():
+        banner("MetrIQ - Super Admin management")
+        announced = True
+        argv = guided_argv()
+        if not argv:
+            print()
+            warn("cancelled - nothing was changed")
+            return 1
+        print()
+
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):
         parser.print_help()
         return 1
+
+    resolve_inputs(args, parser)
 
     url = getattr(args, "url", None)
     if url:
@@ -344,7 +460,8 @@ def main(argv: list[str] | None = None) -> int:
     if schema:
         os.environ["DB_SCHEMA"] = schema
 
-    banner("MetrIQ - Super Admin management")
+    if not announced:
+        banner("MetrIQ - Super Admin management")
     ctx = context()
     print(f"  target: {ctx.engine.url.render_as_string(hide_password=True)}")
     if ctx.settings.DB_SCHEMA:

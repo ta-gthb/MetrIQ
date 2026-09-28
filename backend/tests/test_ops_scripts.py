@@ -156,7 +156,9 @@ def test_reinit_db_rebuilds_a_deployment_ready_database(tmp_path):
         "RebuildPass1!",
     ]
 
-    first = subprocess.run(command, cwd=BACKEND_DIR, env=env, capture_output=True, text=True)
+    first = subprocess.run(
+        command, cwd=BACKEND_DIR, env=env, capture_output=True, text=True, input="",
+    )
     assert first.returncode == 0, first.stdout + first.stderr
     assert "database reinitialised" in first.stdout
 
@@ -172,7 +174,9 @@ def test_reinit_db_rebuilds_a_deployment_ready_database(tmp_path):
     assert rows == [("ops@lab.example", SUPER_ADMIN, 1)]
 
     # Re-running is safe: the drop/recreate/seed cycle does not duplicate data.
-    second = subprocess.run(command, cwd=BACKEND_DIR, env=env, capture_output=True, text=True)
+    second = subprocess.run(
+        command, cwd=BACKEND_DIR, env=env, capture_output=True, text=True, input="",
+    )
     assert second.returncode == 0, second.stdout + second.stderr
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 6
@@ -189,10 +193,11 @@ def test_reinit_db_refuses_without_confirmation(tmp_path):
     }
     result = subprocess.run(
         [sys.executable, "scripts/reinit_db.py"], cwd=BACKEND_DIR, env=env,
-        capture_output=True, text=True,
+        capture_output=True, text=True, input="",
     )
     assert result.returncode == 1
     assert "--yes" in result.stdout
+    assert "REINITIALISE" not in result.stdout.replace("--yes", "")
 
 
 def test_seeded_reference_rows_fit_their_column_widths(accounts):
@@ -295,3 +300,223 @@ def test_bootstrap_survives_a_seeding_failure(accounts, monkeypatch):
 
     assert report["reference_data"] == "failed"
     assert "character varying(60)" in report["error"]
+
+
+# ---------------------------------------------------------------------------
+# Guided terminal input
+#
+# The scripts prompt only when the values were not passed as flags, and only on
+# a real terminal, so the flags stay authoritative for scripted use. These tests
+# drive the prompts directly instead of pretending to be a terminal.
+# ---------------------------------------------------------------------------
+
+
+def test_mask_url_hides_only_the_password():
+    from scripts._bootstrap import mask_url
+
+    assert mask_url("postgresql://postgres.abc:secret@host:5432/postgres") == (
+        "postgresql://postgres.abc:***@host:5432/postgres"
+    )
+    # Nothing to hide, and no password to lose.
+    assert mask_url("sqlite:///./metriq.db") == "sqlite:///./metriq.db"
+    assert mask_url("") == ""
+
+
+def test_prompt_keeps_a_default_on_an_empty_answer(monkeypatch):
+    from scripts import _bootstrap
+
+    monkeypatch.setattr("builtins.input", lambda _: "   ")
+    assert _bootstrap.prompt("Schema", default="metriq") == "metriq"
+
+    monkeypatch.setattr("builtins.input", lambda _: "  public  ")
+    assert _bootstrap.prompt("Schema", default="metriq") == "public"
+
+    # A blank answer is only acceptable where the caller allows it.
+    monkeypatch.setattr("builtins.input", lambda _: "   ")
+    assert _bootstrap.prompt("Laboratory code", allow_blank=True) == ""
+
+
+def test_prompt_retries_until_a_required_value_is_typed(monkeypatch, capsys):
+    from scripts import _bootstrap
+
+    answers = iter(["", "", "engineer@lab.example"])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+
+    assert _bootstrap.prompt("Super Admin email") == "engineer@lab.example"
+    assert "a value is required" in capsys.readouterr().out
+
+
+def test_confirm_and_choice_accept_words_or_numbers(monkeypatch, capsys):
+    from scripts import _bootstrap
+
+    monkeypatch.setattr("builtins.input", lambda _: "yes")
+    assert _bootstrap.confirm("Delete?") is True
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    assert _bootstrap.confirm("Delete?") is False  # empty keeps the default
+    assert _bootstrap.confirm("Delete?", default=True) is True
+
+    monkeypatch.setattr("builtins.input", lambda _: "2")
+    assert _bootstrap.prompt_choice("Choice", (("create", "a"), ("list", "b"))) == "list"
+    monkeypatch.setattr("builtins.input", lambda _: "list")
+    assert _bootstrap.prompt_choice("Choice", (("create", "a"), ("list", "b"))) == "list"
+    assert "1." in capsys.readouterr().out
+
+
+def test_manage_admin_guided_flow_builds_the_create_command(monkeypatch):
+    from scripts import manage_admin
+
+    monkeypatch.setattr(manage_admin, "prompt_choice", lambda label, choices, **kw: "create")
+    answers = iter(["guided@lab.example", "Ops Lead", ""])
+    monkeypatch.setattr(manage_admin, "prompt", lambda label, **kw: next(answers))
+    monkeypatch.setattr(manage_admin, "prompt_secret", lambda label, **kw: "GuidedPass1!")
+
+    argv = manage_admin.guided_argv()
+
+    assert argv == [
+        "create",
+        "--email", "guided@lab.example",
+        "--name", "Ops Lead",
+        "--password", "GuidedPass1!",
+    ]
+    # The assembled argv must parse back into the command it describes.
+    parsed = manage_admin.build_parser().parse_args(argv)
+    assert parsed.command == "create"
+    assert parsed.email == "guided@lab.example"
+    assert parsed.password == "GuidedPass1!"
+
+
+def test_manage_admin_guided_flow_can_be_declined(monkeypatch):
+    from scripts import manage_admin
+
+    monkeypatch.setattr(manage_admin, "prompt_choice", lambda label, choices, **kw: "delete")
+    monkeypatch.setattr(manage_admin, "prompt", lambda label, **kw: "admin@lab.example")
+    monkeypatch.setattr(manage_admin, "confirm", lambda label, **kw: False)
+
+    assert manage_admin.guided_argv() == []
+
+
+def test_manage_admin_asks_for_a_missing_value_instead_of_failing_early(monkeypatch):
+    from scripts import manage_admin
+
+    monkeypatch.setattr(manage_admin, "interactive", lambda: True)
+    monkeypatch.setattr(manage_admin, "prompt", lambda label, **kw: "typed@lab.example")
+    monkeypatch.setattr(manage_admin, "prompt_secret", lambda label, **kw: "")
+
+    parser = manage_admin.build_parser()
+    args = parser.parse_args(["set-password"])
+
+    manage_admin.resolve_inputs(args, parser)
+
+    assert args.email == "typed@lab.example"
+    # A blank password keeps the generate-and-print-once behaviour.
+    assert args.password is None
+
+
+def test_manage_admin_still_errors_without_a_terminal(monkeypatch, capsys):
+    from scripts import manage_admin
+
+    monkeypatch.setattr(manage_admin, "interactive", lambda: False)
+    parser = manage_admin.build_parser()
+    args = parser.parse_args(["set-password"])
+
+    with pytest.raises(SystemExit) as caught:
+        manage_admin.resolve_inputs(args, parser)
+
+    assert caught.value.code == 2
+    assert "--email" in capsys.readouterr().err
+
+
+def test_manage_admin_flags_are_never_asked_for_twice(monkeypatch):
+    from scripts import manage_admin
+
+    def refuse(label, **kw):  # pragma: no cover - must not be reached
+        raise AssertionError(f"prompted for {label!r} despite the flag being set")
+
+    monkeypatch.setattr(manage_admin, "interactive", lambda: True)
+    monkeypatch.setattr(manage_admin, "prompt", refuse)
+    monkeypatch.setattr(manage_admin, "prompt_secret", refuse)
+
+    parser = manage_admin.build_parser()
+    args = parser.parse_args(
+        ["create", "--email", "given@lab.example", "--password", "GivenPass1!"]
+    )
+    manage_admin.resolve_inputs(args, parser)
+
+    assert args.email == "given@lab.example"
+    assert args.password == "GivenPass1!"
+
+
+def test_reinit_db_guided_flow_requires_the_confirmation_word(monkeypatch):
+    from scripts import reinit_db
+
+    parser = reinit_db.build_parser()
+    args = parser.parse_args([])
+    monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: "reinitialise")
+
+    assert reinit_db.collect_inputs(args) is False
+    assert args.yes is False, "a declined run must not look confirmed"
+
+
+def test_reinit_db_guided_flow_collects_the_target_and_the_account(monkeypatch):
+    from scripts import reinit_db
+
+    answers = iter(
+        [
+            "postgresql://postgres.ref:pw@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres",
+            "metriq",
+            "REINITIALISE",
+            "ops@lab.example",
+            "Ops Lead",
+        ]
+    )
+    monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
+    monkeypatch.setattr(reinit_db, "prompt_secret", lambda label, **kw: "GuidedPass1!")
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
+
+    args = reinit_db.build_parser().parse_args([])
+    assert reinit_db.collect_inputs(args) is True
+
+    assert args.url.endswith("/postgres")
+    assert args.schema == "metriq"
+    assert args.yes is True
+    assert args.admin_email == "ops@lab.example"
+    assert args.admin_name == "Ops Lead"
+    assert args.admin_password == "GuidedPass1!"
+    assert args.no_admin is False
+
+
+def test_reinit_db_guided_flow_can_skip_the_admin(monkeypatch):
+    from scripts import reinit_db
+
+    answers = iter(["", "metriq", "REINITIALISE"])
+    monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres.ref:pw@host:5432/postgres")
+
+    args = reinit_db.build_parser().parse_args([])
+    assert reinit_db.collect_inputs(args) is True
+    assert args.no_admin is True
+
+
+def test_schema_problems_can_ignore_tables_that_do_not_exist_yet(tmp_path):
+    """A never-initialised database must not look like a shared one."""
+    from sqlalchemy import create_engine
+
+    fresh = create_engine(f"sqlite:///{(tmp_path / 'fresh.db').as_posix()}")
+
+    assert any(p.startswith("missing table") for p in bootstrap.schema_problems(fresh))
+    assert bootstrap.schema_problems(fresh, include_missing=False) == []
+
+
+def test_schema_conflicts_name_a_foreign_table_that_would_be_taken_over(tmp_path):
+    from sqlalchemy import create_engine, text
+
+    shared = create_engine(f"sqlite:///{(tmp_path / 'shared.db').as_posix()}")
+    with shared.begin() as connection:
+        connection.execute(text("create table users (id integer primary key, email text)"))
+
+    conflicts = bootstrap.schema_problems(shared, include_missing=False)
+
+    assert len(conflicts) == 1
+    assert conflicts[0].startswith("table 'users' is missing column(s):")
+    assert "role_code" in conflicts[0]
