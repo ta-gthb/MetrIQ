@@ -402,6 +402,23 @@ machine: each reads `DATABASE_URL` and also accepts
   match MetrIQ's own - the signature of a database shared with another application
   - the guided run stops instead of dropping them.
 
+  A connection string kept in `backend/.env` (gitignored) is picked up
+  automatically: the guided run prints the target and asks only `Use this
+  database? [Y/n]`, so the URL is typed once and never again. Anything typed at a
+  prompt is offered back to that file. The same file makes the other scripts
+  target the deployed database with no flags at all:
+
+  ```bash
+  # backend/.env - gitignored, so the password never reaches the repository
+  DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+  DB_SCHEMA=metriq
+  ENVIRONMENT=production
+  ```
+
+  `ENVIRONMENT=production` is worth setting alongside a remote `DATABASE_URL`: it
+  makes `reset_db.py` refuse outright and makes `reinit_db.py` confirm before it
+  drops anything.
+
   It refuses to run without `--yes`, and refuses when `ENVIRONMENT=production`
   unless `--force` is added. `--no-admin` skips the account and
   `--admin-password` chooses the password. Objects already in the storage bucket

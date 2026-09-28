@@ -28,6 +28,10 @@ _TMP = Path(tempfile.mkdtemp(prefix="metriq-tests-"))
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DEBUG"] = "false"
 os.environ["DATABASE_URL"] = f"sqlite:///{(_TMP / 'metriq-test.db').as_posix()}"
+# Pinned empty on purpose. Environment variables win over .env, and a
+# developer's backend/.env points at a dedicated PostgreSQL schema; the
+# assertions below describe plain SQLite tables and must not depend on it.
+os.environ["DB_SCHEMA"] = ""
 os.environ["AUTH_PROVIDER"] = "local"
 os.environ["AI_PROVIDER"] = "stub"
 os.environ["AI_ENABLED"] = "true"

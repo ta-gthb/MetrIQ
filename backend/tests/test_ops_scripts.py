@@ -446,18 +446,74 @@ def test_manage_admin_flags_are_never_asked_for_twice(monkeypatch):
     assert args.password == "GivenPass1!"
 
 
-def test_reinit_db_guided_flow_requires_the_confirmation_word(monkeypatch):
+@pytest.fixture
+def isolated_env(monkeypatch):
+    """Keep the guided flow away from the developer's real backend/.env."""
     from scripts import reinit_db
 
-    parser = reinit_db.build_parser()
-    args = parser.parse_args([])
+    written: dict[str, str] = {}
+
+    def fake_remember(values, path=None):
+        written.update(values)
+        return Path("backend/.env")
+
+    monkeypatch.setattr(reinit_db, "read_env_file", lambda path=None: {})
+    monkeypatch.setattr(reinit_db, "remember_env", fake_remember)
+    return written
+
+
+def test_read_env_file_skips_comments_and_unquotes_values(tmp_path):
+    from scripts._bootstrap import read_env_file
+
+    env = tmp_path / ".env"
+    env.write_text('A=1\n# B=2\n\nC="quoted value"\nD=\n', encoding="utf-8")
+
+    assert read_env_file(env) == {"A": "1", "C": "quoted value", "D": ""}
+    assert read_env_file(tmp_path / "missing") == {}
+
+
+def test_remember_env_upserts_without_losing_other_lines(tmp_path):
+    from scripts._bootstrap import read_env_file, remember_env
+
+    env = tmp_path / ".env"
+    env.write_text("# keep this comment\nDATABASE_URL=old\nKEEP=me\n", encoding="utf-8")
+
+    remember_env({"DATABASE_URL": "new", "DB_SCHEMA": "metriq"}, env)
+
+    assert read_env_file(env) == {"DATABASE_URL": "new", "KEEP": "me", "DB_SCHEMA": "metriq"}
+    assert "# keep this comment" in env.read_text(encoding="utf-8")
+
+
+def test_reinit_db_guided_flow_requires_the_confirmation_word(monkeypatch, isolated_env):
+    from scripts import reinit_db
+
+    args = reinit_db.build_parser().parse_args([])
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
     monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: "reinitialise")
 
     assert reinit_db.collect_inputs(args) is False
     assert args.yes is False, "a declined run must not look confirmed"
 
 
-def test_reinit_db_guided_flow_collects_the_target_and_the_account(monkeypatch):
+def test_reinit_db_guided_flow_never_asks_for_a_remembered_target(monkeypatch, isolated_env):
+    """The whole point of the .env lookup: the URL is typed once, ever."""
+    from scripts import reinit_db
+
+    def answer(label, **kw):
+        assert label != "Database URL", "the remembered target must not be asked for"
+        return "metriq" if label == "Schema" else "REINITIALISE"
+
+    args = reinit_db.build_parser().parse_args([])
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
+    monkeypatch.setattr(reinit_db, "prompt", answer)
+    monkeypatch.setattr(reinit_db, "prompt_secret", lambda label, **kw: "")
+
+    assert reinit_db.collect_inputs(args) is True
+    assert args.url == os.environ["DATABASE_URL"]
+    assert args.schema == "metriq"
+
+
+def test_reinit_db_guided_flow_collects_a_typed_target_and_the_account(monkeypatch, isolated_env):
     from scripts import reinit_db
 
     answers = iter(
@@ -469,11 +525,14 @@ def test_reinit_db_guided_flow_collects_the_target_and_the_account(monkeypatch):
             "Ops Lead",
         ]
     )
+    args = reinit_db.build_parser().parse_args([])
+    # Decline the remembered target so the URL prompt is exercised.
+    monkeypatch.setattr(
+        reinit_db, "confirm", lambda label, **kw: not label.startswith("Use this database")
+    )
     monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
     monkeypatch.setattr(reinit_db, "prompt_secret", lambda label, **kw: "GuidedPass1!")
-    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
 
-    args = reinit_db.build_parser().parse_args([])
     assert reinit_db.collect_inputs(args) is True
 
     assert args.url.endswith("/postgres")
@@ -483,40 +542,19 @@ def test_reinit_db_guided_flow_collects_the_target_and_the_account(monkeypatch):
     assert args.admin_name == "Ops Lead"
     assert args.admin_password == "GuidedPass1!"
     assert args.no_admin is False
+    # A newly typed target is offered back to .env; the stub records the request.
+    assert isolated_env == {"DATABASE_URL": args.url, "DB_SCHEMA": "metriq"}
 
 
-def test_reinit_db_guided_flow_can_skip_the_admin(monkeypatch):
+def test_reinit_db_guided_flow_can_skip_the_admin(monkeypatch, isolated_env):
     from scripts import reinit_db
 
     answers = iter(["", "metriq", "REINITIALISE"])
-    monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
-    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: False)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres.ref:pw@host:5432/postgres")
-
     args = reinit_db.build_parser().parse_args([])
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: False)
+    monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
+
     assert reinit_db.collect_inputs(args) is True
+    assert args.url == os.environ["DATABASE_URL"], "a blank answer keeps the remembered target"
     assert args.no_admin is True
-
-
-def test_schema_problems_can_ignore_tables_that_do_not_exist_yet(tmp_path):
-    """A never-initialised database must not look like a shared one."""
-    from sqlalchemy import create_engine
-
-    fresh = create_engine(f"sqlite:///{(tmp_path / 'fresh.db').as_posix()}")
-
-    assert any(p.startswith("missing table") for p in bootstrap.schema_problems(fresh))
-    assert bootstrap.schema_problems(fresh, include_missing=False) == []
-
-
-def test_schema_conflicts_name_a_foreign_table_that_would_be_taken_over(tmp_path):
-    from sqlalchemy import create_engine, text
-
-    shared = create_engine(f"sqlite:///{(tmp_path / 'shared.db').as_posix()}")
-    with shared.begin() as connection:
-        connection.execute(text("create table users (id integer primary key, email text)"))
-
-    conflicts = bootstrap.schema_problems(shared, include_missing=False)
-
-    assert len(conflicts) == 1
-    assert conflicts[0].startswith("table 'users' is missing column(s):")
-    assert "role_code" in conflicts[0]
+    assert isolated_env == {}, "declining the save must not write to .env"

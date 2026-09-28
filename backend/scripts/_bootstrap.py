@@ -29,6 +29,9 @@ if str(BACKEND_DIR) not in sys.path:
 # scripts behave identically regardless of the caller's working directory.
 os.chdir(BACKEND_DIR)
 
+# The scripts run from here, so this is the file app.config reads as `.env`.
+ENV_FILE = BACKEND_DIR / ".env"
+
 
 def banner(title: str) -> None:
     print("=" * 72)
@@ -46,6 +49,47 @@ def warn(message: str) -> None:
 
 def note(message: str) -> None:
     print(f"  {message}")
+
+
+def read_env_file(path: Path | None = None) -> dict[str, str]:
+    """KEY=value pairs from backend/.env, for prompts to offer as defaults.
+
+    Environment variables take precedence over this file at the call sites,
+    which is the same order the application's settings use.
+    """
+    target = path or ENV_FILE
+    if not target.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for line in target.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
+def remember_env(values: dict[str, str], path: Path | None = None) -> Path:
+    """Store KEY=value pairs in backend/.env, leaving every other line alone."""
+    target = path or ENV_FILE
+    lines = target.read_text(encoding="utf-8").splitlines() if target.is_file() else []
+    for key, value in values.items():
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith("#") or "=" not in stripped:
+                continue
+            if stripped.partition("=")[0].strip() == key:
+                lines[index] = f"{key}={value}"
+                break
+        else:
+            lines.append(f"{key}={value}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return target
 
 
 # ---------------------------------------------------------------------------

@@ -39,6 +39,8 @@ from scripts._bootstrap import (  # noqa: E402
     ok,
     prompt,
     prompt_secret,
+    read_env_file,
+    remember_env,
     warn,
 )
 
@@ -66,24 +68,35 @@ def collect_inputs(args) -> bool:
     """Guided session: gather the target and the account. False = cancelled."""
     banner("MetrIQ - reinitialise database (DESTRUCTIVE)")
 
-    configured = os.environ.get("DATABASE_URL") or ""
-    if configured:
-        print(f"  DATABASE_URL is currently {mask_url(configured)}")
-    print("  Leave the URL blank to use that one. Text typed here does not reach")
-    print("  your shell history, and the password is never echoed.")
-    print()
+    stored = read_env_file()
+    configured = os.environ.get("DATABASE_URL") or stored.get("DATABASE_URL") or ""
 
-    url = prompt("Database URL", allow_blank=True)
-    if url:
-        args.url = url
-    elif not configured:
-        warn("no DATABASE_URL is set and none was entered")
-        return False
+    # Once the target is remembered in backend/.env this is a single keystroke.
+    if configured:
+        print(f"  Target: {mask_url(configured)}")
+        if confirm("Use this database?", default=True):
+            args.url = configured
+        else:
+            args.url = prompt("Database URL", allow_blank=True) or configured
+    else:
+        print("  No database is configured yet. Text typed here does not reach your")
+        print("  shell history, and the password is never echoed.")
+        print()
+        args.url = prompt("Database URL", allow_blank=True)
+        if not args.url:
+            warn("no DATABASE_URL is set and none was entered")
+            return False
 
     print()
     print("  Use a dedicated schema such as 'metriq' when this database is shared with")
     print("  another application, so only MetrIQ's own tables are touched.")
-    args.schema = prompt("Schema", default=os.environ.get("DB_SCHEMA") or "public")
+    default_schema = os.environ.get("DB_SCHEMA") or stored.get("DB_SCHEMA") or "public"
+    args.schema = prompt("Schema", default=default_schema)
+
+    # Anything new is offered back to .env, so later runs need no input at all.
+    if stored.get("DATABASE_URL") != args.url or (stored.get("DB_SCHEMA") or "") != args.schema:
+        if confirm("Save these settings to backend/.env for next time?", default=True):
+            ok(f"saved to {remember_env({'DATABASE_URL': args.url, 'DB_SCHEMA': args.schema})}")
 
     print()
     print("  " + "-" * 68)
