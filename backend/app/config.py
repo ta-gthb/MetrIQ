@@ -7,9 +7,8 @@ expected to be injected by the hosting platform (Render).
 Values are resolved in this order, last one wins:
 
 1. the defaults declared on Settings below
-2. `deployment.env` at the repository root - committed, non-secret, and the
-   reason a deployed service needs no dashboard round-trip for values such as
-   DB_SCHEMA
+2. `backend/deployment.env` - committed, non-secret, and the reason a deployed
+   service needs no dashboard round-trip for values such as DB_SCHEMA
 3. `.env` (gitignored, local only)
 4. real environment variables, which always win - so anything set on Render
    overrides every file here
@@ -26,9 +25,10 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
-# Resolved next to the repository, not the working directory, so the file is
-# found whether the app is started from the root or from backend/.
-DEPLOYMENT_DEFAULTS = Path(__file__).resolve().parents[2] / "deployment.env"
+# Resolved next to the application code rather than the working directory, so it
+# is found wherever the app is started from - and, unlike a copy at the
+# repository root, it travels with backend/ into the deployment image.
+DEPLOYMENT_DEFAULTS = Path(__file__).resolve().parents[1] / "deployment.env"
 
 
 class Settings(BaseSettings):

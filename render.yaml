@@ -56,9 +56,9 @@ services:
         sync: false
 
       # PostgreSQL schema for MetrIQ's own tables. The committed default in
-      # deployment.env is `metriq`, because this Supabase project is shared with
-      # another application that owns `public`. Setting it here overrides that
-      # file; set it to `public` to go back to the default schema.
+      # backend/deployment.env is `metriq`, because this Supabase project is
+      # shared with another application that owns `public`. Setting it here
+      # overrides that file; set it to `public` to go back to the default.
       - key: DB_SCHEMA
         sync: false
 

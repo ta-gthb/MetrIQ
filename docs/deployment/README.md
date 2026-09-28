@@ -141,15 +141,21 @@ you have one to spare.
 Configuration is resolved in this order, and the last one that sets a value wins:
 
 1. the defaults declared in `backend/app/config.py`
-2. `deployment.env` at the repository root - **committed**, non-secret, and the
-   reason a deploy picks up `DB_SCHEMA` without anyone opening a dashboard.
-   It carries `DB_SCHEMA=metriq`, `AUTO_INIT_DB` and `AUTO_SEED_REFERENCE`
+2. `backend/deployment.env` - **committed**, non-secret, and the reason a deploy
+   picks up `DB_SCHEMA` without anyone opening a dashboard. It carries
+   `DB_SCHEMA=metriq`, `AUTO_INIT_DB` and `AUTO_SEED_REFERENCE`
 3. `.env` (gitignored) - your local overrides
 4. real environment variables, so anything set on Render overrides every file
 
 Nothing secret may go in `deployment.env`; a test asserts that. Change the
 deployed schema by editing that file and pushing, or by setting `DB_SCHEMA` in
 the Render dashboard, which takes precedence over it.
+
+The file sits beside the application code rather than at the repository root
+because `Dockerfile` copies `backend/` into the image. A copy at the root would
+never reach the container, which is exactly how the service ended up running
+with the default `public` schema. `/health` reports `schema_source` so this is
+visible from a single request.
 
 ### Bootstrap
 
