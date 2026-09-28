@@ -59,6 +59,9 @@ def test_health_reports_database_readiness(client):
     assert body["database"] == "ok"
     assert body["storage_backend"] == "local"
     assert body["auth_provider"] == "local"
+    # Exposed so a deploy can confirm DB_SCHEMA took effect without a shell.
+    assert body["schema"] == "public"
+    assert body["schema_problems"] == 0
 
 
 def test_startup_bootstrap_skips_seeding_when_reference_data_is_present(accounts):
@@ -255,3 +258,40 @@ def test_tables_are_not_schema_qualified_by_default():
     """Schema qualification is opt-in: the suite runs on plain SQLite."""
     assert Base.metadata.schema is None
     assert "users" in Base.metadata.tables
+
+
+def test_bootstrap_reports_a_mismatch_without_seeding_or_crashing(accounts, monkeypatch):
+    """An incompatible table must not abort start-up: report it and carry on."""
+    monkeypatch.setattr(bootstrap, "_LAST_REPORT", dict(bootstrap.last_report()))
+    monkeypatch.setattr(
+        bootstrap,
+        "schema_problems",
+        lambda bind=None: ["table 'users' is missing column(s): role_code"],
+    )
+
+    report = bootstrap.initialise_database()
+
+    assert report["connected"] is True
+    assert report["schema_problems"] == ["table 'users' is missing column(s): role_code"]
+    assert report["seeded"] == {}
+    assert report["reference_data"] == "skipped: schema mismatch"
+    assert bootstrap.health_summary()["schema_problems"] == 1
+
+
+def test_bootstrap_survives_a_seeding_failure(accounts, monkeypatch):
+    """A failed seed leaves the API serving so /health can show the problem."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    monkeypatch.setattr(bootstrap, "_LAST_REPORT", dict(bootstrap.last_report()))
+    monkeypatch.setattr(bootstrap, "schema_problems", lambda bind=None: [])
+    monkeypatch.setattr(bootstrap, "reference_data_present", lambda db: False)
+
+    def explode(db):
+        raise SQLAlchemyError("value too long for type character varying(60)")
+
+    monkeypatch.setattr(bootstrap, "seed_reference_data", explode)
+
+    report = bootstrap.initialise_database()
+
+    assert report["reference_data"] == "failed"
+    assert "character varying(60)" in report["error"]

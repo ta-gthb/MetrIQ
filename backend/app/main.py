@@ -32,7 +32,11 @@ from app.routers import (
     workflow,
 )
 from app.services.attachment_service.storage import get_storage
-from app.services.reference_data.bootstrap import database_status, initialise_database
+from app.services.reference_data.bootstrap import (
+    database_status,
+    health_summary,
+    initialise_database,
+)
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -157,6 +161,10 @@ def health() -> dict:
         "version": __version__,
         "environment": settings.ENVIRONMENT,
         "database": database_status(),
+        # Which schema the tables were resolved from, plus a count of any that
+        # do not match this application - the fastest way to confirm that
+        # DB_SCHEMA reached the service.
+        **health_summary(),
         "auth_provider": settings.AUTH_PROVIDER,
         "storage_backend": storage,
         "ai_provider": settings.AI_PROVIDER,

@@ -174,6 +174,7 @@ def seed_reference_data(db) -> dict[str, int]:
 
 def initialise_database() -> dict:
     """Start-up hook: create the schema and seed the catalogue when missing."""
+    global _LAST_REPORT
     report: dict = {
         "target": target_description(),
         "connected": False,
@@ -194,6 +195,7 @@ def initialise_database() -> dict:
             "session pooler on port 5432 and percent-encode the password.",
             report["target"], detail,
         )
+        _LAST_REPORT = report
         return report
 
     if settings.AUTO_INIT_DB:
@@ -209,13 +211,31 @@ def initialise_database() -> dict:
                 + (" ..." if len(report["schema_problems"]) > 4 else ""),
             )
 
-    if settings.AUTO_SEED_REFERENCE:
-        with session_scope() as db:
-            if reference_data_present(db):
-                report["reference_data"] = "present"
-            else:
-                report["seeded"] = seed_reference_data(db)
-                report["reference_data"] = "seeded"
+    # Seeding is attempted only against a schema that matches this application.
+    # Otherwise the first INSERT fails halfway through, which used to abort
+    # start-up entirely: the service would crash-loop behind a stale instance and
+    # the deploy looked like it simply never took effect.
+    if settings.AUTO_SEED_REFERENCE and not report["schema_problems"]:
+        try:
+            with session_scope() as db:
+                if reference_data_present(db):
+                    report["reference_data"] = "present"
+                else:
+                    report["seeded"] = seed_reference_data(db)
+                    report["reference_data"] = "seeded"
+        except SQLAlchemyError as exc:
+            report["reference_data"] = "failed"
+            report["error"] = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                "REFERENCE DATA SEEDING FAILED at %s: %s. The API stays up so this is "
+                "visible from /health, but cases cannot be created until the reference "
+                "catalogue is seeded. Check DB_SCHEMA and DATABASE_URL.",
+                report["target"], exc,
+            )
+    elif settings.AUTO_SEED_REFERENCE:
+        report["reference_data"] = "skipped: schema mismatch"
+
+    _LAST_REPORT = report
 
     logger.info(
         "database ready at %s: %s tables, reference data %s%s",
@@ -229,3 +249,20 @@ def database_status() -> str:
     """Short readiness string for the /health payload."""
     connected, detail = probe_connection()
     return "ok" if connected else f"unavailable: {detail}"
+
+
+_LAST_REPORT: dict = {}
+
+
+def last_report() -> dict:
+    """The most recent start-up report, for /health."""
+    return _LAST_REPORT
+
+
+def health_summary() -> dict:
+    """Configuration facts worth exposing publicly, without error detail."""
+    return {
+        "schema": settings.DB_SCHEMA or "public",
+        "schema_problems": len(_LAST_REPORT.get("schema_problems") or []),
+        "reference_data": _LAST_REPORT.get("reference_data", "unknown"),
+    }
