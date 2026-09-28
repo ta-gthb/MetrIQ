@@ -21,11 +21,103 @@
   --fail: #ff6b6b;
   --warn: #f5b544;
   --na: #8e9ab5;
+  /* Palette plumbing. Every tint below is an alpha composite over the page
+     background, so the light theme restates this block once instead of
+     restating each component that uses it. */
+  --bg-grad: radial-gradient(1200px 600px at 10% -10%, #16224a 0%, var(--bg) 55%);
+  --sidebar-bg: linear-gradient(180deg, #0e1729 0%, #0a1120 100%);
+  --chrome-bg: rgba(11, 18, 32, 0.82);
+  --chrome-bg-strong: rgba(11, 18, 32, 0.92);
+  --backdrop: rgba(4, 8, 18, 0.72);
+  --danger-ink: #ffb3b3;
+  --accent-tint: rgba(53, 208, 186, 0.14);
+  --accent-tint-mid: rgba(53, 208, 186, 0.12);
+  --accent-tint-strong: rgba(53, 208, 186, 0.1);
+  --accent-tint-faint: rgba(53, 208, 186, 0.05);
+  --accent-line: rgba(53, 208, 186, 0.4);
+  --accent-line-soft: rgba(53, 208, 186, 0.35);
+  --pass-tint: rgba(55, 214, 122, 0.14);
+  --pass-wash: rgba(55, 214, 122, 0.08);
+  --pass-tint-strong: rgba(55, 214, 122, 0.25);
+  --pass-line: rgba(55, 214, 122, 0.4);
+  --fail-tint: rgba(255, 107, 107, 0.14);
+  --fail-wash: rgba(255, 107, 107, 0.08);
+  --fail-wash-soft: rgba(255, 107, 107, 0.06);
+  --fail-wash-row: rgba(255, 107, 107, 0.07);
+  --fail-ring: rgba(255, 107, 107, 0.16);
+  --fail-line: rgba(255, 107, 107, 0.4);
+  --fail-line-strong: rgba(255, 107, 107, 0.5);
+  --warn-tint: rgba(245, 181, 68, 0.14);
+  --warn-wash: rgba(245, 181, 68, 0.08);
+  --warn-line: rgba(245, 181, 68, 0.4);
+  --info-tint: rgba(90, 169, 255, 0.14);
+  --info-wash: rgba(90, 169, 255, 0.08);
+  --info-line: rgba(90, 169, 255, 0.4);
+  --na-tint: rgba(142, 154, 181, 0.14);
+  --na-line: rgba(142, 154, 181, 0.35);
   --radius: 10px;
   --radius-sm: 6px;
   --shadow: 0 10px 30px rgba(3, 8, 20, 0.45);
   --mono: "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
   --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Keeps form controls, scrollbars and the caret in step with the theme. */
+  color-scheme: dark;
+}
+
+/* Light theme. Same component CSS; only the palette is restated, so every
+   page gets a day-mode view without a single duplicated component rule. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f5fa;
+  --bg-raised: #ffffff;
+  --bg-inset: #f7f9fd;
+  --surface: #ffffff;
+  --surface-2: #eaeff8;
+  --border: #dbe2ef;
+  --border-strong: #c3cee1;
+  --text: #111a2b;
+  --text-muted: #4c5b7a;
+  --text-faint: #6f7d9b;
+  --accent: #0b7a6b;
+  --accent-strong: #096457;
+  --accent-ink: #ffffff;
+  --info: #1a63c4;
+  --pass: #0f7a44;
+  --fail: #c02d20;
+  --warn: #96600a;
+  --na: #5a6885;
+  --shadow: 0 8px 24px rgba(23, 38, 66, 0.1);
+  --bg-grad: radial-gradient(1200px 600px at 10% -10%, #e2e9f8 0%, var(--bg) 55%);
+  --sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f1f4fb 100%);
+  --chrome-bg: rgba(255, 255, 255, 0.85);
+  --chrome-bg-strong: rgba(255, 255, 255, 0.93);
+  --backdrop: rgba(23, 33, 55, 0.45);
+  --danger-ink: #a52015;
+  --accent-tint: rgba(11, 122, 107, 0.1);
+  --accent-tint-mid: rgba(11, 122, 107, 0.1);
+  --accent-tint-strong: rgba(11, 122, 107, 0.09);
+  --accent-tint-faint: rgba(11, 122, 107, 0.045);
+  --accent-line: rgba(11, 122, 107, 0.35);
+  --accent-line-soft: rgba(11, 122, 107, 0.3);
+  --pass-tint: rgba(15, 122, 68, 0.12);
+  --pass-wash: rgba(15, 122, 68, 0.07);
+  --pass-tint-strong: rgba(15, 122, 68, 0.2);
+  --pass-line: rgba(15, 122, 68, 0.35);
+  --fail-tint: rgba(192, 45, 32, 0.1);
+  --fail-wash: rgba(192, 45, 32, 0.07);
+  --fail-wash-soft: rgba(192, 45, 32, 0.05);
+  --fail-wash-row: rgba(192, 45, 32, 0.06);
+  --fail-ring: rgba(192, 45, 32, 0.16);
+  --fail-line: rgba(192, 45, 32, 0.35);
+  --fail-line-strong: rgba(192, 45, 32, 0.45);
+  --warn-tint: rgba(150, 96, 10, 0.12);
+  --warn-wash: rgba(150, 96, 10, 0.08);
+  --warn-line: rgba(150, 96, 10, 0.35);
+  --info-tint: rgba(26, 99, 196, 0.1);
+  --info-wash: rgba(26, 99, 196, 0.07);
+  --info-line: rgba(26, 99, 196, 0.35);
+  --na-tint: rgba(90, 104, 133, 0.1);
+  --na-line: rgba(90, 104, 133, 0.3);
 }
 
 * { box-sizing: border-box; }
@@ -34,7 +126,7 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: radial-gradient(1200px 600px at 10% -10%, #16224a 0%, var(--bg) 55%);
+  background: var(--bg-grad);
   color: var(--text);
   font-family: var(--sans);
   font-size: 14px;
@@ -59,7 +151,7 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
 .sidebar {
   width: 232px;
   flex: 0 0 232px;
-  background: linear-gradient(180deg, #0e1729 0%, #0a1120 100%);
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   padding: 18px 14px;
   position: sticky;
@@ -81,16 +173,19 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
   color: var(--text-muted); font-weight: 500;
 }
 .nav a:hover { background: var(--surface); color: var(--text); text-decoration: none; }
-.nav a.active { background: rgba(53, 208, 186, 0.14); color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.nav a.active { background: var(--accent-tint); color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
 .nav a .icon { width: 16px; text-align: center; opacity: 0.9; }
 
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .topbar {
+  /* Wraps rather than clips: the clock, the theme switch and the sign-out
+     button must all stay reachable on a narrow bench tablet. */
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap;
   padding: 12px 22px;
   border-bottom: 1px solid var(--border);
-  background: rgba(11, 18, 32, 0.82);
+  background: var(--chrome-bg);
   backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 20;
 }
@@ -160,8 +255,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 input:disabled, select:disabled, textarea:disabled { opacity: 0.55; cursor: not-allowed; }
 input.invalid, select.invalid, textarea.invalid {
   border-color: var(--fail);
-  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.16);
-  background: rgba(255, 107, 107, 0.06);
+  box-shadow: 0 0 0 3px var(--fail-ring);
+  background: var(--fail-wash-soft);
 }
 input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 
@@ -193,8 +288,8 @@ button:hover:not(:disabled), .btn:hover { border-color: var(--accent); color: va
 button:disabled, .btn.disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-strong); color: var(--accent-ink); }
-.btn-danger { border-color: rgba(255, 107, 107, 0.5); color: #ffb3b3; }
-.btn-danger:hover:not(:disabled) { border-color: var(--fail); color: #fff; background: rgba(255, 107, 107, 0.14); }
+.btn-danger { border-color: var(--fail-line-strong); color: var(--danger-ink); }
+.btn-danger:hover:not(:disabled) { border-color: var(--fail); color: var(--fail); background: var(--fail-tint); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
 .btn-ghost:hover { background: var(--surface); }
 .btn-sm { padding: 5px 9px; font-size: 0.79rem; }
@@ -206,21 +301,21 @@ button:disabled, .btn.disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.72rem; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
   border: 1px solid transparent; white-space: nowrap;
 }
-.pill-pass { background: rgba(55, 214, 122, 0.14); color: var(--pass); border-color: rgba(55, 214, 122, 0.4); }
-.pill-fail { background: rgba(255, 107, 107, 0.14); color: var(--fail); border-color: rgba(255, 107, 107, 0.4); }
-.pill-warn { background: rgba(245, 181, 68, 0.14); color: var(--warn); border-color: rgba(245, 181, 68, 0.4); }
-.pill-info { background: rgba(90, 169, 255, 0.14); color: var(--info); border-color: rgba(90, 169, 255, 0.4); }
-.pill-na { background: rgba(142, 154, 181, 0.14); color: var(--na); border-color: rgba(142, 154, 181, 0.35); }
-.pill-accent { background: rgba(53, 208, 186, 0.14); color: var(--accent); border-color: rgba(53, 208, 186, 0.4); }
+.pill-pass { background: var(--pass-tint); color: var(--pass); border-color: var(--pass-line); }
+.pill-fail { background: var(--fail-tint); color: var(--fail); border-color: var(--fail-line); }
+.pill-warn { background: var(--warn-tint); color: var(--warn); border-color: var(--warn-line); }
+.pill-info { background: var(--info-tint); color: var(--info); border-color: var(--info-line); }
+.pill-na { background: var(--na-tint); color: var(--na); border-color: var(--na-line); }
+.pill-accent { background: var(--accent-tint); color: var(--accent); border-color: var(--accent-line); }
 
 /* ---------------------------------------------------------------- tables */
 table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--text-faint); font-weight: 650; }
-tbody tr:hover { background: rgba(53, 208, 186, 0.05); }
+tbody tr:hover { background: var(--accent-tint-faint); }
 td.num, th.num { text-align: right; font-family: var(--mono); }
-tr.row-selected { background: rgba(53, 208, 186, 0.1); }
-tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
+tr.row-selected { background: var(--accent-tint-strong); }
+tr.row-invalid td { background: var(--fail-wash-row); }
 .table-wrap { overflow-x: auto; }
 
 /* ---------------------------------------------------------------- wizard */
@@ -243,9 +338,9 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
   font-size: 0.7rem; font-weight: 700; flex: 0 0 20px;
 }
 .rail button:hover { background: var(--surface); color: var(--text); }
-.rail button.current { background: rgba(53, 208, 186, 0.12); color: var(--text); border-color: rgba(53, 208, 186, 0.35); }
+.rail button.current { background: var(--accent-tint-mid); color: var(--text); border-color: var(--accent-line-soft); }
 .rail button.current::before { background: var(--accent); color: var(--accent-ink); }
-.rail button.done::before { background: rgba(55, 214, 122, 0.25); color: var(--pass); content: "\2713"; }
+.rail button.done::before { background: var(--pass-tint-strong); color: var(--pass); content: "\2713"; }
 
 .aside { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -258,7 +353,7 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
   display: flex; align-items: center; gap: 10px;
   position: sticky; bottom: 0; z-index: 15;
   margin: 18px -22px -22px; padding: 12px 22px;
-  background: rgba(11, 18, 32, 0.92); backdrop-filter: blur(8px);
+  background: var(--chrome-bg-strong); backdrop-filter: blur(8px);
   border-top: 1px solid var(--border);
 }
 
@@ -270,12 +365,12 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
 /* ---------------------------------------------------------------- misc */
 .banner {
   display: flex; gap: 10px; align-items: flex-start;
-  border-left: 3px solid var(--info); background: rgba(90, 169, 255, 0.08);
+  border-left: 3px solid var(--info); background: var(--info-wash);
   padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 14px;
 }
-.banner.warn { border-color: var(--warn); background: rgba(245, 181, 68, 0.08); }
-.banner.fail { border-color: var(--fail); background: rgba(255, 107, 107, 0.08); }
-.banner.pass { border-color: var(--pass); background: rgba(55, 214, 122, 0.08); }
+.banner.warn { border-color: var(--warn); background: var(--warn-wash); }
+.banner.fail { border-color: var(--fail); background: var(--fail-wash); }
+.banner.pass { border-color: var(--pass); background: var(--pass-wash); }
 .banner strong { display: block; }
 
 .calc-panel { background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
@@ -290,7 +385,7 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
   padding: 9px 11px; margin-bottom: 6px; color: var(--text); cursor: pointer;
 }
 .test-item:hover { border-color: var(--accent); }
-.test-item.active { border-color: var(--accent); background: rgba(53, 208, 186, 0.1); }
+.test-item.active { border-color: var(--accent); background: var(--accent-tint-strong); }
 .test-item .code { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); font-weight: 700; }
 .test-item .name { font-size: 0.85rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
@@ -310,7 +405,7 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
 .toast.success { border-left-color: var(--pass); }
 
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(4, 8, 18, 0.72);
+  position: fixed; inset: 0; background: var(--backdrop);
   display: flex; align-items: center; justify-content: center; z-index: 150; padding: 20px;
 }
 .modal { background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); width: min(620px, 100%); max-height: 86vh; overflow-y: auto; }
@@ -333,6 +428,25 @@ tr.row-invalid td { background: rgba(255, 107, 107, 0.07); }
 .skip-link:focus { left: 12px; top: 12px; background: var(--accent); color: var(--accent-ink); padding: 8px 12px; z-index: 300; border-radius: var(--radius-sm); }
 
 .empty { padding: 26px; text-align: center; color: var(--text-faint); border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); }
+
+/* ---------------------------------------------------------- theme ------- */
+.theme-toggle { gap: 6px; }
+.theme-toggle .theme-icon { font-size: 0.95rem; line-height: 1; }
+.theme-toggle .theme-toggle-label { font-size: 0.75rem; letter-spacing: 0.3px; }
+@media (max-width: 780px) { .theme-toggle .theme-toggle-label { display: none; } }
+
+.auth-toolbar {
+  position: fixed; top: 14px; right: 18px; z-index: 60;
+  display: flex; align-items: center; gap: 12px;
+}
+@media (max-width: 620px) { .auth-toolbar .clock { display: none; } }
+
+/* ---------------------------------------------------------- clock ------- */
+/* Every [data-clock] element is refreshed each second by js/clock.js, so the
+   date and time on screen always match the machine the operator is using. */
+.clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; text-align: right; }
+.clock .clock-time { font-family: var(--mono); font-size: 0.86rem; font-weight: 650; letter-spacing: 0.4px; }
+.clock .clock-date { font-size: 0.7rem; color: var(--text-faint); }
 
 @media print {
   .sidebar, .topbar, .wizard-footer, .rail, .aside, button, .btn { display: none !important; }

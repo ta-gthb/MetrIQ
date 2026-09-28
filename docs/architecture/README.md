@@ -42,6 +42,24 @@ There is no build step. `backend/app/main.py` mounts `frontend/` at `/`, so the
 UI and API share an origin and no CORS or token-in-URL workaround is needed for
 normal use.
 
+### Frontend conventions
+
+The whole palette lives in `css/app.css` as custom properties: `:root` is the
+dark control surface and `[data-theme="light"]` restates it, so no component
+rule branches on the theme. `js/theme.js` owns the switch - the choice is kept
+in `localStorage["metriq-theme"]`, the operating-system preference is the
+default until the operator chooses, and a tiny inline bootstrap in each page
+head sets `<html data-theme>` before the first paint so the theme never
+flashes. Any element carrying `data-theme-toggle` becomes a switch, and the
+shared topbar rendered by `ui.renderShell()` places one on every application
+page.
+
+`js/clock.js` repaints every `[data-clock]` element once a second and corrects
+the browser clock by the offset it observes against `GET /health`'s
+`server_time_utc`, so a workstation with a wrong system time still displays the
+platform's date and time. Record timestamps are stored in UTC and rendered in
+the operator's local timezone by `ui.fmtDate`.
+
 ## 3. Backend layout
 
 ```

@@ -6,8 +6,35 @@
   <title>Sign in - MetrIQ</title>
   <link rel="icon" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    /* Apply the stored theme before the first paint: a page opened in light
+       mode must never flash the dark palette first. Kept inline and tiny so it
+       runs ahead of the first paint without a network round trip. */
+    (function () {
+      try {
+        var stored = localStorage.getItem('metriq-theme');
+        var prefersLight = window.matchMedia
+          && window.matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.setAttribute('data-theme',
+          stored === 'light' || stored === 'dark' ? stored : (prefersLight ? 'light' : 'dark'));
+      } catch (error) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
 </head>
 <body class="auth-page">
+  <div class="auth-toolbar">
+    <div class="clock" data-clock role="group" aria-label="Current local date and time">
+      <span class="clock-time" data-clock-time>--:--:--</span>
+      <span class="clock-date" data-clock-date>&nbsp;</span>
+    </div>
+    <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+      <span class="theme-icon" data-theme-icon aria-hidden="true">☀</span>
+      <span class="theme-toggle-label" data-theme-label>Light</span>
+    </button>
+  </div>
+
   <main class="card auth-card">
     <div class="brand" style="margin-bottom:16px">
       <img src="/assets/logo.svg" alt="" />

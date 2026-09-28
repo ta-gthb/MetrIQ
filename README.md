@@ -19,6 +19,9 @@ It is not a CRUD application with a PDF export. The differentiators are:
 - **Bounded AI.** Nameplate extraction, anomaly warnings, document
   classification and a retrieval-grounded R 76 assistant - all advisory, all
   toggleable, all usable offline via a deterministic stub provider.
+- **A laboratory-grade interface.** Every page renders in light or dark
+  mode from one palette, remembers the choice per browser, and carries a
+  clock pinned to the platform's date and time.
 
 ## Quick start
 
@@ -138,12 +141,12 @@ backend/
                        report_engine, ai_service, audit_service, metrology_service
   scripts/             init_db, reinit_db, reset_db, seed_rules, seed_identity,
                        seed_db, manage_admin, create_admin
-  tests/               175 tests
+  tests/               184 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
-  css/app.css          dark control-surface design system
-  js/                  api.js, ui.js and one module per page
+  css/app.css          design system; dark and light palettes as CSS vars
+  js/                  api.js, ui.js, theme.js, clock.js and one module per page
 docs/
   architecture/  calculations/  deployment/  ai/
 ```

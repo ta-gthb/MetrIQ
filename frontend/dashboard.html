@@ -6,6 +6,22 @@
   <title>Dashboard - MetrIQ</title>
   <link rel="icon" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    /* Apply the stored theme before the first paint: a page opened in light
+       mode must never flash the dark palette first. Kept inline and tiny so it
+       runs ahead of the first paint without a network round trip. */
+    (function () {
+      try {
+        var stored = localStorage.getItem('metriq-theme');
+        var prefersLight = window.matchMedia
+          && window.matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.setAttribute('data-theme',
+          stored === 'light' || stored === 'dark' ? stored : (prefersLight ? 'light' : 'dark'));
+      } catch (error) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="app-shell" id="shell"></div>

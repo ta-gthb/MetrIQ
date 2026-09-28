@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from app.security.permissions import AUDITOR, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
 
 API = "/api/v1"
@@ -21,6 +23,14 @@ def test_health_is_public_and_states_the_ai_independence_contract(client):
     assert body["status"] == "ok"
     assert body["calculation_engine_independent_of_ai"] is True
     assert body["ai_provider"] == "stub"
+
+
+def test_health_publishes_the_platform_clock_for_client_synchronisation(client):
+    """The browser corrects a skewed workstation clock from this value."""
+    body = client.get("/health").json()
+    stamp = datetime.fromisoformat(body["server_time_utc"])
+    assert stamp.tzinfo is not None
+    assert abs((datetime.now(timezone.utc) - stamp).total_seconds()) < 60
 
 
 def test_openapi_schema_is_generated(client):

@@ -1,6 +1,8 @@
 /* Shared UI primitives: shell, navigation, status pills, toasts and modals. */
 
 import { can, canAny, getUser, getRoleName, logout } from './api.js';
+import { initTheme } from './theme.js';
+import { startClocks } from './clock.js';
 
 export function escapeHtml(value) {
   if (value === null || value === undefined) return '';
@@ -223,10 +225,18 @@ export function renderShell({ active, title, crumb = 'MetrIQ', actionsHtml = '' 
         <div class="inline">
           ${actionsHtml}
           <div class="inline" style="gap:6px">
+            <div class="clock" data-clock role="group" aria-label="Current local date and time">
+              <span class="clock-time" data-clock-time>--:--:--</span>
+              <span class="clock-date" data-clock-date>&nbsp;</span>
+            </div>
             <div style="text-align:right">
               <div class="small">${escapeHtml(user.full_name)}</div>
               <div class="faint" style="font-size:0.72rem">${escapeHtml(getRoleName() || user.role_code)}</div>
             </div>
+            <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+              <span class="theme-icon" data-theme-icon aria-hidden="true">☀</span>
+              <span class="theme-toggle-label" data-theme-label>Light</span>
+            </button>
             <button class="btn-sm" id="sign-out">Sign out</button>
           </div>
         </div>
@@ -235,6 +245,11 @@ export function renderShell({ active, title, crumb = 'MetrIQ', actionsHtml = '' 
     </div>`;
 
   shell.querySelector('#sign-out').addEventListener('click', logout);
+  /* The theme switch and the live clock belong to every page's chrome, so
+     they are wired here rather than in each page module. Both calls are
+     idempotent, so a page may also call them before the shell is drawn. */
+  initTheme();
+  startClocks();
   return shell.querySelector('#page-content');
 }
 

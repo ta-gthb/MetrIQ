@@ -2,6 +2,12 @@
 
 import { login, formatApiError, getSession } from './api.js';
 import { escapeHtml, toast } from './ui.js';
+import { initTheme } from './theme.js';
+import { startClocks } from './clock.js';
+
+/* The sign-in page has no shell, so it wires its own theme switch and clock. */
+initTheme();
+startClocks();
 
 const DEMO_ACCOUNTS = [
   ['engineer@metriq.local', 'Test Engineer', 'records observations and runs calculations'],

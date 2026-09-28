@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request, status
@@ -161,6 +162,9 @@ def health() -> dict:
         "name": settings.APP_NAME,
         "version": __version__,
         "environment": settings.ENVIRONMENT,
+        # The platform clock, so the browser can correct a workstation whose
+        # system time is wrong instead of misdating what it displays.
+        "server_time_utc": datetime.now(timezone.utc).isoformat(),
         "database": database_status(),
         # Which schema the tables were resolved from, plus a count of any that
         # do not match this application - the fastest way to confirm that
