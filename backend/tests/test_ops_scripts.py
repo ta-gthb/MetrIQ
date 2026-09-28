@@ -54,6 +54,34 @@ def temporary_super_admin():
             db.commit()
 
 
+def test_schema_source_says_which_layer_supplied_the_value(monkeypatch):
+    """Tells "the setting never arrived" apart from "something overrode it"."""
+    from app.services.reference_data import bootstrap
+
+    monkeypatch.setenv("DB_SCHEMA", "metriq")
+    assert bootstrap.schema_source() == "environment"
+
+    # settings is built once per process, so the remaining layers are exercised
+    # by changing the resolved value rather than the environment underneath it.
+    monkeypatch.delenv("DB_SCHEMA", raising=False)
+    monkeypatch.setattr(bootstrap.settings, "DB_SCHEMA", "metriq")
+    assert bootstrap.schema_source() == "configuration file"
+    assert bootstrap.health_summary()["schema"] == "metriq"
+
+    monkeypatch.setattr(bootstrap.settings, "DB_SCHEMA", None)
+    assert bootstrap.schema_source() == "default"
+    assert bootstrap.health_summary()["schema"] == "public"
+
+
+def test_a_fresh_process_takes_the_schema_from_the_committed_defaults(monkeypatch):
+    """What the deployed service does at start-up: no environment value at all."""
+    from app.config import Settings
+
+    monkeypatch.delenv("DB_SCHEMA", raising=False)
+
+    assert Settings().DB_SCHEMA == "metriq"
+
+
 def test_deployment_defaults_are_committed_and_carry_no_secrets():
     """The file a deployed service reads instead of a dashboard round-trip."""
     from app.config import DEPLOYMENT_DEFAULTS
@@ -95,6 +123,9 @@ def test_health_reports_database_readiness(client):
     # Exposed so a deploy can confirm DB_SCHEMA took effect without a shell.
     assert body["schema"] == "public"
     assert body["schema_problems"] == 0
+    # conftest pins DB_SCHEMA in the environment, which outranks every file.
+    assert body["schema_source"] == "environment"
+    assert "git_commit" in body, "a deploy must be able to name the code it serves"
 
 
 def test_startup_bootstrap_skips_seeding_when_reference_data_is_present(accounts):

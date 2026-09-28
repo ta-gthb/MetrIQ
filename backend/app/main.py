@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -165,6 +166,9 @@ def health() -> dict:
         # do not match this application - the fastest way to confirm that
         # DB_SCHEMA reached the service.
         **health_summary(),
+        # Which commit Render is actually serving. Without it, "the deploy did
+        # not take effect" and "the setting did not take effect" look identical.
+        "git_commit": (os.environ.get("RENDER_GIT_COMMIT") or "unknown")[:7],
         "auth_provider": settings.AUTH_PROVIDER,
         "storage_backend": storage,
         "ai_provider": settings.AI_PROVIDER,

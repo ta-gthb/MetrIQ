@@ -13,6 +13,7 @@ instead of surfacing as a 503 on the first sign-in attempt.
 from __future__ import annotations
 
 import logging
+import os
 from collections import defaultdict
 
 import sqlalchemy as sa
@@ -268,10 +269,26 @@ def last_report() -> dict:
     return _LAST_REPORT
 
 
+def schema_source() -> str:
+    """Where the effective DB_SCHEMA came from.
+
+    A schema mismatch has one of two causes: the value never reached the
+    service, or it reached it and something overrode it. environment variables
+    win over every configuration file, so reporting which one supplied the
+    value settles the question from a single request.
+    """
+    if "DB_SCHEMA" in os.environ:
+        return "environment"
+    if settings.DB_SCHEMA:
+        return "configuration file"
+    return "default"
+
+
 def health_summary() -> dict:
     """Configuration facts worth exposing publicly, without error detail."""
     return {
         "schema": settings.DB_SCHEMA or "public",
+        "schema_source": schema_source(),
         "schema_problems": len(_LAST_REPORT.get("schema_problems") or []),
         "reference_data": _LAST_REPORT.get("reference_data", "unknown"),
     }
