@@ -119,8 +119,13 @@ class SupabaseStorageBackend(StorageBackend):
         return f"{self.url}/storage/v1/object/{self.bucket}/{validate_key(key)}"
 
     def save(self, key: str, data: bytes, content_type: str | None = None) -> None:
+        # Keys are deterministic (`reports/{report_no}-R{revision}.{format}`), so
+        # writing one twice must overwrite, exactly as the local backend does.
+        # With upsert disabled a single failed commit - or a regenerated
+        # revision - leaves the object behind and every later attempt fails
+        # with a permanent 500.
         headers = {**self._headers, "Content-Type": content_type or "application/octet-stream",
-                   "x-upsert": "false"}
+                   "x-upsert": "true"}
         response = httpx.post(self._object_url(key), content=data, headers=headers, timeout=60)
         if response.status_code >= 400:
             raise StorageError(f"supabase upload failed ({response.status_code}): {response.text[:200]}")

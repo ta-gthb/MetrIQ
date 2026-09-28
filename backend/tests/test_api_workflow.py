@@ -103,6 +103,40 @@ def test_report_artefacts_are_written_to_the_object_store(client, tokens, case_f
         assert storage.read(row.storage_key)
 
 
+def test_the_object_store_overwrites_a_deterministic_key(monkeypatch):
+    """Writing the same report key twice must overwrite, never fail.
+
+    Report keys are derived from the report number, revision and format, so the
+    local and Supabase backends have to agree on what a repeated write means.
+    With upsert disabled, one artefact left in the bucket by a failed commit
+    turns every later generation of that report into a permanent 500.
+    """
+    import httpx
+
+    from app.services.attachment_service.storage import SupabaseStorageBackend
+
+    captured: dict = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+    def fake_post(url, content=None, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    backend = SupabaseStorageBackend(
+        url="https://example.supabase.co", service_key="service-key", bucket="metriq-evidence"
+    )
+    key = "reports/RPT-2026-00001-R1.pdf"
+    backend.save(key, b"%PDF-1.4", "application/pdf")
+
+    assert captured["headers"]["x-upsert"] == "true"
+    assert captured["url"].endswith(f"/storage/v1/object/metriq-evidence/{key}")
+
+
 def test_a_missing_report_artefact_reports_410_not_500(client, tokens, case_factory):
     payload = run_lifecycle(client, tokens, case_factory())
     report_id = uuid.UUID(payload["report"]["id"])

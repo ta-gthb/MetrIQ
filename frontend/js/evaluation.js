@@ -869,10 +869,32 @@ function bindRequiredEvidence() {
   });
 }
 
+async function downloadEvidence(attachmentId) {
+  const item = (state.attachments || []).find((row) => row.id === attachmentId);
+  if (!item || !item.download_url) return;
+  try {
+    // The server's download_url is absolute and already carries the short-lived
+    // signed token; the route also requires the bearer token, which only a fetch
+    // can send - a plain <a href> would answer 401.
+    const blob = await api.download(item.download_url.replace(/^\/api\/v1/, ''));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = item.original_filename || 'evidence';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
 function evidencePanel() {
   const rows = state.attachments.length
     ? '<div class="table-wrap mt-2"><table><tbody>' + state.attachments.map((item) =>
-      '<tr><td><a href="' + escapeHtml(item.download_url) + '">' + escapeHtml(item.original_filename) + '</a>' +
+      '<tr><td>' + escapeHtml(item.original_filename) +
+        ' <button class="btn-sm" data-download-attachment="' + escapeHtml(item.id) + '">Download</button>' +
         '<div class="faint small">' + escapeHtml(item.caption || '') + '</div></td>' +
       '<td><span class="pill pill-info">' + escapeHtml(statusLabel(item.category)) + '</span>' +
         (item.advisory_category ? ' <span class="pill pill-accent">AI suggested</span>' : '') + '</td>' +
@@ -1180,6 +1202,9 @@ function bindExecution() {
     button.addEventListener('click', () => runDisposition(test, button.dataset.obs, button.dataset.disposition));
   });
   document.getElementById('upload-evidence')?.addEventListener('click', uploadEvidence);
+  document.querySelectorAll('[data-download-attachment]').forEach((button) => {
+    button.addEventListener('click', () => downloadEvidence(button.dataset.downloadAttachment));
+  });
   bindRequiredEvidence();
 }
 
