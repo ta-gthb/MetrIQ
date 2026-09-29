@@ -23,6 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import engine, session_scope
+from app.migrations import apply_migrations
 from app.models import Base, Role, StandardVersion, TestDefinition
 
 logger = logging.getLogger("metriq.bootstrap")
@@ -50,16 +51,42 @@ class SchemaMismatch(RuntimeError):
 
 
 def ensure_schema() -> int:
-    """Create the configured schema and any missing table.
+    """Bring the schema to the current revision, creating it when empty.
+
+    Migrations own the schema: on an empty database Alembic creates every
+    table, and on one MetrIQ provisioned before migrations existed
+    :func:`app.migrations.apply_migrations` adopts it - stamped at the
+    baseline, then upgraded - without touching the data. ``create_all``
+    survives only as a fallback for a deployment whose migration tree is
+    missing, so the API always boots; the failure is logged and reported on
+    ``/health``.
 
     Returns the number of tables in the model. When DB_SCHEMA is set the schema
     is created first, so unqualified DDL resolves into it rather than into
-    another application's `public` schema.
+    another application's "public" schema.
     """
+    global _LAST_MIGRATION_REPORT
     if settings.DB_SCHEMA and engine.dialect.name != "sqlite":
         with engine.begin() as connection:
             connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{settings.DB_SCHEMA}"'))
-    Base.metadata.create_all(bind=engine)
+    try:
+        _LAST_MIGRATION_REPORT = apply_migrations()
+        logger.info(
+            "schema at revision %s (head %s, adopted=%s, resynced=%s)",
+            _LAST_MIGRATION_REPORT.get("after"),
+            _LAST_MIGRATION_REPORT.get("head"),
+            _LAST_MIGRATION_REPORT.get("adopted"),
+            _LAST_MIGRATION_REPORT.get("resynced"),
+        )
+    except Exception as exc:  # pragma: no cover - depends on the deployment
+        _LAST_MIGRATION_REPORT = {"error": f"{type(exc).__name__}: {exc}"}
+        logger.error(
+            "MIGRATION FAILED (%s: %s). Falling back to create_all so the API still "
+            "boots; the schema may be left at an unknown revision - check with "
+            "`python -m scripts.migrate current`.",
+            type(exc).__name__, exc,
+        )
+        Base.metadata.create_all(bind=engine)
     return len(Base.metadata.tables)
 
 
@@ -210,6 +237,7 @@ def initialise_database() -> dict:
 
     if settings.AUTO_INIT_DB:
         report["tables"] = ensure_schema()
+        report["migrations"] = dict(_LAST_MIGRATION_REPORT)
         report["schema_problems"] = schema_problems()
         if report["schema_problems"]:
             logger.error(
@@ -262,6 +290,7 @@ def database_status() -> str:
 
 
 _LAST_REPORT: dict = {}
+_LAST_MIGRATION_REPORT: dict = {}
 
 
 def last_report() -> dict:
@@ -286,9 +315,18 @@ def schema_source() -> str:
 
 def health_summary() -> dict:
     """Configuration facts worth exposing publicly, without error detail."""
+    revision = _LAST_MIGRATION_REPORT.get("after")
+    head = _LAST_MIGRATION_REPORT.get("head")
+    if _LAST_MIGRATION_REPORT.get("error"):
+        revision = "migration failed"
     return {
         "schema": settings.DB_SCHEMA or "public",
         "schema_source": schema_source(),
         "schema_problems": len(_LAST_REPORT.get("schema_problems") or []),
         "reference_data": _LAST_REPORT.get("reference_data", "unknown"),
+        # The migration revision this deployment booted at. Without it, a
+        # schema that is behind the code looks identical to one that is not.
+        "schema_revision": revision or "unmanaged",
+        "schema_revision_head": head or "unknown",
+        "schema_up_to_date": bool(revision) and revision == head,
     }

@@ -97,12 +97,21 @@ if not DATABASE_URL.startswith("sqlite") and settings.DB_SCHEMA:
 
         `options=-csearch_path=...` is unreliable through connection poolers, so
         the path is set with a plain statement, which every pooler forwards.
+
+        The commit is not optional. `SET` runs inside the connection's implicit
+        transaction, so without it the first ROLLBACK - which is what every
+        read-only request ends with - undoes the setting. The pooled connection
+        then resolves unqualified names against `public`, which on a shared
+        database means another application's tables: a silent wrong-schema read
+        rather than an error. Committing makes the setting last for the life of
+        the connection.
         """
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute(f'SET search_path TO "{settings.DB_SCHEMA}", public')
         finally:
             cursor.close()
+        dbapi_connection.commit()
 
 
 if DATABASE_URL.startswith("sqlite"):
