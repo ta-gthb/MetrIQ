@@ -101,6 +101,11 @@ Client --(Authorization: Bearer <access>)--> API
   used as an access token and vice versa.
 * Authorization is enforced in three layers: role permission check, laboratory
   scope, and record scope (engineer may only edit cases assigned to them).
+* Those three layers are application-side. A fourth, database-side layer - the
+  `laboratory_scope` row-level policies on the 18 laboratory tables - confines
+  every database role that is not the table owner, so a connection that bypasses
+  the API still cannot read across laboratories. See
+  `docs/architecture/row-level-security.md`.
 * Permission catalogue: 34 codes across 6 roles (`routers/admin.py` exposes the
   matrix; `scripts/seed_identity.py` seeds it).
 
@@ -220,6 +225,7 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
 | `docs/architecture/oiml-coverage-matrix.md` | Generated traceability matrix: clause -> test -> rule -> formula -> limit -> PASS/FAIL logic -> report section -> automated test. Regenerate with `python -m scripts.build_coverage_matrix` from `backend/`; `tests/test_coverage_matrix.py` fails if it drifts from the rule data. |
 | `docs/architecture/ruleset-governance.md` | The ruleset lifecycle, the review records a metrology reviewer signs, and the activation gate. |
 | `docs/architecture/report-mapping.md` | How clause-to-report mapping is validated, and the golden report fixtures that pin the rendered output. |
+| `docs/architecture/row-level-security.md` | The database-level laboratory policies: what they cover, the deny-by-default scope setting, why the schema owner is deliberately exempt, and the unit and PostgreSQL integration tests (plus the CI job) that prove cross-laboratory reads and writes are refused. |
 
 A test that the engine cannot execute is listed in the catalogue, the matrix and
 the test plan with its implementation status and the reason, rather than being

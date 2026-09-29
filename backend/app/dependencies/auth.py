@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, utcnow
+from app.security.rls import apply_session_scope
 from app.security.tokens import TokenError, decode_token
 
 bearer_scheme = HTTPBearer(auto_error=False, description="Supabase or MetrIQ access token")
@@ -84,6 +85,10 @@ def get_current_user(
         raise _unauthorised(
             "No MetrIQ account is linked to this identity. Ask an administrator to provision access."
         )
+    # Second line of defence (audit item 14): tell PostgreSQL which laboratory
+    # this connection may see, so the row-level policies apply even to a query
+    # that somehow bypasses the application-layer scope. No-op off PostgreSQL.
+    apply_session_scope(db, user.laboratory_id)
     return user
 
 
