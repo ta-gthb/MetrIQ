@@ -1,0 +1,3042 @@
+{
+  "meta": {
+    "application_no": "<removed>",
+    "report_no": "<removed>",
+    "revision_no": 1,
+    "case_revision_no": 1,
+    "generated_at": "<removed>",
+    "generated_by": "<removed>",
+    "platform": "MetrIQ NAWI OIML R 76 Test Report Automation Platform",
+    "content_hash": "<hash>",
+    "verification_code": "<verification-code>"
+  },
+  "versions": {
+    "ruleset_label": "r76-1-2006-v1",
+    "ruleset_status": "active",
+    "standard": "OIML R 76-1",
+    "standard_edition": "2006",
+    "source_reference": "https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf",
+    "template_label": "r76-2-2007-v1",
+    "template_sections": [
+      {
+        "key": "cover",
+        "number": "0",
+        "title": "Cover page and report identification",
+        "required": true
+      },
+      {
+        "key": "applicant",
+        "number": "1",
+        "title": "Applicant and manufacturer",
+        "required": true
+      },
+      {
+        "key": "instrument",
+        "number": "2",
+        "title": "Instrument identification and metrological characteristics",
+        "required": true
+      },
+      {
+        "key": "conditions",
+        "number": "3",
+        "title": "Laboratory and test conditions",
+        "required": true
+      },
+      {
+        "key": "equipment",
+        "number": "4",
+        "title": "Test equipment and traceability",
+        "required": true
+      },
+      {
+        "key": "summary",
+        "number": "5",
+        "title": "Summary of applicable tests and results",
+        "required": true
+      },
+      {
+        "key": "tests",
+        "number": "6",
+        "title": "Individual test records",
+        "required": true
+      },
+      {
+        "key": "checklist",
+        "number": "7",
+        "title": "Construction and identification checklist",
+        "required": false
+      },
+      {
+        "key": "evidence",
+        "number": "8",
+        "title": "Evidence and attachments",
+        "required": false
+      },
+      {
+        "key": "review",
+        "number": "9",
+        "title": "Review, approval and signatures",
+        "required": true
+      },
+      {
+        "key": "versions",
+        "number": "10",
+        "title": "Ruleset, template and revision history",
+        "required": true
+      },
+      {
+        "key": "verification",
+        "number": "11",
+        "title": "Document verification (hash / QR)",
+        "required": false
+      }
+    ]
+  },
+  "cover": {
+    "laboratory_name": "MetrIQ Regional Legal Metrology Laboratory",
+    "laboratory_code": "LAB-001",
+    "laboratory_location": "Bengaluru",
+    "report_title": "Type Evaluation Test Report",
+    "subtitle": "Non-automatic weighing instruments - OIML R 76",
+    "case_title": "Golden fixture - multi-range class III bench evaluation",
+    "purpose": "Golden report fixture: clause-to-report mapping check"
+  },
+  "applicant": {
+    "name": null,
+    "contact_person": null,
+    "email": null,
+    "phone": null,
+    "address": null,
+    "city": null,
+    "country": null
+  },
+  "manufacturer": {
+    "name": null,
+    "contact_person": null,
+    "address": null,
+    "city": null,
+    "country": null
+  },
+  "instrument": {
+    "model": "GOLDEN-BENCH-30K",
+    "type_designation": "GB-30K-III",
+    "serial_number": "GOLDEN-MR-0001",
+    "instrument_class": "III",
+    "max_capacity": "30000",
+    "min_capacity": "200",
+    "e": "10",
+    "d": "10",
+    "unit": "g",
+    "is_electronic": true,
+    "is_multi_range": true,
+    "is_multi_interval": false,
+    "has_tare_device": true,
+    "temperature_range": "-10 C to +40 C",
+    "power_supply": "230 V AC, 50 Hz",
+    "ranges": [
+      {
+        "range_no": 1,
+        "min_capacity": "200",
+        "max_capacity": "15000",
+        "e": "10",
+        "d": "10",
+        "unit": "g"
+      },
+      {
+        "range_no": 2,
+        "min_capacity": "15000",
+        "max_capacity": "30000",
+        "e": "20",
+        "d": "20",
+        "unit": "g"
+      }
+    ]
+  },
+  "conditions": [
+    {
+      "label": "Ambient",
+      "temperature_c": "21.5",
+      "relative_humidity_pct": "48",
+      "barometric_pressure_kpa": "100.8",
+      "started_at": null,
+      "ended_at": null,
+      "notes": "Laboratory ambient conditions recorded during the evaluation."
+    }
+  ],
+  "equipment": [],
+  "summary": {
+    "total": 11,
+    "applicable": 11,
+    "completed": 11,
+    "pending": 0,
+    "by_status": {
+      "FAIL": 1,
+      "PASS": 10
+    },
+    "overall": "FAIL"
+  },
+  "tests": [
+    {
+      "test_code": "T-WP",
+      "name": "Weighing performance",
+      "clause_reference": "OIML R 76-1:2006 T.3.1 / A.4.4",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "FAIL",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "load",
+          "label": "Applied load L",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "indication",
+          "label": "Indication I",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "additional_load",
+          "label": "Additional load to changeover dL",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": false
+        },
+        {
+          "key": "unit",
+          "label": "Row unit",
+          "type": "unit",
+          "required": false
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "Zero",
+          "load": "0",
+          "indication": "0",
+          "additional_load": "0",
+          "value": null,
+          "error": "5",
+          "reference_error": null,
+          "corrected_error": "5",
+          "mpe": "5",
+          "margin": "0",
+          "within": true,
+          "detail": {
+            "I": "0",
+            "L": "0",
+            "delta_L": "0",
+            "e": "10",
+            "0.5e": "5",
+            "P": "5",
+            "E": "5",
+            "additional_load_assumed_zero": false,
+            "range_no": 1,
+            "rule_id": "R76-MPE-III-01",
+            "band": "0 < m <= 500 e",
+            "m_over_e": "0",
+            "clause_reference": "OIML R 76-1:2006 Table 1"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "10 kg (range 1)",
+          "load": "10000",
+          "indication": "10000",
+          "additional_load": "0",
+          "value": null,
+          "error": "0",
+          "reference_error": "5",
+          "corrected_error": "0",
+          "mpe": "10",
+          "margin": "10",
+          "within": true,
+          "detail": {
+            "I": "10000",
+            "L": "10000",
+            "delta_L": "0",
+            "e": "10",
+            "0.5e": "5",
+            "P": "10005",
+            "E": "5",
+            "additional_load_assumed_zero": false,
+            "range_no": 1,
+            "rule_id": "R76-MPE-III-02",
+            "band": "500 < m <= 2000 e",
+            "m_over_e": "1000",
+            "clause_reference": "OIML R 76-1:2006 Table 1"
+          }
+        },
+        {
+          "observation_no": 3,
+          "label": "30 kg (range 2)",
+          "load": "30000",
+          "indication": "30040",
+          "additional_load": "0",
+          "value": null,
+          "error": "40",
+          "reference_error": "5",
+          "corrected_error": "40",
+          "mpe": "20",
+          "margin": "-20",
+          "within": false,
+          "detail": {
+            "I": "30040",
+            "L": "30000",
+            "delta_L": "0",
+            "e": "10",
+            "0.5e": "5",
+            "P": "30045",
+            "E": "45",
+            "additional_load_assumed_zero": false,
+            "range_no": 2,
+            "rule_id": "R76-MPE-III-02",
+            "band": "500 < m <= 2000 e",
+            "m_over_e": "1500",
+            "clause_reference": "OIML R 76-1:2006 Table 1"
+          }
+        }
+      ],
+      "result": {
+        "status": "FAIL",
+        "measured_value": "40",
+        "limit_value": "20",
+        "margin": "-20",
+        "unit": "g",
+        "rule_id": "R76-MPE-III-02",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 Table 1",
+        "explanation": "Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g. FAIL: measured 40 against limit 20 (abs_lte), margin -20."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "P = I + 0.5e - delta_L ; E = P - L ; E_c = E - E_0",
+          "zero_error": "5",
+          "error_at_zero_applied": true,
+          "governing_row": 3,
+          "max_abs_error": "40",
+          "row_count": 3,
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-WP",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "Zero",
+              "load": "0",
+              "indication": "0",
+              "additional_load": "0",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": 1,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "10 kg (range 1)",
+              "load": "10000",
+              "indication": "10000",
+              "additional_load": "0",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": 1,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 3,
+              "label": "30 kg (range 2)",
+              "load": "30000",
+              "indication": "30040",
+              "additional_load": "0",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": 2,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "digital_indication_error",
+              "apply_zero_correction": true,
+              "require_additional_load": false,
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 1,
+              "non_negative_fields": [
+                "load",
+                "indication",
+                "additional_load"
+              ],
+              "required_fields": [
+                "load",
+                "indication"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "mpe"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.1",
+        "title": "Weighing performance"
+      }
+    },
+    {
+      "test_code": "T-REP",
+      "name": "Repeatability",
+      "clause_reference": "OIML R 76-1:2006 T.3.2 / 3.5.2",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "load",
+          "label": "Applied load L",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "indication",
+          "label": "Indication I",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "additional_load",
+          "label": "Additional load to changeover dL",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": false
+        },
+        {
+          "key": "unit",
+          "label": "Row unit",
+          "type": "unit",
+          "required": false
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "Run 1",
+          "load": "15000",
+          "indication": "15000",
+          "additional_load": "5",
+          "value": null,
+          "error": "0",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "10",
+          "within": true,
+          "detail": {
+            "group": "15000.00000000",
+            "group_size": 3,
+            "group_min_error": "0",
+            "group_max_error": "2",
+            "group_spread": "2",
+            "rule_id": "R76-MPE-III-02"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "Run 2",
+          "load": "15000",
+          "indication": "15002",
+          "additional_load": "5",
+          "value": null,
+          "error": "2",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "8",
+          "within": true,
+          "detail": {
+            "group": "15000.00000000",
+            "group_size": 3,
+            "group_min_error": "0",
+            "group_max_error": "2",
+            "group_spread": "2",
+            "rule_id": "R76-MPE-III-02"
+          }
+        },
+        {
+          "observation_no": 3,
+          "label": "Run 3",
+          "load": "15000",
+          "indication": "15001",
+          "additional_load": "5",
+          "value": null,
+          "error": "1",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "9",
+          "within": true,
+          "detail": {
+            "group": "15000.00000000",
+            "group_size": 3,
+            "group_min_error": "0",
+            "group_max_error": "2",
+            "group_spread": "2",
+            "rule_id": "R76-MPE-III-02"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "2",
+        "limit_value": "10",
+        "margin": "8",
+        "unit": "g",
+        "rule_id": "R76-MPE-III-02",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 Table 1",
+        "explanation": "Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "spread = max(E) - min(E) for repeated weighings of the same load",
+          "groups": {
+            "15000.00000000": {
+              "count": 3,
+              "min": "0",
+              "max": "2"
+            }
+          },
+          "governing_load": "15000",
+          "governing_spread": "2",
+          "runs": 3,
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-REP",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "Run 1",
+              "load": "15000",
+              "indication": "15000",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "Run 2",
+              "load": "15000",
+              "indication": "15002",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 3,
+              "label": "Run 3",
+              "load": "15000",
+              "indication": "15001",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "repeatability_spread",
+              "require_additional_load": false,
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "non_negative_fields": [
+                "load",
+                "indication",
+                "additional_load"
+              ],
+              "required_fields": [
+                "load",
+                "indication"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "mpe"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.2",
+        "title": "Repeatability"
+      }
+    },
+    {
+      "test_code": "T-ECC",
+      "name": "Eccentricity using weights",
+      "clause_reference": "OIML R 76-1:2006 T.3.3",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "position_label",
+          "label": "Position",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "load",
+          "label": "Applied load L",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "indication",
+          "label": "Indication I",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "additional_load",
+          "label": "Additional load to changeover dL",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": false
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "centre",
+          "load": "15000",
+          "indication": "15000",
+          "additional_load": "5",
+          "value": null,
+          "error": "0",
+          "reference_error": "0",
+          "corrected_error": "0",
+          "mpe": "10",
+          "margin": "10",
+          "within": true,
+          "detail": {
+            "position": "centre",
+            "error": "0",
+            "difference_from_reference": "0",
+            "absolute_margin": "10",
+            "difference_margin": "10",
+            "rule_id": "R76-MPE-III-02"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "front-left",
+          "load": "15000",
+          "indication": "15003",
+          "additional_load": "5",
+          "value": null,
+          "error": "3",
+          "reference_error": "0",
+          "corrected_error": "3",
+          "mpe": "10",
+          "margin": "7",
+          "within": true,
+          "detail": {
+            "position": "front-left",
+            "error": "3",
+            "difference_from_reference": "3",
+            "absolute_margin": "7",
+            "difference_margin": "7",
+            "rule_id": "R76-MPE-III-02"
+          }
+        },
+        {
+          "observation_no": 3,
+          "label": "rear-right",
+          "load": "15000",
+          "indication": "14998",
+          "additional_load": "5",
+          "value": null,
+          "error": "-2",
+          "reference_error": "0",
+          "corrected_error": "-2",
+          "mpe": "10",
+          "margin": "8",
+          "within": true,
+          "detail": {
+            "position": "rear-right",
+            "error": "-2",
+            "difference_from_reference": "-2",
+            "absolute_margin": "8",
+            "difference_margin": "8",
+            "rule_id": "R76-MPE-III-02"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "3",
+        "limit_value": "10",
+        "margin": "7",
+        "unit": "g",
+        "rule_id": "R76-MPE-III-02",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": null,
+        "explanation": "Largest eccentricity difference 3.00000000 g at front-left against MPE +/-10.000000000 g. PASS: measured 3 against limit 10 (abs_lte), margin 7."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "difference between the error at each eccentric position and the reference position",
+          "reference_position": "centre",
+          "reference_assumed": false,
+          "reference_error": "0",
+          "governing_row": 2,
+          "positions": 3,
+          "absolute_check": "each |E| must also remain within MPE",
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-ECC",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "centre",
+              "load": "15000",
+              "indication": "15000",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "front-left",
+              "load": "15000",
+              "indication": "15003",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 3,
+              "label": "rear-right",
+              "load": "15000",
+              "indication": "14998",
+              "additional_load": "5",
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "eccentricity_difference",
+              "reference_position": "centre",
+              "require_additional_load": false,
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "non_negative_fields": [
+                "load",
+                "indication",
+                "additional_load"
+              ],
+              "required_fields": [
+                "load",
+                "indication"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "mpe"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.3",
+        "title": "Eccentricity"
+      }
+    },
+    {
+      "test_code": "T-ZR",
+      "name": "Zero return",
+      "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "label",
+          "label": "Stage",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "value",
+          "label": "Indication at zero",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "initial",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "0",
+          "error": "0",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "5",
+          "margin": "5",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "0",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "after unloading",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "2",
+          "error": "2",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "5",
+          "margin": "3",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "2",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "2",
+        "limit_value": "5",
+        "margin": "3",
+        "unit": "g",
+        "rule_id": "R76-ZR-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
+        "explanation": "Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "deviation of the zero indication after unloading relative to the initial zero reading",
+          "reference_row": 1,
+          "reference_value": "0",
+          "governing_row": 2,
+          "max_abs_deviation": "2",
+          "tolerance": {
+            "factor": "0.5",
+            "unit": "e",
+            "comparator": "abs_lte",
+            "rule_id": "R76-ZR-01",
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
+            "description": "Deviation of the zero indication after unloading shall not exceed 0.5 e."
+          },
+          "comparator": "abs_lte",
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-ZR",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "initial",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": "0",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "after unloading",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": "2",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "deviation_from_reference",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "required_fields": [
+                "value"
+              ],
+              "non_negative_fields": []
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "tolerance:zero_return"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.4",
+        "title": "Zero return"
+      }
+    },
+    {
+      "test_code": "T-CREEP",
+      "name": "Creep",
+      "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "elapsed_seconds",
+          "label": "Elapsed time (s)",
+          "type": "decimal",
+          "required": true
+        },
+        {
+          "key": "value",
+          "label": "Indication",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "temperature_c",
+          "label": "Temperature (C)",
+          "type": "decimal",
+          "required": false
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "t = 0",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "0",
+          "error": "0",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "5",
+          "margin": "5",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "0",
+            "range_no": null,
+            "elapsed_seconds": "0",
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "t = 30 min",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "2",
+          "error": "2",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "5",
+          "margin": "3",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "2",
+            "range_no": null,
+            "elapsed_seconds": "1800",
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "2",
+        "limit_value": "5",
+        "margin": "3",
+        "unit": "g",
+        "rule_id": "R76-CREEP-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
+        "explanation": "Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "change in indication over the observation period under constant load",
+          "reference_row": 1,
+          "reference_value": "0",
+          "governing_row": 2,
+          "max_abs_deviation": "2",
+          "tolerance": {
+            "factor": "0.5",
+            "unit": "e",
+            "comparator": "abs_lte",
+            "rule_id": "R76-CREEP-01",
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
+            "description": "Change in indication under constant load over the observation period."
+          },
+          "comparator": "abs_lte",
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-CREEP",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "t = 0",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": "0",
+              "temperature_c": null,
+              "value": "0",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "t = 30 min",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": "1800",
+              "temperature_c": null,
+              "value": "2",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "deviation_from_reference",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "required_fields": [
+                "value"
+              ],
+              "non_negative_fields": [
+                "elapsed_seconds"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "tolerance:creep"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.5",
+        "title": "Creep"
+      }
+    },
+    {
+      "test_code": "T-TEMP-NL",
+      "name": "Temperature effect on no-load indication",
+      "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2",
+      "category": "influence",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root.all[0]: Influence-factor test applies to electronic instruments",
+              "result": true,
+              "expected": true,
+              "actual": true
+            },
+            {
+              "check": "root: ALL of 1 condition(s)",
+              "result": true,
+              "expected": null,
+              "actual": null
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "temperature_c",
+          "label": "Temperature (C)",
+          "type": "decimal",
+          "required": true
+        },
+        {
+          "key": "value",
+          "label": "No-load indication",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "+20 C",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "0",
+          "error": "0",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "10",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "0",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": "20",
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "+40 C",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "3",
+          "error": "3",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "7",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "3",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": "40",
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "3",
+        "limit_value": "10",
+        "margin": "7",
+        "unit": "g",
+        "rule_id": "R76-TEMP-NL-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
+        "explanation": "Maximum deviation 3.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED). PASS: measured 3 against limit 10 (abs_lte), margin 7."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "variation of the no-load indication over the temperature range",
+          "reference_row": 1,
+          "reference_value": "0",
+          "governing_row": 2,
+          "max_abs_deviation": "3",
+          "tolerance": {
+            "factor": "1.0",
+            "unit": "e",
+            "comparator": "abs_lte",
+            "rule_id": "R76-TEMP-NL-01",
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
+            "description": "Effect of temperature on the no-load indication."
+          },
+          "comparator": "abs_lte",
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-TEMP-NL",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "+20 C",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": "20",
+              "value": "0",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "+40 C",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": "40",
+              "value": "3",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "deviation_from_reference",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "required_fields": [
+                "value",
+                "temperature_c"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "tolerance:temperature_no_load"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.6",
+        "title": "Temperature effect on no-load indication"
+      }
+    },
+    {
+      "test_code": "T-SENS",
+      "name": "Sensitivity",
+      "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root.all[0]: instrument.is_electronic eq True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            },
+            {
+              "check": "root: ALL of 1 condition(s)",
+              "result": true,
+              "expected": null,
+              "actual": null
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "load",
+          "label": "Applied load",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        },
+        {
+          "key": "indication",
+          "label": "Indication",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "initial",
+          "load": "5000",
+          "indication": null,
+          "additional_load": null,
+          "value": "5000",
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": null,
+          "detail": {
+            "load": "5000",
+            "indication": "5000"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "after 10 g",
+          "load": "5010",
+          "indication": null,
+          "additional_load": null,
+          "value": "5012",
+          "error": "2",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "8",
+          "within": true,
+          "detail": {
+            "load": "5010",
+            "indication": "5012"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "2",
+        "limit_value": "10",
+        "margin": "8",
+        "unit": "g",
+        "rule_id": "R76-SENS-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5 - REVIEW REQUIRED",
+        "explanation": "Indication changed by 12.00000000 g for a load change of 10.00000000 g; response error 2.00000000 g against limit 10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "response_error = (I2 - I1) - (L2 - L1)",
+          "load_change": "10",
+          "indication_change": "12",
+          "response_error": "2",
+          "tolerance": {
+            "factor": "1.0",
+            "unit": "e",
+            "comparator": "abs_lte",
+            "rule_id": "R76-SENS-01",
+            "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5 - REVIEW REQUIRED",
+            "description": "Response of the instrument to a defined change of load."
+          },
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-SENS",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "initial",
+              "load": "5000",
+              "indication": "5000",
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "after 10 g",
+              "load": "5010",
+              "indication": "5012",
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "sensitivity_response",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "required_fields": [
+                "load",
+                "indication"
+              ],
+              "non_negative_fields": [
+                "load",
+                "indication"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "tolerance:sensitivity"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.7",
+        "title": "Sensitivity"
+      }
+    },
+    {
+      "test_code": "T-DISC",
+      "name": "Discrimination",
+      "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root.all[0]: instrument.is_electronic eq True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            },
+            {
+              "check": "root: ALL of 1 condition(s)",
+              "result": true,
+              "expected": null,
+              "actual": null
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "load",
+          "label": "Additional load applied",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": false
+        },
+        {
+          "key": "value",
+          "label": "Change in indication",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "1.4 d added",
+          "load": "14",
+          "indication": null,
+          "additional_load": null,
+          "value": "10",
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "0",
+          "within": true,
+          "detail": {
+            "applied_load": "14",
+            "indication_change": "10"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "10",
+        "limit_value": "10",
+        "margin": "0",
+        "unit": "g",
+        "rule_id": "R76-DISC-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6 - REVIEW REQUIRED",
+        "explanation": "Smallest indication change 10.00000000 g against the required minimum 10.000000000 g. PASS: measured 10 against limit 10 (gte), margin 0."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "indication shall change by at least the configured discrimination threshold",
+          "minimum_change": "10",
+          "threshold": "10",
+          "tolerance": {
+            "factor": "1.0",
+            "unit": "d",
+            "comparator": "gte",
+            "rule_id": "R76-DISC-01",
+            "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6 - REVIEW REQUIRED",
+            "description": "Indication shall change by at least one d for an additional load of 1.4 d."
+          },
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-DISC",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "1.4 d added",
+              "load": "14",
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": "10",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "minimum_changeover",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 1,
+              "required_fields": [
+                "value"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "gte",
+              "limit_source": "tolerance:discrimination"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.8",
+        "title": "Discrimination"
+      }
+    },
+    {
+      "test_code": "T-STAB",
+      "name": "Stability of equilibrium",
+      "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7",
+      "category": "metrological",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root.all[0]: instrument.is_electronic eq True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            },
+            {
+              "check": "root: ALL of 1 condition(s)",
+              "result": true,
+              "expected": null,
+              "actual": null
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "range_no",
+          "label": "Range / interval no",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "key": "elapsed_seconds",
+          "label": "Elapsed time (s)",
+          "type": "decimal",
+          "required": false
+        },
+        {
+          "key": "value",
+          "label": "Indication",
+          "type": "decimal",
+          "unit": "instrument",
+          "required": true
+        }
+      ],
+      "layout": "table",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "start",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "0",
+          "error": "0",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "10",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "0",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "end",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": "4",
+          "error": "4",
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": "10",
+          "margin": "6",
+          "within": true,
+          "detail": {
+            "reference_value": "0",
+            "deviation": "4",
+            "range_no": null,
+            "elapsed_seconds": null,
+            "temperature_c": null,
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "4",
+        "limit_value": "10",
+        "margin": "6",
+        "unit": "g",
+        "rule_id": "R76-STAB-01",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
+        "explanation": "Maximum deviation 4.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED). PASS: measured 4 against limit 10 (abs_lte), margin 6."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "variation of the indication during the stability observation period",
+          "reference_row": 1,
+          "reference_value": "0",
+          "governing_row": 2,
+          "max_abs_deviation": "4",
+          "tolerance": {
+            "factor": "1.0",
+            "unit": "e",
+            "comparator": "abs_lte",
+            "rule_id": "R76-STAB-01",
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
+            "description": "Variation of the indication during the stability observation period."
+          },
+          "comparator": "abs_lte",
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-STAB",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": "start",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": "0",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": "end",
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": "4",
+              "unit": null,
+              "range_no": null,
+              "conforms": null,
+              "item_code": null,
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "deviation_from_reference",
+              "round_to_resolution": false
+            },
+            "validation_rules": {
+              "min_rows": 2,
+              "required_fields": [
+                "value"
+              ]
+            },
+            "compliance_rules": {
+              "comparator": "abs_lte",
+              "limit_source": "tolerance:stability"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "tests",
+        "number": "6.9",
+        "title": "Stability of equilibrium"
+      }
+    },
+    {
+      "test_code": "T-CHK-CON",
+      "name": "Examination of construction",
+      "clause_reference": "OIML R 76-1:2006 6 / T.4",
+      "category": "construction",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "item_code",
+          "label": "Item",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "conforms",
+          "label": "Conforms",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "layout": "checklist",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "CON-01",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-01",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "CON-02",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-02",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 3,
+          "label": "CON-03",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-03",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 4,
+          "label": "CON-04",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-04",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 5,
+          "label": "CON-06",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-06",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 6,
+          "label": "CON-07",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-07",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "0",
+        "limit_value": "0",
+        "margin": "0",
+        "unit": null,
+        "rule_id": "R76-CONST",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 6",
+        "explanation": "All checklist items conform. PASS: measured 0 against limit 0 (lte), margin 0."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "every mandatory checklist item must conform",
+          "items_checked": 6,
+          "non_conforming": [],
+          "mandatory_items": [
+            "CON-01",
+            "CON-02",
+            "CON-03",
+            "CON-04",
+            "CON-06",
+            "CON-07"
+          ],
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-CHK-CON",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-01",
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-02",
+              "remarks": null
+            },
+            {
+              "observation_no": 3,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-03",
+              "remarks": null
+            },
+            {
+              "observation_no": 4,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-04",
+              "remarks": null
+            },
+            {
+              "observation_no": 5,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-06",
+              "remarks": null
+            },
+            {
+              "observation_no": 6,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-07",
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "checklist_all_conform",
+              "rule_id": "R76-CONST",
+              "clause_reference": "OIML R 76-1:2006 6",
+              "mandatory_items": [
+                "CON-01",
+                "CON-02",
+                "CON-03",
+                "CON-04",
+                "CON-06",
+                "CON-07"
+              ]
+            },
+            "validation_rules": {
+              "min_rows": 1
+            },
+            "compliance_rules": {
+              "comparator": "lte"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "checklist",
+        "number": "7.1",
+        "title": "Examination of construction"
+      }
+    },
+    {
+      "test_code": "T-CHK-ID",
+      "name": "Identification and markings",
+      "clause_reference": "OIML R 76-1:2006 7 / T.4",
+      "category": "construction",
+      "applicability": {
+        "status": "APPLICABLE",
+        "reason": "All applicability conditions satisfied.",
+        "trace": {
+          "checks": [
+            {
+              "check": "root: always == True",
+              "result": true,
+              "expected": true,
+              "actual": true
+            }
+          ],
+          "evaluated_at": "<timestamp>"
+        }
+      },
+      "status": "COMPLETED",
+      "result_status": "PASS",
+      "remarks": null,
+      "columns": [
+        {
+          "key": "item_code",
+          "label": "Item",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "conforms",
+          "label": "Present and consistent",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "layout": "checklist",
+      "rows": [
+        {
+          "observation_no": 1,
+          "label": "ID-01",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-01",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 2,
+          "label": "ID-02",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-02",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 3,
+          "label": "ID-03",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-03",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 4,
+          "label": "ID-04",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-04",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 5,
+          "label": "ID-05",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-05",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 6,
+          "label": "ID-06",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-06",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 7,
+          "label": "ID-09",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "ID-09",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        }
+      ],
+      "result": {
+        "status": "PASS",
+        "measured_value": "0",
+        "limit_value": "0",
+        "margin": "0",
+        "unit": null,
+        "rule_id": "R76-MARKING",
+        "rule_version": "r76-1-2006-v1",
+        "clause_reference": "OIML R 76-1:2006 7",
+        "explanation": "All checklist items conform. PASS: measured 0 against limit 0 (lte), margin 0."
+      },
+      "calculation": {
+        "engine_version": "2.0.0",
+        "rounding_policy": "EXACT-NO-ROUNDING",
+        "intermediates": {
+          "method": "every mandatory checklist item must conform",
+          "items_checked": 7,
+          "non_conforming": [],
+          "mandatory_items": [
+            "ID-01",
+            "ID-02",
+            "ID-03",
+            "ID-04",
+            "ID-05",
+            "ID-06",
+            "ID-09"
+          ],
+          "engine_version": "2.0.0"
+        },
+        "inputs": {
+          "test_code": "T-CHK-ID",
+          "stage": "verification",
+          "rule_version": "r76-1-2006-v1",
+          "instrument": {
+            "instrument_class": "III",
+            "e": "10",
+            "d": "10",
+            "unit": "g",
+            "max_capacity": "30000",
+            "min_capacity": "200",
+            "is_electronic": true,
+            "is_multi_range": true,
+            "is_multi_interval": false,
+            "has_tare_device": true,
+            "has_zero_device": true,
+            "model": "GOLDEN-BENCH-30K",
+            "ranges": [
+              {
+                "range_no": 1,
+                "min_capacity": "200",
+                "max_capacity": "15000",
+                "e": "10",
+                "d": "10",
+                "unit": "g"
+              },
+              {
+                "range_no": 2,
+                "min_capacity": "15000",
+                "max_capacity": "30000",
+                "e": "20",
+                "d": "20",
+                "unit": "g"
+              }
+            ]
+          },
+          "observations": [
+            {
+              "observation_no": 1,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-01",
+              "remarks": null
+            },
+            {
+              "observation_no": 2,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-02",
+              "remarks": null
+            },
+            {
+              "observation_no": 3,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-03",
+              "remarks": null
+            },
+            {
+              "observation_no": 4,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-04",
+              "remarks": null
+            },
+            {
+              "observation_no": 5,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-05",
+              "remarks": null
+            },
+            {
+              "observation_no": 6,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-06",
+              "remarks": null
+            },
+            {
+              "observation_no": 7,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "ID-09",
+              "remarks": null
+            }
+          ],
+          "test_definition_rules": {
+            "calculation_rules": {
+              "method": "checklist_all_conform",
+              "rule_id": "R76-MARKING",
+              "clause_reference": "OIML R 76-1:2006 7",
+              "mandatory_items": [
+                "ID-01",
+                "ID-02",
+                "ID-03",
+                "ID-04",
+                "ID-05",
+                "ID-06",
+                "ID-09"
+              ]
+            },
+            "validation_rules": {
+              "min_rows": 1
+            },
+            "compliance_rules": {
+              "comparator": "lte"
+            }
+          }
+        },
+        "calculated_at": "<timestamp>"
+      },
+      "report_section": {
+        "section": "checklist",
+        "number": "7.2",
+        "title": "Identification and markings"
+      }
+    }
+  ],
+  "evidence": [],
+  "review": {
+    "engineer": "Arjun Mehta",
+    "reviewer": null,
+    "approver": null,
+    "status": "DRAFT",
+    "submitted_at": null,
+    "verified_at": null,
+    "approved_at": null,
+    "finalized_at": null
+  },
+  "revisions": [
+    {
+      "revision_no": 1,
+      "status": "DRAFT",
+      "updated_at": "<timestamp>"
+    }
+  ],
+  "disclaimer": "This report is generated from structured records under a versioned OIML R 76 ruleset. It is a technical type-evaluation record and does not by itself constitute statutory approval."
+}

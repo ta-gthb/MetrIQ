@@ -40,6 +40,22 @@ def snapshot_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+#: Metadata that must not take part in the content hash: it records when a
+#: snapshot was built, not what it says. Excluding it is what makes the
+#: verification code reproducible from the report content alone.
+VOLATILE_META_FIELDS = frozenset({"content_hash", "verification_code", "generated_at"})
+
+
+def content_hash(snapshot: dict[str, Any]) -> str:
+    """Hash the report content, ignoring when it was generated."""
+    meta = {
+        key: value
+        for key, value in (snapshot.get("meta") or {}).items()
+        if key not in VOLATILE_META_FIELDS
+    }
+    return snapshot_hash({**snapshot, "meta": meta})
+
+
 def verification_code(digest: str, length: int = 12) -> str:
     return digest[:length].upper()
 
@@ -246,7 +262,7 @@ def build_report_snapshot(
         ],
         "disclaimer": settings.REPORT_DISCLAIMER,
     }
-    digest = snapshot_hash(snapshot)
+    digest = content_hash(snapshot)
     snapshot["meta"]["content_hash"] = digest
     snapshot["meta"]["verification_code"] = verification_code(digest)
     return snapshot, digest

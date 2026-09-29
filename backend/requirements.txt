@@ -17,3 +17,5 @@ alembic==1.14.0
 pytest==8.3.4
 pytest-asyncio==0.25.0
 coverage==7.6.10
+# Reads the rendered PDF back so the golden report fixtures can compare text.
+pypdf==6.19.0

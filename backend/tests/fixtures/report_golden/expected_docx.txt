@@ -1,0 +1,259 @@
+MetrIQ Regional Legal Metrology Laboratory
+Type Evaluation Test Report
+Non-automatic weighing instruments - OIML R 76
+Application number | <application-no>
+Report number | RPT-GOLDEN-00001
+Report revision | 1
+Case revision | 1
+Generated at (UTC) | <timestamp>
+Ruleset version | r76-1-2006-v1
+Report template version | r76-2-2007-v1
+Overall result | FAIL
+Verification code | <verification-code>
+1. Applicant and manufacturer
+name | -
+contact_person | -
+email | -
+phone | -
+address | -
+city | -
+country | -
+name | -
+contact_person | -
+address | -
+city | -
+country | -
+2. Instrument identification and metrological characteristics
+Model | GOLDEN-BENCH-30K
+Type Designation | GB-30K-III
+Serial Number | GOLDEN-MR-0001
+Instrument Class | III
+Max Capacity | 30000
+Min Capacity | 200
+E | 10
+D | 10
+Unit | g
+Is Electronic | Yes
+Is Multi Range | Yes
+Is Multi Interval | No
+Has Tare Device | Yes
+Temperature Range | -10 C to +40 C
+Power Supply | 230 V AC, 50 Hz
+Ranges
+Range | Min | Max | e | d | Unit
+1 | 200 | 15000 | 10 | 10 | g
+2 | 15000 | 30000 | 20 | 20 | g
+3. Laboratory and test conditions
+Condition set 1
+label | Ambient
+temperature_c | 21.5
+relative_humidity_pct | 48
+barometric_pressure_kpa | 100.8
+started_at | -
+ended_at | -
+notes | Laboratory ambient conditions recorded during the evaluation.
+4. Test equipment and traceability
+No test equipment referenced.
+5. Summary of applicable tests and results
+Tests in plan | 11
+Applicable | 11
+Completed | 11
+Pending | 0
+Overall | FAIL
+Result breakdown | FAIL: 1; PASS: 10
+Test | Code | Clause | Applicability | Result | Measured | Limit | Margin
+Weighing performance | T-WP | OIML R 76-1:2006 T.3.1 / A.4.4 | APPLICABLE | FAIL | 40 | 20 | -20
+Repeatability | T-REP | OIML R 76-1:2006 T.3.2 / 3.5.2 | APPLICABLE | PASS | 2 | 10 | 8
+Eccentricity using weights | T-ECC | OIML R 76-1:2006 T.3.3 | APPLICABLE | PASS | 3 | 10 | 7
+Zero return | T-ZR | OIML R 76-1:2006 4.5.4 / T.3.2.1 | APPLICABLE | PASS | 2 | 5 | 3
+Creep | T-CREEP | OIML R 76-1:2006 4.5.5 / T.3.3 | APPLICABLE | PASS | 2 | 5 | 3
+Temperature effect on no-load indication | T-TEMP-NL | OIML R 76-1:2006 4.5.2 / T.3.4.2 | APPLICABLE | PASS | 3 | 10 | 7
+Sensitivity | T-SENS | OIML R 76-1:2006 A.4.4.2 / T.3.5 | APPLICABLE | PASS | 2 | 10 | 8
+Discrimination | T-DISC | OIML R 76-1:2006 4.5.6 / T.3.6 | APPLICABLE | PASS | 10 | 10 | 0
+Stability of equilibrium | T-STAB | OIML R 76-1:2006 4.5.3 / T.3.7 | APPLICABLE | PASS | 4 | 10 | 6
+Examination of construction | T-CHK-CON | OIML R 76-1:2006 6 / T.4 | APPLICABLE | PASS | 0 | 0 | 0
+Identification and markings | T-CHK-ID | OIML R 76-1:2006 7 / T.4 | APPLICABLE | PASS | 0 | 0 | 0
+6. Individual test records
+6.1 Weighing performance (T-WP)
+OIML clause | OIML R 76-1:2006 T.3.1 / A.4.4
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | FAIL
+Measured value | 40 g
+Limit | 20 g
+Margin | -20
+Rule | R76-MPE-III-02 (r76-1-2006-v1)
+Explanation | Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g. FAIL: measured 40 against limit 20 (abs_lte), margin -20.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | 0 | 0 | 0 | 5 | 5 | 0 | Yes
+2 | 10000 | 10000 | 0 | 0 | 10 | 10 | Yes
+3 | 30000 | 30040 | 0 | 40 | 20 | -20 | No
+6.2 Repeatability (T-REP)
+OIML clause | OIML R 76-1:2006 T.3.2 / 3.5.2
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 2 g
+Limit | 10 g
+Margin | 8
+Rule | R76-MPE-III-02 (r76-1-2006-v1)
+Explanation | Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | 15000 | 15000 | 5 | 0 | 10 | 10 | Yes
+2 | 15000 | 15002 | 5 | 2 | 10 | 8 | Yes
+3 | 15000 | 15001 | 5 | 1 | 10 | 9 | Yes
+6.3 Eccentricity using weights (T-ECC)
+OIML clause | OIML R 76-1:2006 T.3.3
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 3 g
+Limit | 10 g
+Margin | 7
+Rule | R76-MPE-III-02 (r76-1-2006-v1)
+Explanation | Largest eccentricity difference 3.00000000 g at front-left against MPE +/-10.000000000 g. PASS: measured 3 against limit 10 (abs_lte), margin 7.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | 15000 | 15000 | 5 | 0 | 10 | 10 | Yes
+2 | 15000 | 15003 | 5 | 3 | 10 | 7 | Yes
+3 | 15000 | 14998 | 5 | -2 | 10 | 8 | Yes
+6.4 Zero return (T-ZR)
+OIML clause | OIML R 76-1:2006 4.5.4 / T.3.2.1
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 2 g
+Limit | 5 g
+Margin | 3
+Rule | R76-ZR-01 (r76-1-2006-v1)
+Explanation | Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | - | - | - | 0 | 5 | 5 | Yes
+2 | - | - | - | 2 | 5 | 3 | Yes
+6.5 Creep (T-CREEP)
+OIML clause | OIML R 76-1:2006 4.5.5 / T.3.3
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 2 g
+Limit | 5 g
+Margin | 3
+Rule | R76-CREEP-01 (r76-1-2006-v1)
+Explanation | Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | - | - | - | 0 | 5 | 5 | Yes
+2 | - | - | - | 2 | 5 | 3 | Yes
+6.6 Temperature effect on no-load indication (T-TEMP-NL)
+OIML clause | OIML R 76-1:2006 4.5.2 / T.3.4.2
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 3 g
+Limit | 10 g
+Margin | 7
+Rule | R76-TEMP-NL-01 (r76-1-2006-v1)
+Explanation | Maximum deviation 3.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED). PASS: measured 3 against limit 10 (abs_lte), margin 7.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | - | - | - | 0 | 10 | 10 | Yes
+2 | - | - | - | 3 | 10 | 7 | Yes
+6.7 Sensitivity (T-SENS)
+OIML clause | OIML R 76-1:2006 A.4.4.2 / T.3.5
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 2 g
+Limit | 10 g
+Margin | 8
+Rule | R76-SENS-01 (r76-1-2006-v1)
+Explanation | Indication changed by 12.00000000 g for a load change of 10.00000000 g; response error 2.00000000 g against limit 10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | 5000 | - | - | - | - | - | -
+2 | 5010 | - | - | 2 | 10 | 8 | Yes
+6.8 Discrimination (T-DISC)
+OIML clause | OIML R 76-1:2006 4.5.6 / T.3.6
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 10 g
+Limit | 10 g
+Margin | 0
+Rule | R76-DISC-01 (r76-1-2006-v1)
+Explanation | Smallest indication change 10.00000000 g against the required minimum 10.000000000 g. PASS: measured 10 against limit 10 (gte), margin 0.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | 14 | - | - | - | 10 | 0 | Yes
+6.9 Stability of equilibrium (T-STAB)
+OIML clause | OIML R 76-1:2006 4.5.3 / T.3.7
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 4 g
+Limit | 10 g
+Margin | 6
+Rule | R76-STAB-01 (r76-1-2006-v1)
+Explanation | Maximum deviation 4.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED). PASS: measured 4 against limit 10 (abs_lte), margin 6.
+Remarks | -
+# | Load | Indication | dL | Error | MPE | Margin | Within
+1 | - | - | - | 0 | 10 | 10 | Yes
+2 | - | - | - | 4 | 10 | 6 | Yes
+6.10 Examination of construction (T-CHK-CON)
+OIML clause | OIML R 76-1:2006 6 / T.4
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 0
+Limit | 0
+Margin | 0
+Rule | R76-CONST (r76-1-2006-v1)
+Explanation | All checklist items conform. PASS: measured 0 against limit 0 (lte), margin 0.
+Remarks | -
+Item | Conforms | Remarks
+CON-01 | Yes | -
+CON-02 | Yes | -
+CON-03 | Yes | -
+CON-04 | Yes | -
+CON-06 | Yes | -
+CON-07 | Yes | -
+6.11 Identification and markings (T-CHK-ID)
+OIML clause | OIML R 76-1:2006 7 / T.4
+Applicability | APPLICABLE - All applicability conditions satisfied.
+Status | COMPLETED
+Result | PASS
+Measured value | 0
+Limit | 0
+Margin | 0
+Rule | R76-MARKING (r76-1-2006-v1)
+Explanation | All checklist items conform. PASS: measured 0 against limit 0 (lte), margin 0.
+Remarks | -
+Item | Conforms | Remarks
+ID-01 | Yes | -
+ID-02 | Yes | -
+ID-03 | Yes | -
+ID-04 | Yes | -
+ID-05 | Yes | -
+ID-06 | Yes | -
+ID-09 | Yes | -
+7. Evidence and attachments
+No evidence attached.
+8. Review, approval and versioning
+engineer | Arjun Mehta
+reviewer | -
+approver | -
+status | DRAFT
+submitted_at | -
+verified_at | -
+approved_at | -
+finalized_at | -
+Ruleset version | r76-1-2006-v1
+Standard | OIML R 76-1 2006
+Source reference | https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf
+Template version | r76-2-2007-v1
+Content hash (SHA-256) | <hash>
+Verification code | <verification-code>
+This report is generated from structured records under a versioned OIML R 76 ruleset. It is a technical type-evaluation record and does not by itself constitute statutory approval.

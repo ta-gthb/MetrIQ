@@ -212,3 +212,15 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
    applied inside the handler.
 5. Mutations write an `audit_logs` row (and a `workflow_actions` row for status
    transitions) in the same transaction.
+
+## 10. Standards coverage and governance artefacts
+
+| Artefact | Purpose |
+| --- | --- |
+| `docs/architecture/oiml-coverage-matrix.md` | Generated traceability matrix: clause -> test -> rule -> formula -> limit -> PASS/FAIL logic -> report section -> automated test. Regenerate with `python -m scripts.build_coverage_matrix` from `backend/`; `tests/test_coverage_matrix.py` fails if it drifts from the rule data. |
+| `docs/architecture/ruleset-governance.md` | The ruleset lifecycle, the review records a metrology reviewer signs, and the activation gate. |
+| `docs/architecture/report-mapping.md` | How clause-to-report mapping is validated, and the golden report fixtures that pin the rendered output. |
+
+A test that the engine cannot execute is listed in the catalogue, the matrix and
+the test plan with its implementation status and the reason, rather than being
+hidden.

@@ -17,7 +17,7 @@ from app.services.report_engine.pdf import render_pdf
 from app.services.report_engine.snapshot import (
     build_report_snapshot,
     canonical_json,
-    snapshot_hash,
+    content_hash,
     verification_code,
 )
 
@@ -158,12 +158,10 @@ def generate_report(
         generated_by=getattr(actor, "full_name", None),
     )
     # Recompute after injecting identifiers so the hash covers the final
-    # document. Volatile generation metadata is excluded: the content hash
-    # must identify the content, not the moment it was rendered.
-    volatile_meta = {"content_hash", "verification_code", "generated_at"}
-    digest = snapshot_hash({key: value for key, value in snapshot.items() if key != "meta"} | {
-        "meta": {key: value for key, value in snapshot["meta"].items() if key not in volatile_meta}
-    })
+    # document. Volatile generation metadata is excluded (content_hash() owns
+    # that rule): the hash must identify the content, not the moment it was
+    # rendered, so the same records always produce the same verification code.
+    digest = content_hash(snapshot)
     snapshot["meta"]["content_hash"] = digest
     snapshot["meta"]["verification_code"] = verification_code(digest)
     report.data_snapshot = snapshot
