@@ -60,6 +60,22 @@ the browser clock by the offset it observes against `GET /health`'s
 platform's date and time. Record timestamps are stored in UTC and rendered in
 the operator's local timezone by `ui.fmtDate`.
 
+### The public home page
+
+`index.html` is the one page served before anyone has signed in. It introduces
+the platform (what it evaluates, under which standard, and how the rule set is
+governed), lists its capabilities, and shows this deployment's activity.
+`js/home.js` reads that activity from `GET /api/v1/platform/statistics`, the
+only endpoint that answers without a token, and re-reads it on the interval the
+payload publishes (15 seconds), pausing while the tab is hidden.
+
+That endpoint is deliberately aggregate: counts, time windows, and the
+configuration facts the platform already publishes (`standards.framework`, the
+active ruleset and its basis). Nothing that identifies an evaluation, party,
+instrument or person is in the response, and `tests/test_platform_statistics.py`
+enforces that by walking the payload and refusing anything that is not a number,
+a boolean, an ISO timestamp or one of the published constants.
+
 ## 3. Backend layout
 
 ```
@@ -81,6 +97,7 @@ backend/app/
     ai_service/        provider abstraction: base + stub + openai
     audit_service/     append-only audit log, workflow log, notifications
     metrology_service/ orchestration: resolve MPE, evaluate a test, summarise a case
+    platform_statistics/ aggregate figures for the public home page (cached briefly)
 ```
 
 ## 4. Authentication and authorization flow

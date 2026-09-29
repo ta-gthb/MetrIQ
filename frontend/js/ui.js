@@ -169,13 +169,16 @@ export function promptReason(title, { label = 'Reason', hint = '', minLength = 1
 /* --------------------------------------------------------------- shell --- */
 
 const ICONS = {
-  dashboard: '\u25a6', evaluations: '\u2637', reports: '\u25a4',
+  home: '\u2302', dashboard: '\u25a6', evaluations: '\u2637', reports: '\u25a4',
   admin: '\u2699', audit: '\u2691', standards: '\u00a7', instruments: '\u2696',
   assistant: '\u2726',
 };
 
 function navItems() {
   const items = [
+    /* The public home page: the way back to the platform's own description and
+       figures from anywhere inside the application. */
+    { href: '/', label: 'Home', icon: ICONS.home, show: true, key: 'home' },
     { href: '/dashboard.html', label: 'Dashboard', icon: ICONS.dashboard, show: can('dashboard.view'), key: 'dashboard' },
     { href: '/evaluations.html', label: 'Evaluations', icon: ICONS.evaluations, show: canAny('cases.view', 'cases.view.scope'), key: 'evaluations' },
     { href: '/evaluation.html?new=1', label: 'New evaluation', icon: '\uff0b', show: can('cases.create'), key: 'new' },

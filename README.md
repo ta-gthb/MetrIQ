@@ -177,7 +177,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 | Standards | `GET /standards`, `/rules`, `/rulesets`, `/test-definitions`, `/report-templates`, `POST /rulesets/{id}/activate`, `POST /calculations/mpe`, `/calculations/preview` |
 | AI | `GET/PATCH /ai/features`, `POST /ai/nameplate-extract`, `/ai/anomaly-check`, `/ai/classify`, `/ai/knowledge`, `/ai/disposition` |
 | Admin | `GET/POST/PATCH /users`, `POST /users/{id}/reset-password`, `GET/POST/PATCH /laboratories`, `GET /admin/roles`, `/admin/permissions`, `GET/PUT /settings`, `GET /audit-logs` |
-| Platform | `GET /health`, `GET /api/v1` |
+| Platform | `GET /health`, `GET /api/v1`, `GET /platform/statistics` (public, aggregate) |
 
 ## Tests
 

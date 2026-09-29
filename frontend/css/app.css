@@ -451,6 +451,120 @@ tr.row-invalid td { background: var(--fail-wash-row); }
 .clock .clock-time { font-family: var(--mono); font-size: 0.86rem; font-weight: 650; letter-spacing: 0.4px; }
 .clock .clock-date { font-size: 0.7rem; color: var(--text-faint); }
 
+
+/* ------------------------------------------------------------ home page --- */
+/* The public landing page. It carries its own bar rather than the application
+   shell, and is built from the same tokens, so both themes and every size of
+   screen are covered by the palette above. */
+
+.home-page { display: flex; flex-direction: column; min-height: 100vh; }
+
+.home-bar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 22px;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+.home-bar .brand { margin-bottom: 0; }
+.home-tools { margin-left: auto; }
+
+.home-main {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 26px 22px 42px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.hero .eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.72rem; letter-spacing: 1.1px; text-transform: uppercase;
+  color: var(--accent);
+}
+.hero h1 { font-size: 1.9rem; max-width: 48ch; }
+.hero .lede { font-size: 1rem; color: var(--text-muted); max-width: 82ch; margin-bottom: 0; }
+.home-cta { margin-top: 18px; }
+
+.hero-facts {
+  /* min() on the track floor, and an anywhere-wrap on the values: a long
+     unbreakable token must not be able to widen the page on a narrow screen. */
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.hero-facts dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-faint);
+}
+.hero-facts dd { margin: 2px 0 0; font-size: 0.88rem; overflow-wrap: anywhere; }
+
+.stat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px;
+}
+.stat {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg-inset); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px;
+}
+.stat-value { font-family: var(--mono); font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--accent); }
+.stat-label { font-size: 0.82rem; }
+.stat-hint { font-size: 0.72rem; color: var(--text-faint); }
+
+.live-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;
+}
+.live-badge[data-state="loading"]::before { animation: metriq-live 1.8s ease-in-out infinite; }
+.live-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--na); }
+.live-badge[data-state="ok"]::before { background: var(--pass); animation: metriq-live 1.8s ease-in-out infinite; }
+.live-badge[data-state="error"]::before { background: var(--fail); }
+@keyframes metriq-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live-badge[data-state="ok"]::before { animation: none; } }
+
+.stat-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  gap: 8px 18px; margin: 18px 0 0;
+}
+.stat-strip > div {
+  display: flex; justify-content: space-between; gap: 10px;
+  border-bottom: 1px dashed var(--border); padding-bottom: 6px;
+}
+.stat-strip dt { font-size: 0.8rem; color: var(--text-muted); }
+.stat-strip dd {
+  margin: 0; font-family: var(--mono); font-size: 0.82rem; text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.panel {
+  background: var(--bg-inset); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px;
+}
+.panel h3 { font-size: 0.92rem; margin-bottom: 6px; }
+.panel p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+
+.feature-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px;
+}
+.feature {
+  background: var(--bg-inset); border: 1px solid var(--border); border-left: 3px solid var(--accent-line);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.feature h3 { font-size: 0.9rem; }
+.feature p { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
+
+.home-foot { border-top: 1px solid var(--border); padding: 18px 22px 30px; text-align: center; }
+
+@media (max-width: 640px) {
+  .home-bar { padding: 10px 14px; }
+  .home-tools { gap: 10px; }
+  .home-main { padding: 18px 14px 30px; }
+  .hero h1 { font-size: 1.5rem; }
+  /* The badge shares its row with the section title; at this width it has to
+     be allowed to wrap rather than push the card out of the viewport. */
+  .card-title { flex-wrap: wrap; }
+  .live-badge { white-space: normal; }
+}
+
 @media print {
   .sidebar, .topbar, .wizard-footer, .rail, .aside, button, .btn { display: none !important; }
   body { background: #fff; color: #000; }

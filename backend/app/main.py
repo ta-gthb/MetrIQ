@@ -28,6 +28,7 @@ from app.routers import (
     cases,
     dashboard,
     masters,
+    platform,
     reports,
     standards,
     tests,
@@ -263,11 +264,14 @@ def api_index() -> dict:
         "prefix": settings.API_V1_PREFIX,
         "documentation": "/docs",
         "standards": ["OIML R 76-1:2006", "OIML R 76-2:2007"],
+        # The one endpoint that answers without a token, so the home page can
+        # show this instance's activity before anyone has signed in.
+        "statistics": f"{settings.API_V1_PREFIX}/platform/statistics",
     }
 
 
 PREFIX = settings.API_V1_PREFIX
-for module in (auth, dashboard, masters, cases, tests, workflow, reports, attachments, audit, standards, ai, admin):
+for module in (auth, dashboard, masters, cases, tests, workflow, reports, attachments, audit, standards, ai, admin, platform):
     app.include_router(module.router, prefix=PREFIX)
 
 

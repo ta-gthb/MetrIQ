@@ -1,49 +1,203 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MetrIQ - OIML R 76 test report automation</title>
+  <title>MetrIQ | NAWI OIML R 76 type evaluation platform</title>
+  <meta name="description" content="MetrIQ is a rules-driven platform for the type evaluation of non-automatic weighing instruments under OIML R 76: versioned rule sets, a deterministic error-and-MPE engine, structured evidence and a traceable review workflow." />
   <link rel="icon" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <!-- Synchronous, so the theme is applied before the first paint; a file
        rather than an inline script so the CSP needs no inline exception. -->
   <script src="/js/theme-boot.js"></script>
 </head>
-<body class="auth-page">
-  <div class="auth-toolbar">
-    <div class="clock" data-clock role="group" aria-label="Current local date and time">
-      <span class="clock-time" data-clock-time>--:--:--</span>
-      <span class="clock-date" data-clock-date>&nbsp;</span>
-    </div>
-    <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
-      <span class="theme-icon" data-theme-icon aria-hidden="true">☀</span>
-      <span class="theme-toggle-label" data-theme-label>Light</span>
-    </button>
-  </div>
+<body class="home-page">
+  <a class="skip-link" href="#main">Skip to content</a>
 
-  <main class="card auth-card" id="landing">
-    <div class="brand" style="margin-bottom:14px">
+  <header class="home-bar">
+    <div class="brand">
       <img src="/assets/logo.svg" alt="" />
-      <div><div class="brand-name">MetrIQ</div>
-        <div class="brand-sub">NAWI OIML R 76 platform</div></div>
+      <div>
+        <div class="brand-name">MetrIQ</div>
+        <div class="brand-sub">NAWI OIML R 76 platform</div>
+      </div>
     </div>
-    <h1>Type evaluation, from observation to approved, hash-verifiable report</h1>
-    <p class="muted">A rules-driven workflow for non-automatic weighing instruments:
-      versioned OIML R 76 rule sets, a deterministic error-and-MPE engine, structured
-      evidence, a traceable review workflow and bounded AI assistance.</p>
-    <ul class="muted small">
-      <li>Deterministic decimal arithmetic - PASS/FAIL is never typed by hand.</li>
-      <li>Every result cites the rule version and clause it was evaluated against.</li>
-      <li>AI extracts and warns; it never decides compliance.</li>
-      <li>Answers cite the exact rule version, clause and test code they came from.</li>
-    </ul>
-    <div class="inline mt-4">
+    <div class="inline home-tools">
+      <div class="clock" data-clock role="group" aria-label="Current local date and time">
+        <span class="clock-time" data-clock-time>--:--:--</span>
+        <span class="clock-date" data-clock-date>&nbsp;</span>
+      </div>
+      <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+        <span class="theme-icon" data-theme-icon aria-hidden="true">&#9728;</span>
+        <span class="theme-toggle-label" data-theme-label>Light</span>
+      </button>
       <a class="btn btn-primary" href="/login.html" id="enter">Sign in</a>
-      <a class="btn" href="/dashboard.html">Open dashboard</a>
-      <a class="btn" href="/assistant.html">Ask the R 76 assistant</a>
     </div>
+  </header>
+
+  <main class="home-main" id="main">
+    <section class="card hero">
+      <p class="eyebrow">Type evaluation of non-automatic weighing instruments</p>
+      <h1>From observation to approved, hash-verifiable report</h1>
+      <p class="lede">MetrIQ records a type evaluation under OIML R 76 in a governed and
+        reproducible form: the rule set is versioned and reviewed before it is used, the error
+        and maximum-permissible-error calculations are performed by a deterministic engine,
+        the evidence is held with the evaluation it belongs to, and every decision can be
+        traced to the rule, clause and revision it was taken under.</p>
+      <div class="inline home-cta">
+        <a class="btn btn-primary" href="/login.html">Sign in</a>
+        <a class="btn" href="#statistics">Platform statistics</a>
+        <a class="btn" href="#features">Capabilities</a>
+      </div>
+      <dl class="hero-facts">
+        <div>
+          <dt>Standards</dt>
+          <dd>OIML R 76-1:2006 &middot; OIML R 76-2:2007</dd>
+        </div>
+        <div>
+          <dt>Rule set in force</dt>
+          <dd data-hero-ruleset>Reading&hellip;</dd>
+        </div>
+        <div>
+          <dt>Record integrity</dt>
+          <dd>Content hashes, verification codes, immutable audit trail</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card" id="statistics">
+      <div class="card-title">
+        <h2>Platform statistics</h2>
+        <span class="live-badge" data-stats-status data-state="loading" role="status">Reading figures&hellip;</span>
+      </div>
+      <p class="muted small">Aggregate figures read from the database of this deployment and
+        refreshed while the page is open. They describe the volume of work the platform has
+        handled; no evaluation, instrument, party or person is identified.</p>
+      <div class="stat-grid" data-statistics>
+        <div class="stat"><div class="stat-value">&mdash;</div><div class="stat-label">Loading</div></div>
+      </div>
+      <dl class="stat-strip" data-statistics-detail></dl>
+      <p class="faint small mt-3" data-stats-note></p>
+    </section>
+
+    <section class="card" id="about">
+      <h2>About the platform</h2>
+      <p class="muted">MetrIQ is a web platform for the technical type evaluation of
+        non-automatic weighing instruments (NAWI). It replaces document-centred report
+        preparation with a structured record: the instrument, its metrological
+        characteristics, the tests performed, the observations taken, the calculation that
+        turned those observations into a result, and the review that accepted it are all
+        held as data, with the rule set that governs them.</p>
+      <div class="grid cols-2 mt-3">
+        <article class="panel">
+          <h3>Scope</h3>
+          <p>The platform covers the test programme prescribed by OIML R 76-1:2006 and
+            R 76-2:2007 for non-automatic weighing instruments, together with the
+            administrative record of an evaluation: the applicant, the manufacturer, the
+            instrument, the laboratory and the responsible staff.</p>
+        </article>
+        <article class="panel">
+          <h3>Governance of the rule set</h3>
+          <p>A rule set reaches a live evaluation only after it has been submitted for
+            technical review, reviewed rule by rule against OIML R 76, approved and
+            activated. A rule set activated provisionally by a development or demonstration
+            deployment is labelled as provisional wherever it is used.</p>
+        </article>
+        <article class="panel">
+          <h3>Metrological integrity</h3>
+          <p>Errors, corrections, maximum permissible errors and rounding are evaluated in
+            decimal arithmetic by a deterministic engine. Results are reproducible from the
+            recorded observations, and the calculation path does not depend on any AI
+            component.</p>
+        </article>
+        <article class="panel">
+          <h3>Accountability</h3>
+          <p>Every state change is written to an audit trail with its actor, time and
+            reason. An approved report is immutable, carries a content hash and a
+            verification code, and can be checked against the record it was produced
+            from.</p>
+        </article>
+        <article class="panel">
+          <h3>Evidence</h3>
+          <p>A nameplate photograph and a test-setup photograph must be attached before an
+            evaluation can be submitted for technical review. Files are stored with a
+            content hash and read through time-limited links.</p>
+        </article>
+        <article class="panel">
+          <h3>Access control</h3>
+          <p>Permissions are granted to roles, and laboratory scope is applied in the
+            database as well as in the application, so a query that bypasses the API cannot
+            reach another laboratory's records.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="card" id="features">
+      <h2>Capabilities</h2>
+      <div class="feature-grid mt-3">
+        <article class="feature">
+          <h3>Versioned rule sets</h3>
+          <p>Evaluations are calculated against a rule set that carries a version and a
+            fingerprint. It cannot change under a live evaluation.</p>
+        </article>
+        <article class="feature">
+          <h3>Deterministic calculation</h3>
+          <p>PASS or FAIL is produced by the engine from the recorded observations, never
+            entered by hand, and every result cites the rule version and clause behind it.</p>
+        </article>
+        <article class="feature">
+          <h3>Complete test catalogue</h3>
+          <p>The prescribed tests are held as a catalogue with clause references. Each entry
+            states whether the engine can execute it; entries needing judgement are
+            surfaced rather than omitted.</p>
+        </article>
+        <article class="feature">
+          <h3>Structured evidence</h3>
+          <p>Observations, environmental conditions, equipment and usage are recorded as
+            structured data, with the photographs an evaluation is required to carry.</p>
+        </article>
+        <article class="feature">
+          <h3>Traceable workflow</h3>
+          <p>Assignment, testing, technical review, correction, verification and approval
+            are distinct recorded states. A correction carries its reason, and no stage is
+            skipped.</p>
+        </article>
+        <article class="feature">
+          <h3>Hash-verifiable reports</h3>
+          <p>An approved evaluation produces a PDF or DOCX report under a versioned
+            template, carrying a content hash and a verification code.</p>
+        </article>
+        <article class="feature">
+          <h3>Audit trail</h3>
+          <p>Creation, edits, reviews, approvals and downloads are recorded with actor,
+            time and reason, and the trail is readable by an auditor role.</p>
+        </article>
+        <article class="feature">
+          <h3>Role-based access</h3>
+          <p>Super administrator, laboratory administrator, engineer, reviewer, approver and
+            auditor roles, each with the permissions its work requires and no more.</p>
+        </article>
+        <article class="feature">
+          <h3>Bounded AI assistance</h3>
+          <p>AI may read an instrument nameplate and raise anomalies for attention. It never
+            decides compliance, and its answers cite the rule version and clause they came
+            from.</p>
+        </article>
+        <article class="feature">
+          <h3>Interface</h3>
+          <p>Light and dark presentation, a clock synchronised with the platform, and
+            keyboard-accessible controls on every page.</p>
+        </article>
+      </div>
+    </section>
   </main>
+
+  <footer class="home-foot">
+    <p class="faint small">MetrIQ &middot; NAWI OIML R 76 test report automation platform.
+      Reports are technical type-evaluation records and do not by themselves constitute
+      statutory approval.</p>
+  </footer>
+
   <script type="module" src="/js/home.js"></script>
 </body>
 </html>
