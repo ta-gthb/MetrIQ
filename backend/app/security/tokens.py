@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
@@ -86,8 +87,21 @@ def create_access_token(
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(subject: str, *, email: str | None = None) -> str:
+def create_refresh_token(
+    subject: str,
+    *,
+    email: str | None = None,
+    jti: str | None = None,
+    ttl_days: int | None = None,
+) -> str:
+    """Mint a refresh token.
+
+    ``jti`` is supplied by the caller so the row that records this token can be
+    written with the same identifier: rotation and reuse detection both look the
+    token up by it (audit item 13).
+    """
     now = int(time.time())
+    lifetime = (ttl_days or settings.REFRESH_TOKEN_TTL_DAYS) * 24 * 3600
     return jwt.encode(
         {
             "sub": subject,
@@ -97,12 +111,17 @@ def create_refresh_token(subject: str, *, email: str | None = None) -> str:
             "iss": settings.JWT_ISSUER or settings.APP_NAME,
             "iat": now,
             "nbf": now,
-            "exp": now + 7 * 24 * 3600,
-            "jti": str(uuid.uuid4()),
+            "exp": now + lifetime,
+            "jti": jti or str(uuid.uuid4()),
         },
         settings.JWT_SECRET,
         algorithm=settings.JWT_ALGORITHM,
     )
+
+
+def refresh_expiry() -> datetime:
+    """When a refresh token minted now stops being accepted."""
+    return datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_TTL_DAYS)
 
 
 def decode_token(token: str, *, expected_type: str | None = None) -> Principal:

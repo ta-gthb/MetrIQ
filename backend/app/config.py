@@ -71,7 +71,14 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_AUDIENCE: str = "authenticated"
     JWT_ISSUER: str | None = None
-    ACCESS_TOKEN_TTL_MINUTES: int = 480
+    # Short on purpose (audit item 13): the frontend transparently refreshes a
+    # 401 once, so a stolen access token is worth an hour at most rather than a
+    # working day. The refresh token is rotated on every use and lives in an
+    # HttpOnly cookie, so it is not readable from page JavaScript.
+    ACCESS_TOKEN_TTL_MINUTES: int = 60
+    REFRESH_TOKEN_TTL_DAYS: int = 14
+    REFRESH_COOKIE_NAME: str = "metriq_refresh"
+    REFRESH_COOKIE_PATH: str = "/"
 
     SUPABASE_URL: str | None = None
     SUPABASE_ANON_KEY: str | None = None
@@ -153,6 +160,30 @@ class Settings(BaseSettings):
     # deployment needs and is refused outright when one is configured, because
     # the middleware also sends credentials (audit item 12).
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
+
+    # --- Security headers -------------------------------------------------
+    # Applied to every API response, including the copy of the frontend this
+    # service serves. Scripts must come from this origin: every page's inline
+    # bootstrap was moved into js/theme-boot.js so no exception is needed.
+    # Styles keep 'unsafe-inline' because the pages set style attributes.
+    CSP_POLICY: str = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "manifest-src 'self'"
+    )
+    # Extra origins for connect-src, space separated. Only needed when the UI
+    # calls this API cross-origin instead of through the host's rewrite proxy,
+    # e.g. "https://metriq-api-vgao.onrender.com".
+    CSP_EXTRA_CONNECT_SRC: str = ""
+    HSTS_MAX_AGE_SECONDS: int = 31536000
 
     @property
     def cors_origins(self) -> list[str]:

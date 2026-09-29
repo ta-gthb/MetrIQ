@@ -32,7 +32,9 @@ def test_an_ignored_file_is_skipped_unless_the_build_context_is_being_checked(tm
     """A gitignored .env cannot be committed, but it can still reach an image."""
     monkeypatch.setattr(check_release, "ignored_paths", lambda root: ({"backend/.env"}, set()))
     (tmp_path / "backend").mkdir()
-    (tmp_path / "backend" / ".env").write_text("DATABASE_URL=postgresql://u:Pr26589743ism@h:5432/d\n", encoding="utf-8")
+    (tmp_path / "backend" / ".env").write_text(
+        "DATABASE_URL=postgresql://u:fixture-not-a-secret-01@h:5432/d\n", encoding="utf-8"
+    )
 
     assert scan_tree(tmp_path) == []
     assert scan_tree(tmp_path, include_ignored=True)
@@ -54,7 +56,7 @@ def test_a_release_archive_is_checked_member_by_member(tmp_path):
 
 
 def test_a_database_url_with_a_real_looking_password_is_caught():
-    line = 'DATABASE_URL = "postgresql://postgres.abc:Pr26589743ism@aws-0.pooler.supabase.com:5432/postgres"'
+    line = 'DATABASE_URL = "postgresql://postgres.abc:fixture-not-a-secret-01@aws-0.pooler.supabase.com:5432/postgres"'
     assert scan_text("backend/settings.py", line)
 
 

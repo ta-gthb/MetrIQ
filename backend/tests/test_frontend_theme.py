@@ -35,10 +35,28 @@ def read(relative: str) -> str:
 
 
 def test_every_page_applies_the_stored_theme_before_first_paint():
+    """The bootstrap is a file, not an inline script (audit item 13).
+
+    It is referenced from <head> and loaded synchronously, so it still runs
+    before the first paint - the property that keeps a light-mode page from
+    flashing the dark palette.
+    """
+    boot = read("js/theme-boot.js")
+    assert "metriq-theme" in boot, "the bootstrap no longer reads the stored theme"
+    assert "data-theme" in boot
+
     for name in APP_PAGES + AUTH_PAGES:
         body = read(name)
-        assert "metriq-theme" in body, f"{name} has no pre-paint theme bootstrap"
-        assert "data-theme" in body, name
+        assert "/js/theme-boot.js" in body, f"{name} has no pre-paint theme bootstrap"
+        head = body[: body.index("</head>")]
+        assert "/js/theme-boot.js" in head, f"{name} must load the bootstrap from <head>"
+
+    # The bootstrap stamps data-theme onto <html>.  The two script-bearing
+    # pages also declare it statically so the very first paint is themed even
+    # before JavaScript runs; the application pages get it from renderShell.
+    for name in AUTH_PAGES:
+        assert "data-theme" in read(name), name
+    assert "data-theme" in read("js/ui.js"), "renderShell no longer themes <html>"
 
 
 def test_every_page_offers_a_theme_switch():

@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utcnow
 
 
 class Role(Base, TimestampMixin):
@@ -43,6 +43,31 @@ class RolePermission(Base, TimestampMixin):
     )
 
     role: Mapped[Role] = relationship(back_populates="permissions")
+
+
+class RefreshToken(Base, TimestampMixin):
+    """One issued refresh token, and the rotation history around it (item 13).
+
+    A refresh token is single-use. Presenting one that has already been used is
+    treated as theft: the whole family is revoked, so the thief and the victim
+    are both signed out rather than the thief quietly keeping access. The token
+    itself is never stored - only its ``jti``, which is what makes this table
+    safe to keep.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    jti: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    family_id: Mapped[str] = mapped_column(String(36), index=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_reason: Mapped[str | None] = mapped_column(String(120))
+    replaced_by_jti: Mapped[str | None] = mapped_column(String(36))
 
 
 class Laboratory(Base, UUIDPrimaryKeyMixin, TimestampMixin):

@@ -15,7 +15,9 @@ class LoginRequest(BaseModel):
 
 
 class TokenRefreshRequest(BaseModel):
-    refresh_token: str
+    # Optional: a browser presents the refresh token as an HttpOnly cookie and
+    # sends no body at all (audit item 13).
+    refresh_token: str | None = None
 
 
 class UserOut(ORMModel):

@@ -297,11 +297,19 @@ def scan_git_history(limit_bytes: int = 96 * 1024 * 1024) -> list[Finding]:
 
     findings: list[Finding] = []
     commit = "?"
+    current_file = ""
     for raw_line in blob.splitlines():
         if raw_line.startswith("commit "):
             commit = raw_line.split(" ", 1)[1].strip()[:12]
             continue
+        if raw_line.startswith("diff --git "):
+            # `diff --git a/x b/x`; the b/ side is the file the next hunks add to.
+            parts = raw_line.split(" b/", 1)
+            current_file = parts[1].strip() if len(parts) == 2 else ""
+            continue
         if not raw_line.startswith("+"):
+            continue
+        if any(name in current_file for name in SELF_REFERENTIAL):
             continue
         body = raw_line[1:]
         for label, pattern in CREDENTIAL_PATTERNS:

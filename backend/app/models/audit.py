@@ -28,6 +28,10 @@ class AuditEventType:
     UPLOAD = "UPLOAD"
     DELETE = "DELETE"
     LOGIN = "LOGIN"
+    LOGOUT = "LOGOUT"
+    # Presented a refresh token that had already been used: treated as a stolen
+    # credential and answered by revoking the whole family (audit item 13).
+    TOKEN_REUSE = "TOKEN_REUSE"
     OVERRIDE = "OVERRIDE"
     REPORT_GENERATE = "REPORT_GENERATE"
 

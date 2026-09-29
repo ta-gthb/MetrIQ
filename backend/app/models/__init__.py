@@ -17,7 +17,14 @@ from app.models.audit import (
     WorkflowAction,
 )
 from app.models.evidence import Attachment, AttachmentCategory, AttachmentLink
-from app.models.identity import Laboratory, Permission, Role, RolePermission, User
+from app.models.identity import (
+    Laboratory,
+    Permission,
+    RefreshToken,
+    Role,
+    RolePermission,
+    User,
+)
 from app.models.instrument import Instrument, InstrumentRange
 from app.models.org import Applicant, EquipmentCalibration, Manufacturer, TestEquipment
 from app.models.report import GeneratedReport, ReportRevision, ReportSignature
@@ -65,6 +72,7 @@ __all__ = [
     "Manufacturer",
     "Notification",
     "Permission",
+    "RefreshToken",
     "ReportRevision",
     "ReportSignature",
     "ReportTemplate",

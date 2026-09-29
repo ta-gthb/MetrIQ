@@ -70,7 +70,7 @@ function buildUrl(path, query) {
 }
 
 async function request(method, path, options = {}) {
-  const { body, formData, query, blob, redirectOn401 = true } = options;
+  const { body, formData, query, blob, redirectOn401 = true, skipRefresh = false } = options;
   const headers = {};
   if (session && session.access_token) headers.Authorization = `Bearer ${session.access_token}`;
 
@@ -84,9 +84,24 @@ async function request(method, path, options = {}) {
 
   let response;
   try {
-    response = await fetch(buildUrl(path, query), { method, headers, body: payload });
+    response = await fetch(buildUrl(path, query), {
+      method,
+      headers,
+      body: payload,
+      // The refresh token is an HttpOnly cookie, so it has to travel with every
+      // call - including the cross-origin one when a page points directly at
+      // the API instead of using the host's rewrite (audit item 13).
+      credentials: 'include',
+    });
   } catch (error) {
     throw new ApiError(0, 'The MetrIQ service cannot be reached. Check your connection and retry.');
+  }
+
+  // Access tokens are short-lived on purpose. A 401 from an expired token is
+  // transparent: refresh once and replay the request, so an hour-long token
+  // feels like a session and a stolen one is worth an hour at most.
+  if (response.status === 401 && !skipRefresh && session && session.access_token) {
+    if (await refreshSession()) return request(method, path, { ...options, skipRefresh: true });
   }
 
   if (response.status === 401) {
@@ -124,9 +139,45 @@ export const api = {
 
 /* --------------------------------------------------------------- auth ---- */
 
+/* The refresh token must never be kept in page storage: it arrives as an
+ * HttpOnly cookie, and a copy here would put it back within reach of any script
+ * on the page, which is the exposure the cookie exists to remove (item 13). */
+function withoutRefreshToken(tokens) {
+  if (!tokens) return tokens;
+  const { refresh_token: _discarded, ...rest } = tokens;
+  return rest;
+}
+
+/* One refresh at a time: a page that fires six requests after the token expired
+ * must rotate once, not six times - the second rotation would look like a reused
+ * token and sign the user out. */
+let refreshInFlight = null;
+
+async function refreshSession() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const tokens = await request('POST', '/auth/refresh', {
+          redirectOn401: false,
+          skipRefresh: true,
+        });
+        setSession({ ...session, ...withoutRefreshToken(tokens) });
+        if (!session.permissions || !session.permissions.length) await refreshProfile();
+        return true;
+      } catch (error) {
+        clearSession();
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
 export async function login(email, password) {
   const tokens = await api.post('/auth/login', { email, password }, { redirectOn401: false });
-  setSession({ ...tokens, permissions: [] });
+  setSession({ ...withoutRefreshToken(tokens), permissions: [] });
   await refreshProfile();
   return session;
 }
@@ -143,7 +194,14 @@ export async function refreshProfile() {
   return session;
 }
 
-export function logout() {
+export async function logout() {
+  try {
+    // Revoke the session on the server, not only in this browser. Without this
+    // a captured refresh token would keep working after "sign out".
+    await api.post('/auth/logout', undefined, { redirectOn401: false, skipRefresh: true });
+  } catch (error) {
+    // An unreachable API must not trap the user on a signed-in page.
+  }
   clearSession();
   window.location.href = '/login.html';
 }

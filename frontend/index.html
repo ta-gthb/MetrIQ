@@ -6,22 +6,9 @@
   <title>MetrIQ - OIML R 76 test report automation</title>
   <link rel="icon" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script>
-    /* Apply the stored theme before the first paint: a page opened in light
-       mode must never flash the dark palette first. Kept inline and tiny so it
-       runs ahead of the first paint without a network round trip. */
-    (function () {
-      try {
-        var stored = localStorage.getItem('metriq-theme');
-        var prefersLight = window.matchMedia
-          && window.matchMedia('(prefers-color-scheme: light)').matches;
-        document.documentElement.setAttribute('data-theme',
-          stored === 'light' || stored === 'dark' ? stored : (prefersLight ? 'light' : 'dark'));
-      } catch (error) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
+  <!-- Synchronous, so the theme is applied before the first paint; a file
+       rather than an inline script so the CSP needs no inline exception. -->
+  <script src="/js/theme-boot.js"></script>
 </head>
 <body class="auth-page">
   <div class="auth-toolbar">
@@ -57,19 +44,6 @@
       <a class="btn" href="/assistant.html">Ask the R 76 assistant</a>
     </div>
   </main>
-  <script type="module">
-    import { getSession } from '/js/api.js';
-    import { initTheme } from '/js/theme.js';
-    import { startClocks } from '/js/clock.js';
-
-    initTheme();
-    startClocks();
-
-    if (getSession() && getSession().access_token) {
-      const enter = document.getElementById('enter');
-      enter.textContent = 'Continue as ' + (getSession().user.full_name || 'user');
-      enter.href = '/dashboard.html';
-    }
-  </script>
+  <script type="module" src="/js/home.js"></script>
 </body>
 </html>

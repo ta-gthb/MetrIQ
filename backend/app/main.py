@@ -95,6 +95,59 @@ app.add_middleware(
 )
 
 
+DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+# The interactive documentation loads its bundles from a CDN, so it gets its own
+# policy rather than an 'unsafe-inline' hole in the application's (item 13).
+DOCS_CSP = (
+    "default-src 'self'; "
+    "base-uri 'self'; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "script-src 'self' https://cdn.jsdelivr.net; "
+    "connect-src 'self'"
+)
+
+
+def _application_csp() -> str:
+    """The policy for the application, with any extra API origin added."""
+    extra = settings.CSP_EXTRA_CONNECT_SRC.split()
+    if not extra:
+        return settings.CSP_POLICY
+    return settings.CSP_POLICY.replace(
+        "connect-src 'self'", "connect-src 'self' " + " ".join(extra)
+    )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Security headers on everything this service answers (audit item 13).
+
+    Vercel serves the static frontend, so the same headers are declared again in
+    vercel.json; this covers the API and the copy of the UI the backend mounts.
+    """
+    response = await call_next(request)
+    headers = response.headers
+    path = request.url.path
+    headers.setdefault(
+        "Content-Security-Policy", DOCS_CSP if path.startswith(DOCS_PATHS) else _application_csp()
+    )
+    headers.setdefault("X-Content-Type-Options", "nosniff")
+    headers.setdefault("X-Frame-Options", "DENY")
+    headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+    headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    if settings.ENVIRONMENT == "production":
+        headers.setdefault(
+            "Strict-Transport-Security",
+            f"max-age={settings.HSTS_MAX_AGE_SECONDS}; includeSubDomains",
+        )
+    return response
+
+
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
