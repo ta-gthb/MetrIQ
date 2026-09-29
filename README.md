@@ -22,6 +22,9 @@ It is not a CRUD application with a PDF export. The differentiators are:
 - **A laboratory-grade interface.** Every page renders in light or dark
   mode from one palette, remembers the choice per browser, and carries a
   clock pinned to the platform's date and time.
+- **A formal front door.** The home page opens on the platform's official
+  mark and a short startup animation, then sets out what the platform
+  evaluates and how much work this deployment has handled.
 
 ## Quick start
 
@@ -150,12 +153,15 @@ backend/
                        report_engine, ai_service, audit_service, metrology_service
   scripts/             init_db, reinit_db, reset_db, seed_rules, seed_identity,
                        seed_db, manage_admin, create_admin
-  tests/               184 tests
+  tests/               427 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
+  assets/              the official mark: logo.png (full lockup),
+                       logo-emblem.png, favicon.ico, apple-touch-icon.png
   css/app.css          design system; dark and light palettes as CSS vars
-  js/                  api.js, ui.js, theme.js, clock.js and one module per page
+  js/                  api.js, ui.js, theme.js, clock.js, splash-boot.js and
+                       one module per page
 docs/
   architecture/  calculations/  deployment/  ai/
 ```
@@ -183,7 +189,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 175 tests
+python -m pytest -q      # 427 tests
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and

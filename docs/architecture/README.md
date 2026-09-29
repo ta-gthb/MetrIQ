@@ -76,6 +76,22 @@ instrument or person is in the response, and `tests/test_platform_statistics.py`
 enforces that by walking the payload and refusing anything that is not a number,
 a boolean, an ISO timestamp or one of the published constants.
 
+The page carries the platform's official mark, held in `assets/` as raster
+derivatives of the one artwork: `logo.png` is the full lockup and is used where
+the name is read with it (the hero and the startup overlay), `logo-emblem.png`
+is the emblem alone and is used wherever the mark sits beside the product name
+(the page bars, the sidebar and the sign-in card), and `favicon.ico` and
+`apple-touch-icon.png` are cut from the same source. The emblem is placed by
+height with `width: auto`, so the wide lockup is never squeezed into a square
+box.
+
+The startup animation is an overlay in `index.html` moved entirely by
+`css/app.css`: it fades itself out and clears itself from hit-testing, so the
+page is never left covered even if no script runs, and a visitor whose system
+asks for reduced motion never sees it. `js/splash-boot.js` decides before the
+first paint that it plays once per session, and `js/home.js` removes the
+finished node. `tests/test_brand_assets.py` holds all of that.
+
 ## 3. Backend layout
 
 ```

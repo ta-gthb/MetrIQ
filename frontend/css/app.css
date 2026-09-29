@@ -161,7 +161,9 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
 }
 
 .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.brand img { width: 30px; height: 30px; }
+/* The official mark is a commissioned lockup, not a drawn glyph, so it is
+   placed at its own aspect ratio rather than squeezed into a square. */
+.brand img { width: auto; height: 30px; }
 .brand-name { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.4px; }
 .brand-sub { font-size: 0.7rem; color: var(--text-faint); letter-spacing: 0.5px; text-transform: uppercase; }
 
@@ -435,7 +437,14 @@ tr.row-invalid td { background: var(--fail-wash-row); }
 /* ---------------------------------------------------------- theme ------- */
 .theme-toggle { gap: 6px; }
 .theme-toggle .theme-icon { font-size: 0.95rem; line-height: 1; }
-.theme-toggle .theme-toggle-label { font-size: 0.75rem; letter-spacing: 0.3px; }
+.theme-toggle .theme-toggle-label { font-size: 0.75rem; letter-spacing: 0.3px; min-width: 3.4em; }
+/* The glyph and the word both name the theme the switch would move to, and
+   which one that is only settles once js/theme.js has read the stored
+   choice. Markup can only be right for one of the two themes, so both are
+   held back - the word's width is kept, so the row does not move - until
+   the switch has been told which theme is in force. */
+html:not([data-theme-ready]) .theme-toggle .theme-icon,
+html:not([data-theme-ready]) .theme-toggle .theme-toggle-label { visibility: hidden; }
 @media (max-width: 780px) { .theme-toggle .theme-toggle-label { display: none; } }
 
 .auth-toolbar {
@@ -477,6 +486,7 @@ tr.row-invalid td { background: var(--fail-wash-row); }
   display: flex; flex-direction: column; gap: 18px;
 }
 
+.hero-logo { display: block; width: min(300px, 58vw); height: auto; margin: 0 0 16px; }
 .hero .eyebrow {
   margin: 0 0 8px;
   font-size: 0.72rem; letter-spacing: 1.1px; text-transform: uppercase;
@@ -565,8 +575,59 @@ tr.row-invalid td { background: var(--fail-wash-row); }
   .live-badge { white-space: normal; }
 }
 
+/* --------------------------------------------------- startup animation --- */
+/* The startup animation of the public home page. It is an overlay, and it is
+   pure CSS: the stylesheet fades it out and clears it from hit-testing on its
+   own, so the page can never be left covered, whatever happens to a script,
+   and a visitor whose system asks for reduced motion never sees it at all.
+   js/splash-boot.js plays it once per session; js/home.js takes the finished
+   node out of the document. */
+.splash {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: 24px;
+  background: var(--bg-grad);
+  animation: metriq-splash-out 480ms ease 1020ms forwards;
+}
+html[data-splash="off"] .splash { display: none; }
+
+.splash-logo {
+  width: min(230px, 56vw); height: auto;
+  animation: metriq-splash-mark 760ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+.splash-track {
+  width: min(250px, 62vw); height: 3px; border-radius: 999px;
+  background: var(--border); overflow: hidden;
+}
+/* The sweep carries the two colours of the mark itself. */
+.splash-fill {
+  display: block; width: 42%; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #fd6a05, #05a337);
+  animation: metriq-splash-sweep 1020ms cubic-bezier(0.5, 0, 0.4, 1) forwards;
+}
+
+.splash-tagline {
+  margin: 0; font-size: 0.78rem; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--text-faint); text-align: center;
+}
+
+@keyframes metriq-splash-out {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; }
+}
+@keyframes metriq-splash-mark {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes metriq-splash-sweep {
+  from { transform: translateX(-105%); }
+  to { transform: translateX(345%); }
+}
+@media (prefers-reduced-motion: reduce) { .splash { display: none; } }
+
 @media print {
-  .sidebar, .topbar, .wizard-footer, .rail, .aside, button, .btn { display: none !important; }
+  .splash, .sidebar, .topbar, .wizard-footer, .rail, .aside, button, .btn { display: none !important; }
   body { background: #fff; color: #000; }
   .card { box-shadow: none; border-color: #ccc; background: #fff; }
 }

@@ -207,7 +207,7 @@ export function renderShell({ active, title, crumb = 'MetrIQ', actionsHtml = '' 
     <a class="skip-link" href="#page-content">Skip to content</a>
     <aside class="sidebar">
       <div class="brand">
-        <img src="/assets/logo.svg" alt="" />
+        <img src="/assets/logo-emblem.png" alt="" width="320" height="241" />
         <div>
           <div class="brand-name">MetrIQ</div>
           <div class="brand-sub">OIML R 76</div>

@@ -62,6 +62,9 @@ function syncSwitches(theme) {
 export function applyTheme(mode, { persist = false } = {}) {
   const theme = MODES.includes(mode) ? mode : (prefersLight() ? 'light' : 'dark');
   document.documentElement.setAttribute('data-theme', theme);
+  /* The switch's word is written below, so the stylesheet holds it back
+     until now rather than showing a word that may be wrong for a moment. */
+  document.documentElement.setAttribute('data-theme-ready', 'true');
   if (persist) {
     try { localStorage.setItem(STORAGE_KEY, theme); } catch (error) { /* ignore */ }
   }

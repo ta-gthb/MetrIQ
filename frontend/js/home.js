@@ -14,6 +14,11 @@ import { startClocks } from './clock.js';
 initTheme();
 startClocks();
 
+/* The startup overlay is spent once its fade-out has finished, and the
+ * stylesheet has already cleared it from hit-testing by then. */
+const splash = document.querySelector('[data-splash]');
+if (splash) window.setTimeout(() => { splash.remove(); }, 1700);
+
 const grid = document.querySelector('[data-statistics]');
 const status = document.querySelector('[data-stats-status]');
 const detail = document.querySelector('[data-statistics-detail]');

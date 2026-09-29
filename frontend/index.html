@@ -5,18 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MetrIQ | NAWI OIML R 76 type evaluation platform</title>
   <meta name="description" content="MetrIQ is a rules-driven platform for the type evaluation of non-automatic weighing instruments under OIML R 76: versioned rule sets, a deterministic error-and-MPE engine, structured evidence and a traceable review workflow." />
-  <link rel="icon" href="/assets/logo.svg" />
+  <link rel="icon" href="/assets/favicon.ico" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <!-- Synchronous, so the theme is applied before the first paint; a file
        rather than an inline script so the CSP needs no inline exception. -->
   <script src="/js/theme-boot.js"></script>
+  <!-- The startup animation plays once per session. This decides before
+       the first paint, so a repeat visit never sees it flash. -->
+  <script src="/js/splash-boot.js"></script>
 </head>
 <body class="home-page">
+  <!-- The startup animation. It is an overlay only: the stylesheet fades it
+       out and clears it from hit-testing on its own, so it cannot leave the
+       page covered, whatever happens to the scripts. -->
+  <div class="splash" data-splash aria-hidden="true">
+    <img class="splash-logo" src="/assets/logo.png" alt="" width="640" height="638" />
+    <div class="splash-track"><span class="splash-fill"></span></div>
+    <p class="splash-tagline">NAWI OIML R 76 type evaluation platform</p>
+  </div>
+
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="home-bar">
     <div class="brand">
-      <img src="/assets/logo.svg" alt="" />
+      <img src="/assets/logo-emblem.png" alt="" width="320" height="241" />
       <div>
         <div class="brand-name">MetrIQ</div>
         <div class="brand-sub">NAWI OIML R 76 platform</div>
@@ -37,6 +50,7 @@
 
   <main class="home-main" id="main">
     <section class="card hero">
+      <img class="hero-logo" src="/assets/logo.png" alt="MetrIQ" width="640" height="638" />
       <p class="eyebrow">Type evaluation of non-automatic weighing instruments</p>
       <h1>From observation to approved, hash-verifiable report</h1>
       <p class="lede">MetrIQ records a type evaluation under OIML R 76 in a governed and
