@@ -28,6 +28,7 @@ from sqlalchemy import select
 from scripts._bootstrap import banner, ok, warn  # noqa: E402
 from scripts.seed_identity import seed_roles_and_permissions  # noqa: E402
 
+from app.config import settings  # noqa: E402
 from app.database import session_scope  # noqa: E402
 from app.models import (  # noqa: E402
     Applicant,
@@ -61,7 +62,11 @@ from app.security.permissions import (  # noqa: E402
 from app.services import metrology_service  # noqa: E402
 from app.services.test_engine import generate_and_persist_plan  # noqa: E402
 
-DEFAULT_PASSWORD = "MetrIQ@2026"
+# The demonstration password. It is not shipped to the browser: the sign-in page
+# fetches accounts from /auth/demo-accounts, which answers only while DEMO_MODE is
+# on. Set DEMO_PASSWORD to rotate the seeded hash and what that endpoint offers
+# together (audit item 3).
+DEFAULT_PASSWORD = settings.DEMO_PASSWORD
 
 DEMO_OBSERVATIONS: dict[str, list[dict]] = {
     "T-WP": [
@@ -199,6 +204,7 @@ def seed_users(db, laboratory: Laboratory, password: str) -> dict[str, User]:
                 laboratory_id=laboratory.id if role != SUPER_ADMIN else None,
                 is_active=True,
                 is_email_verified=True,
+                is_demo=True,
                 auth_provider="local",
                 password_hash=hash_password(password),
             )

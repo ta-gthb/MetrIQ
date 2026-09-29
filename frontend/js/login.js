@@ -1,6 +1,6 @@
 /* Sign-in page. */
 
-import { login, formatApiError, getSession } from './api.js';
+import { api, login, formatApiError, getSession } from './api.js';
 import { escapeHtml, toast } from './ui.js';
 import { initTheme } from './theme.js';
 import { startClocks } from './clock.js';
@@ -9,14 +9,51 @@ import { startClocks } from './clock.js';
 initTheme();
 startClocks();
 
-const DEMO_ACCOUNTS = [
-  ['engineer@metriq.local', 'Test Engineer', 'records observations and runs calculations'],
-  ['reviewer@metriq.local', 'Technical Reviewer', 'verifies results or requests a correction'],
-  ['approver@metriq.local', 'Approving Authority', 'approves, finalizes and releases the report'],
-  ['labadmin@metriq.local', 'Laboratory Admin', 'assigns personnel and manages the laboratory'],
-  ['auditor@metriq.local', 'Auditor', 'read-only access to records and audit trails'],
-  ['admin@metriq.local', 'Super Admin', 'platform configuration and rule sets'],
-];
+/* Demonstration mode.
+ *
+ * This file used to carry the demonstration password as a literal, which put it
+ * in every browser that loaded the page and in the deployed bundle. It now asks
+ * the API for the account list, and the API answers only while the operator has
+ * DEMO_MODE on - so a real deployment exposes nothing at all, and the panel says
+ * plainly that these are demonstration accounts (audit item 3).
+ */
+async function renderDemoAccounts() {
+  const panel = document.getElementById('demo-panel');
+  const label = document.getElementById('demo-label');
+  const list = document.getElementById('demo-accounts');
+
+  let payload;
+  try {
+    payload = await api.get('/auth/demo-accounts', { redirectOn401: false });
+  } catch (error) {
+    panel.hidden = true;
+    return;
+  }
+
+  const accounts = payload.accounts || [];
+  const password = payload.password || '';
+  panel.hidden = false;
+  label.innerHTML = '<span class="pill pill-warn">Demo mode</span> Demonstration accounts' +
+    (password ? '.' : ' - the password is supplied separately.') +
+    ' Selecting one fills the form; each role sees a different slice of the workflow.';
+
+  list.innerHTML = accounts.map((account) => `
+    <button type="button" class="demo-account" data-email="${escapeHtml(account.email)}">
+      <span><strong>${escapeHtml(account.role_name)}</strong><br />
+        <span class="faint">${escapeHtml(account.designation || account.full_name)}</span></span>
+      <span class="mono small">${escapeHtml(account.email.split('@')[0])}</span>
+    </button>`).join('');
+
+  list.querySelectorAll('[data-email]').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.getElementById('email').value = button.dataset.email;
+      if (password) document.getElementById('password').value = password;
+      document.getElementById('submit').focus();
+    });
+  });
+}
+
+renderDemoAccounts();
 
 const params = new URLSearchParams(window.location.search);
 const notice = document.getElementById('notice');
@@ -28,20 +65,6 @@ if (getSession() && getSession().access_token) {
 if (params.get('expired')) {
   notice.innerHTML = '<div class="banner warn"><div>Your session expired. Please sign in again.</div></div>';
 }
-
-document.getElementById('demo-accounts').innerHTML = DEMO_ACCOUNTS.map(([email, role, blurb]) => `
-  <button type="button" class="demo-account" data-email="${escapeHtml(email)}">
-    <span><strong>${escapeHtml(role)}</strong><br /><span class="faint">${escapeHtml(blurb)}</span></span>
-    <span class="mono small">${escapeHtml(email.split('@')[0])}</span>
-  </button>`).join('');
-
-document.querySelectorAll('[data-email]').forEach((button) => {
-  button.addEventListener('click', () => {
-    document.getElementById('email').value = button.dataset.email;
-    document.getElementById('password').value = 'MetrIQ@2026';
-    document.getElementById('submit').focus();
-  });
-});
 
 document.getElementById('login-form').addEventListener('submit', async (event) => {
   event.preventDefault();

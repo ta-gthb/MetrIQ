@@ -30,6 +30,10 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 # repository root, it travels with backend/ into the deployment image.
 DEPLOYMENT_DEFAULTS = Path(__file__).resolve().parents[1] / "deployment.env"
 
+# A workstation origin. Used to keep the development defaults out of a
+# production deployment's allow-list (audit item 12).
+_LOCALHOST_ORIGIN = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$", re.IGNORECASE)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -74,6 +78,15 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
     SUPABASE_JWKS_URL: str | None = None
     SUPABASE_JWT_SECRET: str | None = None
+
+    # --- Demonstration mode -----------------------------------------------
+    # Sign-in for the seeded demonstration accounts. The frontend bundle
+    # contains no credential: it asks the API for the account list, and the API
+    # answers only while DEMO_MODE is on (audit item 3). Rotate the accounts by
+    # setting DEMO_PASSWORD here - seed_db.py hashes this same value, so one
+    # variable changes both the seeded password and what the demo panel offers.
+    DEMO_MODE: bool = False
+    DEMO_PASSWORD: str = "MetrIQ@2026"
 
     # --- Storage ----------------------------------------------------------
     STORAGE_BACKEND: Literal["local", "supabase"] = "local"
@@ -136,7 +149,39 @@ class Settings(BaseSettings):
             "http://localhost:3000",
         ]
     )
-    CORS_ALLOW_ORIGIN_REGEX: str | None = r"https://.*\.vercel\.app"
+    # Exact origins only. A wildcard pattern here would be broader than any real
+    # deployment needs and is refused outright when one is configured, because
+    # the middleware also sends credentials (audit item 12).
+    CORS_ALLOW_ORIGIN_REGEX: str | None = None
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """The origins actually allowed, restricted by environment.
+
+        The bundled frontend reaches the API through the host's same-origin
+        rewrite - vercel.json proxies /api to this service - so a production
+        deployment needs no CORS entry at all. The development defaults are
+        dropped there so a localhost origin can never be used against it.
+        """
+        if self.ENVIRONMENT == "production":
+            return [origin for origin in self.CORS_ORIGINS if not _LOCALHOST_ORIGIN.match(origin)]
+        return list(self.CORS_ORIGINS)
+
+    @field_validator("CORS_ALLOW_ORIGIN_REGEX")
+    @classmethod
+    def _refuse_broad_origin_pattern(cls, value):
+        """No wildcard origins: name the exact origins in CORS_ORIGINS."""
+        if value is None:
+            return None
+        pattern = str(value).strip()
+        if not pattern:
+            return None
+        if "*" in pattern:
+            raise ValueError(
+                "CORS_ALLOW_ORIGIN_REGEX must not contain a wildcard; list the exact "
+                "origins in CORS_ORIGINS instead"
+            )
+        return pattern
 
     @field_validator("DB_SCHEMA", mode="before")
     @classmethod
@@ -159,7 +204,9 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
-    @field_validator("DEBUG", "AI_ENABLED", "AUTO_INIT_DB", "AUTO_SEED_REFERENCE", mode="before")
+    @field_validator(
+        "DEBUG", "AI_ENABLED", "AUTO_INIT_DB", "AUTO_SEED_REFERENCE", "DEMO_MODE", mode="before"
+    )
     @classmethod
     def _lenient_bool(cls, value):
         """Interpret common deployment flags without failing startup.

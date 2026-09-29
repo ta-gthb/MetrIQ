@@ -1,0 +1,181 @@
+"""Release-hardening checks from the project audit: items 2, 3, 5 and 12.
+
+Each test names the item it belongs to, so a failure points at the finding it
+reopens rather than at an anonymous assertion.
+
+This file quotes credential-shaped strings on purpose, to prove the gate catches
+them; `check_release.SELF_REFERENTIAL` is the list of files the gate skips for
+that reason.
+"""
+
+from __future__ import annotations
+
+import io
+import pathlib
+import zipfile
+
+import pytest
+
+from scripts import check_release
+from scripts.check_release import REPO_ROOT, scan_archive, scan_git_history, scan_text, scan_tree
+
+
+# --------------------------------------------------------- item 2: secrets ---
+
+
+def test_the_shipped_tree_carries_no_secret():
+    """The gate CI runs: no .env, no key material, no credential-like string."""
+    assert scan_tree(REPO_ROOT) == []
+
+
+def test_an_ignored_file_is_skipped_unless_the_build_context_is_being_checked(tmp_path, monkeypatch):
+    """A gitignored .env cannot be committed, but it can still reach an image."""
+    monkeypatch.setattr(check_release, "ignored_paths", lambda root: ({"backend/.env"}, set()))
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "backend" / ".env").write_text("DATABASE_URL=postgresql://u:Pr26589743ism@h:5432/d\n", encoding="utf-8")
+
+    assert scan_tree(tmp_path) == []
+    assert scan_tree(tmp_path, include_ignored=True)
+
+
+def test_a_release_archive_is_checked_member_by_member(tmp_path):
+    clean = tmp_path / "clean.zip"
+    with zipfile.ZipFile(clean, "w") as bundle:
+        bundle.writestr("backend/app/main.py", "print('hello')\n")
+    assert scan_archive(clean) == []
+
+    dirty = tmp_path / "dirty.zip"
+    with zipfile.ZipFile(dirty, "w") as bundle:
+        bundle.writestr("backend/.env", "SUPABASE_SERVICE_ROLE_KEY=whatever\n")
+        bundle.writestr("keys/server.pem", "-----BEGIN RSA PRIVATE KEY-----\n")
+    messages = {finding.message for finding in scan_archive(dirty)}
+    assert any(".env" in message for message in messages)
+    assert any(".pem" in message for message in messages)
+
+
+def test_a_database_url_with_a_real_looking_password_is_caught():
+    line = 'DATABASE_URL = "postgresql://postgres.abc:Pr26589743ism@aws-0.pooler.supabase.com:5432/postgres"'
+    assert scan_text("backend/settings.py", line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres',
+        'DATABASE_URL=postgresql://postgres.ref:pw@host:5432/postgres',
+        'JWT_SECRET=change-me-in-production',
+    ],
+)
+def test_placeholders_are_not_mistaken_for_secrets(line):
+    assert scan_text("docs/deployment/README.md", line) == []
+
+
+def test_the_docker_build_context_cannot_admit_a_secret():
+    """`COPY backend backend` would otherwise bake in a developer's .env."""
+    text = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
+    for pattern in (".env", "**/.env", "*.pem", "*.key", "*.db"):
+        assert pattern in text, f".dockerignore must exclude {pattern}"
+    assert "!backend/deployment.env" in text, "the committed non-secret defaults still have to ship"
+
+
+def test_git_history_carries_no_credential():
+    """A secret removed from the tip is still in the objects until history is rewritten."""
+    assert scan_git_history() == []
+
+
+# ------------------------------------------------- item 3: demo credentials ---
+
+
+def test_no_browser_asset_carries_the_demonstration_password(tmp_path):
+    from app.config import settings
+
+    asset = "frontend/js/login.js"
+    assert scan_text(asset, f"password.value = '{settings.DEMO_PASSWORD}';", demo=settings.DEMO_PASSWORD)
+    assert scan_text(asset, "payload = await api.get('/auth/demo-accounts');", demo=settings.DEMO_PASSWORD) == []
+
+
+def test_the_frontend_sources_never_mention_the_demo_password():
+    from app.config import settings
+
+    frontend = REPO_ROOT / "frontend"
+    for path in frontend.rglob("*"):
+        if not path.is_file() or path.suffix.lower() in {".png", ".svg", ".ico", ".woff2"}:
+            continue
+        text = io.open(path, encoding="utf-8", newline="").read()
+        assert settings.DEMO_PASSWORD not in text, path
+
+
+def test_the_demo_panel_is_served_only_while_demo_mode_is_on(client, monkeypatch):
+    """A deployment that has not opted in exposes no demonstration credential."""
+    from app.config import Settings, settings
+
+    monkeypatch.setattr(settings, "DEMO_MODE", False)
+    assert client.get("/api/v1/auth/demo-accounts").status_code == 404
+
+    monkeypatch.setattr(settings, "DEMO_MODE", True)
+    body = client.get("/api/v1/auth/demo-accounts").json()
+
+    assert body["demo_mode"] is True
+    assert body["password"] == Settings().DEMO_PASSWORD
+    emails = {account["email"] for account in body["accounts"]}
+    assert "engineer@metriq.local" in emails
+    assert all(account["role_name"] for account in body["accounts"]), "the panel labels each role"
+
+
+# -------------------------------------------------- item 5: signature claims ---
+
+
+def test_a_signed_report_claim_is_rejected():
+    for line in (
+        "<h1>from observation to signed report</h1>",
+        "It produces a digitally signed document.",
+        "Download the signed PDF.",
+    ):
+        assert scan_text("frontend/index.html", line), line
+        assert scan_text("README.md", line), line
+
+
+def test_the_approved_wording_is_accepted():
+    for line in (
+        "from observation to approved, hash-verifiable report",
+        "an approved and hash-verifiable PDF/DOCX report",
+        "Time-limited signed download URLs for evidence files.",
+    ):
+        assert scan_text("README.md", line) == [], line
+
+
+# --------------------------------------------- item 12: CORS and boundaries ---
+
+
+def test_a_wildcard_origin_pattern_is_refused_at_start_up():
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(CORS_ALLOW_ORIGIN_REGEX=r"https://.*\.vercel\.app")
+    assert Settings(CORS_ALLOW_ORIGIN_REGEX=None).CORS_ALLOW_ORIGIN_REGEX is None
+
+
+def test_production_drops_the_development_origins():
+    from app.config import Settings
+
+    localhost = ["http://localhost:5173", "http://127.0.0.1:5500", "https://metriq.vercel.app"]
+    assert Settings(ENVIRONMENT="production", CORS_ORIGINS=localhost).cors_origins == [
+        "https://metriq.vercel.app"
+    ]
+    assert Settings(ENVIRONMENT="development", CORS_ORIGINS=localhost).cors_origins == localhost
+
+
+def test_an_unapproved_origin_gets_no_cors_approval(client):
+    approved = client.options(
+        "/api/v1/me",
+        headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
+    )
+    assert approved.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+    rejected = client.options(
+        "/api/v1/me",
+        headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"},
+    )
+    assert "access-control-allow-origin" not in rejected.headers

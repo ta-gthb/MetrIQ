@@ -3,7 +3,7 @@
 **NAWI OIML R 76 Test Report Automation Platform.** MetrIQ takes a non-automatic
 weighing instrument through the OIML R 76 type-evaluation workflow - application,
 test plan, observations, deterministic error and MPE calculation, technical
-review, signatory approval and a signed, hash-verified PDF/DOCX report.
+review, approval and an approved, hash-verifiable PDF/DOCX report.
 
 It is not a CRUD application with a PDF export. The differentiators are:
 
@@ -56,7 +56,7 @@ Demo accounts all use the password `MetrIQ@2026`:
 | `labadmin@metriq.local` | Laboratory Admin / Manager |
 | `engineer@metriq.local` | Test Engineer / Metrologist |
 | `reviewer@metriq.local` | Technical Reviewer / Verifier |
-| `approver@metriq.local` | Approving Authority / Signatory |
+| `approver@metriq.local` | Approving Authority (approves the report) |
 | `auditor@metriq.local` | Auditor (read-only) |
 
 ## Five-minute demo (SIH script)
@@ -118,6 +118,15 @@ signed download URLs, and advisory AI classification.
 **Reports** - a frozen JSON snapshot of versions, results, rules and evidence
 rendered to PDF (reportlab) and DOCX (python-docx), with a content hash,
 verification code and immutable revisions.
+
+**Approval, not a digital signature** - a report becomes final when the assigned
+approving authority approves it and the case is finalized; the guarantee is that
+the stored content is frozen and can be re-hashed to the recorded SHA-256 and
+verification code. That is *not* a cryptographic or legally meaningful digital
+signature, and the UI says so. A signature layer is optional and not yet
+implemented: the `report_signatures` table and `GeneratedReport.signature_status`
+column exist so one can be added later without changing the approval model - see
+`docs/architecture/README.md`.
 
 **AI assistance** - provider-abstracted (deterministic offline stub by default,
 OpenAI-compatible optional), individually toggleable, fully audited, and never

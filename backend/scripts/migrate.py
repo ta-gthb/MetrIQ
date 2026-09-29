@@ -63,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", nargs="?", choices=[name for name, _ in COMMANDS])
     parser.add_argument("revision", nargs="?", help="target revision, when the command takes one")
     parser.add_argument("-m", "--message", help="message for `revision`")
+    parser.add_argument("--rev-id", help="revision id to use, e.g. 0002")
     parser.add_argument("--yes", action="store_true", help="skip the confirmation prompts")
     return parser
 
@@ -104,15 +105,20 @@ def describe(url: str, schema: str | None) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    guided = argv is None and interactive()
+    argv = sys.argv[1:] if argv is None else argv
+    # Only ask when no command was named. Flags are never asked for again, and a
+    # command given on the line is always honoured - otherwise running
+    # `migrate.py upgrade` from a terminal would silently do something else.
+    named = any(token in {name for name, _ in COMMANDS} for token in argv)
+    guided = not named and interactive()
     if guided:
-        args = parser.parse_args([])
+        args = parser.parse_args(argv)
         if not collect_inputs(args):
             print()
             warn("cancelled - nothing was changed")
             return 1
     else:
-        args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+        args = parser.parse_args(argv)
 
     apply_overrides(args)
 
@@ -145,7 +151,12 @@ def main(argv: list[str] | None = None) -> int:
         if not args.message:
             warn("a migration needs a message: pass -m \"what changed\"")
             return 2
-        alembic_command.revision(alembic_config(), message=args.message, autogenerate=True)
+        alembic_command.revision(
+            alembic_config(),
+            message=args.message,
+            autogenerate=True,
+            rev_id=args.rev_id or None,
+        )
         ok("migration generated - review it before committing")
         return 0
 

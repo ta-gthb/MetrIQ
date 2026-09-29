@@ -70,7 +70,7 @@ async function load() {
     const labels = {
       my_testing: ['Ready for test execution', 'Cases assigned to you that still need observations or calculations.'],
       awaiting_review: ['Awaiting technical review', 'Submitted cases that need independent verification.'],
-      awaiting_approval: ['Awaiting approval', 'Verified cases that need a signatory decision.'],
+      awaiting_approval: ['Awaiting approval', 'Verified cases that need an approval decision.'],
       corrections: ['Corrections requested', 'Your cases returned by the reviewer with a reason.'],
     };
 

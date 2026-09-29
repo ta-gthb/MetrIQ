@@ -1,0 +1,45 @@
+name: Security
+
+# Secret scanning that goes beyond the tip of the branch: a credential that was
+# committed and later deleted is still in the objects until history is rewritten
+# (audit item 1), and a release archive can carry a file the repository ignores
+# (audit item 2).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  schedule:
+    # Weekly, so a credential that becomes public later is still caught.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the scan walks every commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install --root-user-action=ignore -r backend/requirements.txt
+
+      - name: Scan the working tree and every commit
+        run: python backend/scripts/check_release.py --git-history
+
+      - name: Scan the release archive that would actually be shipped
+        run: |
+          git archive --format=zip --output /tmp/metriq-release.zip HEAD
+          python backend/scripts/check_release.py --archive /tmp/metriq-release.zip
+
+      - name: The Docker build context carries no secret either
+        run: python backend/scripts/check_release.py --everything

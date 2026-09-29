@@ -1,0 +1,62 @@
+# Build context hygiene (project-audit item 2).
+#
+# The Dockerfile copies `backend/` wholesale, so without this file a developer's
+# `backend/.env` - which points at the production Supabase database - would be
+# baked into the deployed image. Nothing here is needed at run time except the
+# application code, `backend/deployment.env` and `backend/requirements.txt`; the
+# negations below keep those.
+
+# Environment files and secrets.
+.env
+.env.*
+**/.env
+**/.env.*
+!backend/deployment.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*_rsa
+id_ed25519
+credentials.json
+.npmrc
+.pypirc
+
+# Local databases and generated artefacts.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+var/
+storage/
+*.zip
+*.tar
+*.tar.gz
+*.log
+
+# VCS, caches, tooling and documentation.
+.git
+.gitignore
+.github
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.venv/
+venv/
+node_modules/
+.idea/
+.vscode/
+docs/
+README.md
+render.yaml
+vercel.json
+Dockerfile
+.dockerignore

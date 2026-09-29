@@ -17,10 +17,11 @@ Two details are deliberate:
 
 Adopting a pre-existing database matters here: MetrIQ shipped for a while with
 ``Base.metadata.create_all`` as its only schema mechanism, so a database may
-already contain the baseline tables with no recorded revision. Upgrading such a
-database from scratch would fail on the first CREATE TABLE, so
-:func:`apply_migrations` stamps the baseline first and applies later revisions
-on top.
+already contain the tables with no recorded revision. Upgrading such a database
+from scratch would fail on the first CREATE TABLE. :func:`apply_migrations`
+instead replays ``create_all`` - which is what built it in the first place, and
+which is idempotent - and records the result as being at head, because that is
+exactly what ``create_all`` produces.
 """
 
 from __future__ import annotations
@@ -151,11 +152,11 @@ def downgrade(revision: str) -> None:
 def apply_migrations() -> dict:
     """Bring the database to head, adopting an unmanaged schema if needed.
 
-    Three cases are handled: a database Alembic has never touched but that
-    already holds MetrIQ's tables is adopted (stamped at the baseline, then
-    upgraded) instead of failing on the first CREATE TABLE; a database whose
-    tables were dropped while the revision record survived is reset so the
-    tree replays; and everything else simply upgrades.
+    Three cases are handled. A database Alembic has never touched but that
+    already holds MetrIQ's tables is adopted instead of failing on the first
+    CREATE TABLE. A database whose tables were dropped while the revision
+    record survived is reset so the tree replays. Everything else simply
+    upgrades.
 
     Returns a report for ``/health``, so the revision a deployment is actually
     running on is visible without shell access.
@@ -184,12 +185,23 @@ def apply_migrations() -> dict:
     if not is_managed():
         existing = existing_managed_tables()
         if existing:
-            stamp(BASELINE_REVISION)
+            # The database was provisioned by `Base.metadata.create_all`, which
+            # is how MetrIQ built its schema before migrations existed.
+            # create_all is idempotent - it creates what is missing and never
+            # alters or drops a table that is already there - so replaying it
+            # fills in anything a later release added, and what results is the
+            # current model by construction. The record therefore goes to head,
+            # not to the baseline: replaying a later migration on top would
+            # collide with the table create_all has just created. Column drift
+            # on a pre-existing table is the one thing this cannot repair, and
+            # `schema_problems()` reports it at boot instead of hiding it.
+            Base.metadata.create_all(bind=engine)
+            stamp("head")
             report["adopted"] = True
             logger.info(
-                "adopted the existing schema as revision %s (%s tables already present); "
-                "later migrations now apply on top",
-                BASELINE_REVISION, len(existing),
+                "adopted the existing schema as revision %s (%s tables were already "
+                "present); create_all is idempotent, so this install is at head",
+                head_revision(), len(existing),
             )
 
     upgrade("head")

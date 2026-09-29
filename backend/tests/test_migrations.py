@@ -45,7 +45,7 @@ def test_a_fresh_database_migrates_from_zero(scratch):
     assert report["adopted"] is False
     assert report["resynced"] is False
     assert report["error"] is None
-    assert report["after"] == migrations.head_revision() == migrations.BASELINE_REVISION
+    assert report["after"] == migrations.head_revision()
     assert MODEL_TABLES <= table_names(scratch)
     assert migrations.VERSION_TABLE in table_names(scratch)
 
@@ -57,7 +57,7 @@ def test_upgrading_an_already_current_database_changes_nothing(scratch):
 
     assert report["adopted"] is False
     assert report["resynced"] is False
-    assert report["after"] == migrations.BASELINE_REVISION
+    assert report["after"] == migrations.head_revision()
     assert migrations.database_revision_summary()["schema_up_to_date"] is True
 
 
@@ -72,8 +72,13 @@ def test_an_existing_schema_is_adopted_without_touching_its_data(scratch):
     report = migrations.apply_migrations()
 
     assert report["adopted"] is True, "an unmanaged but populated schema must be stamped"
+    assert report["before"] is None
+    assert migrations.current_revision() == migrations.head_revision(), (
+        "adoption records head: create_all produces the current model, so replaying the"
+        " migrations in between would collide with what it has just created"
+    )
     assert report["resynced"] is False
-    assert report["after"] == migrations.BASELINE_REVISION
+    assert report["after"] == migrations.head_revision()
     with scratch.connect() as connection:
         names = connection.execute(sa.text("select name from laboratories")).scalars().all()
     assert names == ["Pre-migration lab"], "adoption must not rebuild the tables"
@@ -89,7 +94,7 @@ def test_a_dropped_schema_is_replayed_instead_of_left_empty(scratch):
     report = migrations.apply_migrations()
 
     assert report["resynced"] is True
-    assert report["after"] == migrations.BASELINE_REVISION
+    assert report["after"] == migrations.head_revision()
     assert MODEL_TABLES <= table_names(scratch)
 
 
@@ -101,8 +106,26 @@ def test_the_tree_can_be_replayed_from_base(scratch):
     assert not (MODEL_TABLES & table_names(scratch))
 
     migrations.upgrade("head")
-    assert migrations.current_revision() == migrations.BASELINE_REVISION
+    assert migrations.current_revision() == migrations.head_revision()
     assert MODEL_TABLES <= table_names(scratch)
+
+
+def test_adoption_cannot_repair_a_column_an_older_release_did_not_have(scratch):
+    """The one thing create_all-based adoption cannot fix, reported rather than
+    hidden: it creates missing tables but never alters one that exists."""
+    from app.services.reference_data import bootstrap
+
+    Base.metadata.create_all(bind=scratch)
+    with scratch.begin() as connection:
+        connection.execute(sa.text("alter table generated_reports drop column signature_status"))
+
+    report = migrations.apply_migrations()
+
+    assert report["adopted"] is True
+    problems = bootstrap.schema_problems(scratch)
+    assert any("generated_reports" in problem for problem in problems), (
+        "boot must name the column a reinitialise would fix, not fail on it later"
+    )
 
 
 def test_the_baseline_describes_exactly_the_models(scratch):

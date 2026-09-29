@@ -46,6 +46,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.services.reference_data import bootstrap  # noqa: E402
 from app.security.permissions import ENGINEER  # noqa: E402
 from app.security.permissions import REVIEWER, SUPER_ADMIN  # noqa: E402
 from scripts.seed_db import (  # noqa: E402
@@ -172,8 +173,12 @@ def png_factory():
 
 @pytest.fixture(scope="session", autouse=True)
 def database():
-    """Create the schema and seed reference data once per session."""
-    Base.metadata.create_all(bind=engine)
+    """Create the schema and seed reference data once per session.
+
+    The schema is built through the same migration entry point the deployment
+    uses, so the suite exercises the real path rather than create_all.
+    """
+    bootstrap.ensure_schema()
     db = SessionLocal()
     try:
         seed_roles_and_permissions(db)

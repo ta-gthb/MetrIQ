@@ -20,7 +20,7 @@ from app.models.evidence import Attachment, AttachmentCategory, AttachmentLink
 from app.models.identity import Laboratory, Permission, Role, RolePermission, User
 from app.models.instrument import Instrument, InstrumentRange
 from app.models.org import Applicant, EquipmentCalibration, Manufacturer, TestEquipment
-from app.models.report import GeneratedReport, ReportRevision
+from app.models.report import GeneratedReport, ReportRevision, ReportSignature
 from app.models.standards import (
     ReportTemplate,
     ReportTemplateVersion,
@@ -66,6 +66,7 @@ __all__ = [
     "Notification",
     "Permission",
     "ReportRevision",
+    "ReportSignature",
     "ReportTemplate",
     "ReportTemplateVersion",
     "Role",

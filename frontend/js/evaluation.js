@@ -182,7 +182,7 @@ function nextAction() {
     case 'CORRECTION_REQUIRED': return 'Corrections requested: ' + (c.last_correction_reason || 'see the review reason.');
     case 'TESTING_COMPLETED': return 'Submitted. Awaiting independent technical review.';
     case 'UNDER_REVIEW': return 'Under review by the technical reviewer.';
-    case 'VERIFIED': return 'Verified. Awaiting signatory approval.';
+    case 'VERIFIED': return 'Verified. Awaiting the approving authority.';
     case 'UNDER_APPROVAL': return 'Awaiting the approval decision.';
     case 'APPROVED': return 'Approved. Generate and finalize the report to lock the record.';
     case 'FINALIZED': return 'Finalized and locked. The report is immutable.';
@@ -1404,7 +1404,7 @@ function stepApproval() {
   const canCancel = can('cases.assign') && !['FINALIZED', 'CANCELLED'].includes(c.status);
   const actions = (canApprove || canFinalize || canCancel)
     ? '<div class="inline mt-3">' +
-        (canApprove ? '<button class="btn-primary btn-sm" id="btn-approve">Approve as signatory</button>' +
+        (canApprove ? '<button class="btn-primary btn-sm" id="btn-approve">Approve report</button>' +
           '<button class="btn-danger btn-sm" id="btn-reject">Reject\u2026</button>' : '') +
         (canFinalize ? '<button class="btn-primary btn-sm" id="btn-finalize">Finalize and lock</button>' : '') +
         '<span class="right"></span>' +
@@ -1416,7 +1416,8 @@ function stepApproval() {
       'This revision is immutable. Any change requires a new revision with its own audit trail.</div></div>' : '';
   return '<div class="card"><div class="step-head"><span class="step-no">23</span>' +
     '<div style="flex:1"><h2>Approval, finalization and report</h2>' +
-    '<div class="faint small">The signatory approves; finalization freezes the report content and hash.</div></div>' +
+    '<div class="faint small">The approving authority approves; finalization freezes the report content and hash - ' +
+        'a digital signature is not implemented.</div></div>' +
     caseStatusPill(c.status) + '</div>' + finalNotice +
     '<div class="table-wrap"><table><tbody>' +
       '<tr><td class="small faint">Reviewer</td><td>' + escapeHtml((c.reviewer || {}).full_name || '\u2014') + '</td>' +
@@ -1445,7 +1446,7 @@ function bindApproval() {
     button.addEventListener('click', () => downloadReport(button.dataset.download, button.dataset.fmt));
   });
   document.getElementById('btn-approve')?.addEventListener('click', async () => {
-    const reason = await promptReason('Approve as signatory', {
+    const reason = await promptReason('Approve report', {
       label: 'Approval statement', minLength: 10, submitLabel: 'Approve',
       hint: 'Recorded against your name in the audit trail.',
     });

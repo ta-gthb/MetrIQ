@@ -78,6 +78,41 @@ def refresh(payload: TokenRefreshRequest, db: Session = Depends(get_db)) -> Logi
     )
 
 
+@router.get("/auth/demo-accounts", summary="Seeded demonstration accounts (demo mode only)")
+def demo_accounts(db: Session = Depends(get_db)) -> dict:
+    """The demonstration sign-in list.
+
+    Answers only while ``DEMO_MODE`` is on, so a real deployment exposes nothing
+    by default. The password is never part of the frontend bundle: it lives in
+    the host's environment (``DEMO_PASSWORD``), and the UI marks the mode
+    visibly when it is served (audit item 3).
+    """
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo mode is disabled.")
+    users = (
+        db.execute(
+            select(User).where(User.is_demo.is_(True), User.is_active.is_(True))
+        ).scalars().all()
+    )
+    rank = {code: index for index, code in enumerate(
+        [definition.code for definition in sorted(ROLE_DEFINITIONS.values(), key=lambda item: item.rank)]
+    )}
+    return {
+        "demo_mode": True,
+        "password": settings.DEMO_PASSWORD,
+        "accounts": [
+            {
+                "email": user.email,
+                "full_name": user.full_name,
+                "designation": user.designation,
+                "role_code": user.role_code,
+                "role_name": role_name(user.role_code),
+            }
+            for user in sorted(users, key=lambda item: rank.get(item.role_code, 99))
+        ],
+    }
+
+
 @router.get("/me", response_model=MeOut, summary="Current user profile and effective permissions")
 def read_me(user: User = Depends(get_current_active_user)) -> MeOut:
     return MeOut(

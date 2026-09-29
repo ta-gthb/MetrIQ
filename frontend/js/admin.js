@@ -70,8 +70,10 @@ function userForm(user) {
           '<option value="true"' + (user.is_active ? ' selected' : '') + '>Active</option>' +
           '<option value="false"' + (!user.is_active ? ' selected' : '') + '>Disabled</option></select></div>'
       : '<div class="field"><label class="req">Initial password</label>' +
-        '<input data-input name="password" type="text" value="MetrIQ@2026" />' +
-        '<div class="hint">At least 8 characters. The user should change it after first sign-in.</div></div>');
+        '<input data-input name="password" type="text" value="" autocomplete="new-password" />' +
+        '<div class="hint">At least 8 characters. This bundle carries no default: ' +
+        '<button type="button" class="btn-ghost btn-sm" id="generate-password">Generate one</button> ' +
+        'and communicate it through an approved channel. The user should change it after first sign-in.</div></div>');
 }
 
 function collectModal(backdrop) {
@@ -99,6 +101,18 @@ async function renderUsers() {
       : empty('No users found.')) + '</div>';
 }
 
+/* A random initial password, built in the browser so no default is embedded in
+ * the bundle (audit item 3). The suffix guarantees the composition a human
+ * would otherwise have to remember. */
+function generatePassword() {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  bytes.forEach((value) => { out += alphabet[value % alphabet.length]; });
+  return out + '-aA1';
+}
+
 function bindUsers() {
   document.getElementById('new-user')?.addEventListener('click', async () => {
     const result = await openModal({
@@ -116,6 +130,13 @@ function bindUsers() {
           .catch((error) => toast(formatApiError(error), 'error'));
         return true;
       },
+    });
+    document.getElementById('generate-password')?.addEventListener('click', () => {
+      const field = document.querySelector('.modal input[name="password"]');
+      if (field) {
+        field.value = generatePassword();
+        field.focus();
+      }
     });
   });
   content.querySelectorAll('[data-edit-user]').forEach((button) => {

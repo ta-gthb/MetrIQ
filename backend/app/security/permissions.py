@@ -195,7 +195,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
     ),
     APPROVER: RoleDefinition(
         code=APPROVER,
-        name="Approving Authority / Signatory",
+        name="Approving Authority",
         description="Final authorization and report finalization",
         rank=50,
         permissions=frozenset(

@@ -71,6 +71,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("laboratories.id", ondelete="SET NULL"), index=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # True for the seeded demonstration accounts, so the opt-in demo panel lists
+    # exactly those and never an account an operator created for real.
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Supabase Auth remains the identity source of truth; account creation is

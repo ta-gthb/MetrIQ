@@ -218,7 +218,7 @@ def request_correction(
     return review_case(case_id=case_id, payload=payload, decision="request_correction", db=db, user=user)
 
 
-@router.post("/cases/{case_id}/approve", response_model=CaseDetailOut, summary="Approve as signatory")
+@router.post("/cases/{case_id}/approve", response_model=CaseDetailOut, summary="Approve the report")
 def approve_case(
     case_id: uuid.UUID,
     payload: WorkflowActionRequest,
