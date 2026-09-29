@@ -20,6 +20,11 @@ never asked for again:
     python backend/scripts/manage_admin.py disable --email me@lab.example
     python backend/scripts/manage_admin.py delete --email me@lab.example --yes
 
+Every account this creates is issued the user ID the platform gives a Super
+Admin - ``stmadm<year><three digits>``, never typed by hand - and that
+identifier, or the address on the account, is what signs in. ``list`` shows
+them, and the lookups below accept either one.
+
 Pass --url "<connection string>" to target a database without exporting
 DATABASE_URL first, and --schema <name> to keep MetrIQ's tables in a dedicated
 PostgreSQL schema when the database is shared with another application.
@@ -68,6 +73,11 @@ def context() -> SimpleNamespace:
         from app.models import Laboratory, User
         from app.security.passwords import generate_temporary_password, hash_password
         from app.security.permissions import SUPER_ADMIN
+        from app.services.identity import (
+            ensure_user_code,
+            find_sign_in_user,
+            generate_user_code,
+        )
         from app.services.reference_data.identity import seed_roles_and_permissions
 
         _CONTEXT = SimpleNamespace(
@@ -81,6 +91,9 @@ def context() -> SimpleNamespace:
             hash_password=hash_password,
             SUPER_ADMIN=SUPER_ADMIN,
             seed_roles_and_permissions=seed_roles_and_permissions,
+            ensure_user_code=ensure_user_code,
+            find_sign_in_user=find_sign_in_user,
+            generate_user_code=generate_user_code,
         )
     return _CONTEXT
 
@@ -94,6 +107,8 @@ class AdminResult:
     password: str
     generated: bool
     previous_role: str | None = None
+    #: The identifier the account signs in with.
+    user_id: str | None = None
 
 
 def normalise_email(value: str | None) -> str:
@@ -105,13 +120,17 @@ def validate_password(password: str) -> None:
         raise ValueError(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
 
 
-def find_super_admin(db, email: str):
-    """The account for ``email``, which must exist and already be a Super Admin."""
+def find_super_admin(db, identifier: str):
+    """The Super Admin account ``identifier`` names, by user ID or by email.
+
+    Both are accepted so an administrator can be reached the way the
+    application names it. Either way the account must already exist and already
+    hold the role, because this script only administers Super Admins.
+    """
     ctx = context()
-    address = normalise_email(email)
-    user = db.execute(ctx.select(ctx.User).where(ctx.User.email == address)).scalars().first()
+    user = ctx.find_sign_in_user(db, identifier)
     if user is None:
-        raise LookupError(f"no account found for {address!r}")
+        raise LookupError(f"no account found for {identifier!r}")
     if user.role_code != ctx.SUPER_ADMIN:
         raise PermissionError(
             f"{user.email} is a {user.role_code} account; manage_admin.py only touches SUPER_ADMIN"
@@ -183,10 +202,14 @@ def upsert_super_admin(
     if laboratory is not None:
         user.laboratory_id = laboratory.id
     user.password_hash = ctx.hash_password(password)
+    # The platform issues the identifier and it is never supplied - an account
+    # keeps the one it holds, and this script is the only thing that issues one
+    # for a Super Admin. It is set before the flush so it is part of the insert.
+    user.user_code = user.user_code or ctx.generate_user_code(db, user.role_code)
     db.flush()
     return AdminResult(
         user=user, created=created, password=password, generated=generated,
-        previous_role=previous_role,
+        previous_role=previous_role, user_id=user.user_code,
     )
 
 
@@ -200,7 +223,11 @@ def command_create(args) -> int:
             password=args.password,
             laboratory_code=args.laboratory_code,
         )
-        ok(f"Super Admin {'created' if result.created else 'updated'}: {result.user.email}")
+        ok(
+            f"Super Admin {'created' if result.created else 'updated'}:"
+            f" {result.user.email}"
+        )
+    print(f"  user ID: {result.user_id}")
     if result.previous_role and result.previous_role != ctx.SUPER_ADMIN:
         warn(f"this account was a {result.previous_role} and has been promoted to Super Admin")
     if result.generated:
@@ -218,6 +245,7 @@ def command_list(args) -> int:
         ).scalars().all()
         rows = [
             (
+                user.user_code,
                 user.email,
                 user.full_name,
                 "active" if user.is_active else "disabled",
@@ -225,13 +253,14 @@ def command_list(args) -> int:
             )
             for user in users
         ]
+        rows.sort()
     if not rows:
         warn("no Super Admin accounts exist yet")
         print("  Create one with: manage_admin.py create --email you@lab.example")
         return 0
-    print(f"  {'EMAIL':<32} {'NAME':<26} {'STATE':<9} LAST LOGIN")
-    for email, name, state, last_login in rows:
-        print(f"  {email:<32} {name[:25]:<26} {state:<9} {last_login}")
+    print(f"  {'USER ID':<17} {'EMAIL':<32} {'NAME':<26} {'STATE':<9} LAST LOGIN")
+    for user_id, email, name, state, last_login in rows:
+        print(f"  {user_id:<17} {email:<32} {name[:25]:<26} {state:<9} {last_login}")
     ok(f"{len(rows)} Super Admin account(s)")
     return 0
 
@@ -371,7 +400,8 @@ def guided_argv() -> list[str]:
 
     email = None
     if command in ACTIONS_NEEDING_EMAIL:
-        email = prompt("Super Admin email")
+        label = "Super Admin email" if command == "create" else "Super Admin user ID or email"
+        email = prompt(label)
         argv += ["--email", email]
 
     if command == "set-email":
@@ -414,7 +444,12 @@ def resolve_inputs(args, parser: argparse.ArgumentParser) -> None:
         return prompt(label)
 
     if args.command in ACTIONS_NEEDING_EMAIL:
-        args.email = required(getattr(args, "email", None), "email", "Super Admin email")
+        label = (
+            "Super Admin email"
+            if args.command == "create"
+            else "Super Admin user ID or email"
+        )
+        args.email = required(getattr(args, "email", None), "email", label)
 
     if args.command == "set-email":
         args.new_email = required(

@@ -86,6 +86,12 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "users"
 
     supabase_user_id: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    # The identifier the platform issues for the account - one format per
+    # role, drawn by app.services.identity.user_codes and never entered by
+    # hand. It is unique across the table and stays with the account for
+    # life, so an administrator can change a role without invalidating an
+    # identifier a person has written down.
+    user_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     designation: Mapped[str | None] = mapped_column(String(160))

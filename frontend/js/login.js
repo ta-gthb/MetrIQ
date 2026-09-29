@@ -40,15 +40,15 @@ async function renderDemoAccounts() {
     ' Selecting one fills the form; each role sees a different slice of the workflow.';
 
   list.innerHTML = accounts.map((account) => `
-    <button type="button" class="demo-account" data-email="${escapeHtml(account.email)}">
+    <button type="button" class="demo-account" data-user-id="${escapeHtml(account.user_id)}">
       <span><strong>${escapeHtml(account.role_name)}</strong><br />
         <span class="faint">${escapeHtml(account.designation || account.full_name)}</span></span>
-      <span class="mono small">${escapeHtml(account.email.split('@')[0])}</span>
+      <span class="mono small">${escapeHtml(account.user_id)}</span>
     </button>`).join('');
 
-  list.querySelectorAll('[data-email]').forEach((button) => {
+  list.querySelectorAll('[data-user-id]').forEach((button) => {
     button.addEventListener('click', () => {
-      document.getElementById('email').value = button.dataset.email;
+      document.getElementById('user-id').value = button.dataset.userId;
       if (password) document.getElementById('password').value = password;
       document.getElementById('submit').focus();
     });
@@ -101,7 +101,10 @@ document.getElementById('forgot').addEventListener('click', (event) => {
   event.preventDefault();
   resetForm.hidden = !resetForm.hidden;
   if (!resetForm.hidden) {
-    resetEmail.value = document.getElementById('email').value.trim();
+    // The reset is the provider's and it addresses a mailbox, so only an
+    // address typed above is carried over.
+    const typed = document.getElementById('user-id').value.trim();
+    resetEmail.value = typed.includes('@') ? typed : '';
     resetEmail.focus();
   }
 });
@@ -131,18 +134,18 @@ resetForm.addEventListener('submit', async (event) => {
 
 document.getElementById('login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const email = document.getElementById('email');
+  const identifier = document.getElementById('user-id');
   const password = document.getElementById('password');
   const submit = document.getElementById('submit');
 
-  [email, password].forEach((field) => field.classList.remove('invalid'));
-  if (!email.value.trim()) { email.classList.add('invalid'); return; }
+  [identifier, password].forEach((field) => field.classList.remove('invalid'));
+  if (!identifier.value.trim()) { identifier.classList.add('invalid'); return; }
   if (!password.value) { password.classList.add('invalid'); return; }
 
   submit.disabled = true;
   submit.textContent = 'Signing in\u2026';
   try {
-    await login(email.value.trim(), password.value);
+    await login(identifier.value.trim(), password.value);
     window.location.href = params.get('next') || '/dashboard.html';
   } catch (error) {
     const message = formatApiError(error);

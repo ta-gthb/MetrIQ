@@ -94,6 +94,15 @@ administration screens), and the first sign-in joins them. A Supabase identity
 with no MetrIQ user gets `401 No MetrIQ account is linked to this identity` - open
 sign-ups in the project do not, by themselves, grant access to anything.
 
+The address is only the provider's own sign-in name. The account itself is named
+by the user ID the platform issued it (`stmadm...`, `labadm...`, `temadm...`,
+`trvadm...`, `apradm...`, `audadm...`; see
+`docs/architecture/README.md#one-sign-in-one-identifier-per-role`), which is what
+the sign-in form asks for and what every screen shows. A user ID is resolved by
+this application, which holds the account and therefore its role; the form sends
+an address to the provider when one is entered, because the provider is what
+verifies an address.
+
 ## Password reset
 
 The reset is the provider's, end to end. The sign-in page posts the address to

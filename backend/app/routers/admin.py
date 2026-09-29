@@ -31,6 +31,7 @@ from app.security.permissions import (
     role_name,
 )
 from app.services import audit_service
+from app.services.identity import generate_user_code
 
 router = APIRouter(tags=["Administration"])
 
@@ -50,7 +51,11 @@ def list_users(
         statement = statement.where(User.laboratory_id == user.laboratory_id)
     if search:
         pattern = f"%{search}%"
-        statement = statement.where(User.full_name.ilike(pattern) | User.email.ilike(pattern))
+        statement = statement.where(
+            User.full_name.ilike(pattern)
+            | User.email.ilike(pattern)
+            | User.user_code.ilike(pattern)
+        )
     if role_code:
         statement = statement.where(User.role_code == role_code)
     rows, meta = paginate(db, statement, page=page, page_size=page_size)
@@ -78,6 +83,8 @@ def create_user(
         raise HTTPException(status_code=409, detail="A user with this email address already exists.")
 
     record = User(
+        # The platform issues the identifier, so the caller never supplies one.
+        user_code=generate_user_code(db, payload.role_code),
         email=payload.email.strip().lower(),
         full_name=payload.full_name,
         designation=payload.designation,
@@ -92,7 +99,12 @@ def create_user(
     db.flush()
     audit_service.record(
         db, event_type="CREATE", entity_type="user", entity_id=record.id, actor=user,
-        after={"email": record.email, "role": record.role_code, "laboratory_id": str(record.laboratory_id)},
+        after={
+            "user_id": record.user_code,
+            "email": record.email,
+            "role": record.role_code,
+            "laboratory_id": str(record.laboratory_id),
+        },
     )
     db.commit()
     db.refresh(record)

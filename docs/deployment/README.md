@@ -86,7 +86,7 @@ cd backend
 python -m pytest -q
 ```
 
-The suite (427 tests) covers the calculation engine boundaries, the API
+The suite (453 tests) covers the calculation engine boundaries, the API
 contract, authentication/authorization, the review workflow, artefact storage
 and the AI fallback behaviour. It runs against a throwaway SQLite database; no
 external services are needed.
@@ -310,7 +310,10 @@ setup.
    Supabase only redirects to an allow-listed URL, so without this the
    password-reset email has nowhere to go.
 4. **Create the accounts**: Authentication -> Users -> Add user, using **the same
-   email address** as the MetrIQ user. The first sign-in links the two and records
+   email address** as the MetrIQ user. This is only about the address the provider
+   verifies: the MetrIQ user ID (`stmadm...`, `labadm...`, `temadm...`, `trvadm...`,
+   `apradm...`, `audadm...`) is issued by the platform when the account is created
+   and needs no counterpart here. The first sign-in links the two and records
    the Supabase identity. A Supabase user with no MetrIQ account is refused with
    `No MetrIQ account is linked to this identity`, so open sign-ups expose no
    data - but turning them off (Providers -> Email) is still worth doing.
@@ -374,10 +377,13 @@ accounts can only sign in if they also exist in Supabase.
    python backend/scripts/manage_admin.py create --email you@lab.example --name "Your Name"
    ```
 
-   A strong password is generated and printed once. `manage_admin.py list` shows
-   the accounts, and `set-password`, `set-email`, `enable`, `disable` and
-   `delete` cover the rest. Every command also accepts
-   `--url "<connection string>"`, so exporting the variable is optional.
+   A strong password is generated and printed once, together with the **user ID**
+   the platform issues the account - `stmadm<year><nnn>`, the identifier it signs
+   in with. `manage_admin.py list` shows the accounts and their user IDs, and
+   `set-password`, `set-email`, `enable`, `disable` and `delete` cover the rest;
+   the lookup commands accept either the user ID or the address. Every command
+   also accepts `--url "<connection string>"`, so exporting the variable is
+   optional.
 6. *(Optional)* Demonstration data, from the same machine:
 
    ```bash

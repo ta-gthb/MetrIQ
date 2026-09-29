@@ -7,6 +7,8 @@ pull the data out from under every other test.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import create_engine, inspect
@@ -96,6 +98,67 @@ def test_a_dropped_schema_is_replayed_instead_of_left_empty(scratch):
     assert report["resynced"] is True
     assert report["after"] == migrations.head_revision()
     assert MODEL_TABLES <= table_names(scratch)
+
+
+def test_rebuilding_a_table_leaves_the_rows_that_reference_it(tmp_path, monkeypatch):
+    """SQLite cannot change a column in place, so a batch migration rewrites the
+    table - and the DROP that rewrite performs runs the delete it implies. With
+    foreign keys enforced that cascades, so upgrading would quietly empty every
+    table referencing the one being rebuilt. The application's own engine turns
+    enforcement on, so that is the connection this exercises.
+    """
+    from sqlalchemy import create_engine, event
+
+    url = f"sqlite:///{(tmp_path / 'cascade.db').as_posix()}"
+    engine = create_engine(url, future=True)
+
+    @event.listens_for(engine, "connect")
+    def _enforce_foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    monkeypatch.setattr(app_database, "engine", engine)
+    monkeypatch.setattr(app_database, "DATABASE_URL", url)
+    monkeypatch.setattr(migrations, "engine", engine)
+    try:
+        migrations.upgrade("0007")
+        with engine.begin() as connection:
+            connection.execute(sa.text(
+                "insert into roles (code, name, rank, created_at, updated_at)"
+                " values ('ENGINEER', 'Test Engineer', 20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ))
+            user_id = str(uuid.uuid4())
+            connection.execute(sa.text(
+                "insert into users (id, email, full_name, role_code, is_active, is_demo,"
+                " is_email_verified, auth_provider, created_at, updated_at)"
+                " values (:id, 'cascade@metriq.local', 'Cascade Fixture', 'ENGINEER', 1, 0,"
+                " 1, 'local', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ), {"id": user_id})
+            connection.execute(sa.text(
+                "insert into refresh_tokens (jti, user_id, family_id, issued_at, expires_at,"
+                " created_at, updated_at)"
+                " values (:jti, :user, :family, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,"
+                " CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ), {"jti": str(uuid.uuid4()), "user": user_id, "family": str(uuid.uuid4())})
+
+        migrations.upgrade("head")
+
+        with engine.connect() as connection:
+            surviving = connection.execute(
+                sa.text("select count(*) from refresh_tokens")
+            ).scalar()
+            code = connection.execute(
+                sa.text("select user_code from users where email = 'cascade@metriq.local'")
+            ).scalar()
+            enforced = connection.exec_driver_sql("pragma foreign_keys").scalar()
+        assert surviving == 1, "a rebuild must not take the rows that reference the table"
+        assert code and code.startswith("temadm")
+        assert enforced == 1, (
+            "the connection goes back to the pool, so enforcement is restored"
+        )
+    finally:
+        engine.dispose()
 
 
 def test_the_tree_can_be_replayed_from_base(scratch):

@@ -206,7 +206,7 @@ async function supabaseMessage(response) {
     message = payload.error_description || payload.msg || payload.error || '';
   } catch (error) { /* not JSON */ }
 
-  if (/invalid login credentials/i.test(message)) return 'Incorrect email address or password.';
+  if (/invalid login credentials/i.test(message)) return 'Incorrect user ID or password.';
   if (/email not confirmed/i.test(message)) {
     return 'Confirm your email address first. The verification message is in your inbox.';
   }
@@ -243,11 +243,18 @@ async function supabaseLogin(supabase, email, password) {
   });
 }
 
-export async function login(email, password) {
+/** Sign in with the user ID the platform issued, or the address on the account.
+ *
+ * A user ID is resolved by this application, which holds the account and
+ * therefore its role. An address is also what the configured sign-in service
+ * verifies, so an address takes that path when one is configured.
+ */
+export async function login(identifier, password) {
   const config = await loadAuthConfig();
-  const tokens = config.supabase
-    ? await supabaseLogin(config.supabase, email, password)
-    : await api.post('/auth/login', { email, password }, { redirectOn401: false });
+  const value = (identifier || '').trim();
+  const tokens = config.supabase && value.includes('@')
+    ? await supabaseLogin(config.supabase, value, password)
+    : await api.post('/auth/login', { user_id: value, password }, { redirectOn401: false });
   setSession({ ...withoutRefreshToken(tokens), permissions: [] });
   await refreshProfile();
   return session;

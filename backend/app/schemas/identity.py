@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=255)
+    """One sign-in: the user ID the platform issued, and the password.
+
+    The address on the account is accepted in the same field, because that is
+    what the field carried before identifiers existed and an account may have
+    been reached that way ever since.
+    """
+
+    user_id: str = Field(
+        min_length=3,
+        max_length=255,
+        validation_alias=AliasChoices("user_id", "email"),
+    )
     password: str = Field(min_length=1, max_length=256)
 
 
@@ -22,6 +33,7 @@ class TokenRefreshRequest(BaseModel):
 
 class UserOut(ORMModel):
     id: uuid.UUID
+    user_code: str
     email: str
     full_name: str
     designation: str | None = None

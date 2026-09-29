@@ -44,6 +44,8 @@ python scripts/seed_identity.py
 python scripts/seed_db.py
 python scripts/manage_admin.py create --email admin@metriq.local \
        --name "Platform Administrator" --password "MetrIQ@2026"
+# Prints the user ID issued to the new administrator;
+# `manage_admin.py list` shows every Super Admin and its user ID.
 
 python -m uvicorn app.main:app --port 8000
 ```
@@ -61,6 +63,25 @@ Demo accounts all use the password `MetrIQ@2026`:
 | `reviewer@metriq.local` | Technical Reviewer / Verifier |
 | `approver@metriq.local` | Approving Authority (approves the report) |
 | `auditor@metriq.local` | Auditor (read-only) |
+
+Every account also carries the user ID the platform issues for its role, and
+either the user ID or the address signs in. The identifier is the six-letter
+prefix that names the role, the four-digit year the account was created, and
+three digits drawn at random:
+
+| Role | User ID |
+| --- | --- |
+| Super Admin | `stmadm<year><nnn>` |
+| Laboratory Admin / Manager | `labadm<year><nnn>` |
+| Test Engineer / Metrologist | `temadm<year><nnn>` |
+| Technical Reviewer / Verifier | `trvadm<year><nnn>` |
+| Approving Authority / Signatory | `apradm<year><nnn>` |
+| Auditor / Read-only | `audadm<year><nnn>` |
+
+An administrator never types one: `manage_admin.py` issues it for a Super Admin
+when the account is created, and **Administration -> Users** issues it for every
+other role. The demo panel on the sign-in page fills the form with the seeded
+account's user ID.
 
 ## Five-minute demo (SIH script)
 
@@ -153,7 +174,7 @@ backend/
                        report_engine, ai_service, audit_service, metrology_service
   scripts/             init_db, reinit_db, reset_db, seed_rules, seed_identity,
                        seed_db, manage_admin, create_admin
-  tests/               427 tests
+  tests/               453 tests
 frontend/              vanilla ES modules, no build step
   *.html               index, login, dashboard, evaluations, evaluation,
                        reports, admin, assistant
@@ -189,7 +210,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 427 tests
+python -m pytest -q      # 453 tests
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and

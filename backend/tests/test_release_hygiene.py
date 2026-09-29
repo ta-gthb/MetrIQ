@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import io
 import pathlib
+import shutil
+import subprocess
 import zipfile
 
 import pytest
@@ -107,6 +109,32 @@ def test_sign_in_copy_does_not_explain_the_identity_provider():
     ):
         text = (REPO_ROOT / asset).read_text(encoding="utf-8")
         assert phrase not in text, f"{asset} still carries {phrase!r}"
+
+
+def test_every_frontend_module_the_browser_loads_is_valid_javascript(tmp_path):
+    """A module that does not parse takes the whole page with it.
+
+    The pages are static files served as they are, so nothing else in this
+    project reads them as code - which is how a stray quote in one string can
+    leave a screen blank until someone opens it. `node --check` parses without
+    running anything, and the test skips where Node is not installed.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node is not installed; nothing to parse the modules with")
+
+    modules = sorted((REPO_ROOT / "frontend" / "js").glob("*.js"))
+    assert modules, "the frontend has no modules to check"
+
+    for module in modules:
+        # Node parses a `.js` file as a CommonJS script; the modules are ES
+        # modules, so each one is checked under a suffix that says so.
+        candidate = tmp_path / f"{module.stem}.mjs"
+        candidate.write_text(module.read_text(encoding="utf-8"), encoding="utf-8")
+        result = subprocess.run(
+            [node, "--check", str(candidate)], capture_output=True, text=True
+        )
+        assert result.returncode == 0, f"{module.name} does not parse:\n{result.stderr}"
 
 
 def test_a_refused_token_is_reported_without_a_deployment_diagnostic():

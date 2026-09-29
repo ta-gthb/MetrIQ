@@ -208,6 +208,7 @@ def accounts(database) -> dict:
             "laboratory_id": str(laboratory.id),
             "emails": {role: user.email for role, user in users.items()},
             "user_ids": {role: str(user.id) for role, user in users.items()},
+            "codes": {role: user.user_code for role, user in users.items()},
             "applicant_id": str(masters["applicant"].id),
             "manufacturer_id": str(masters["manufacturer"].id),
         }

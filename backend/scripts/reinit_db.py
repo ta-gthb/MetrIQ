@@ -214,6 +214,7 @@ def main(argv: list[str] | None = None) -> int:
                 password=args.admin_password,
             )
         ok(f"Super Admin {'created' if result.created else 'updated'}: {result.user.email}")
+        print(f"  user ID: {result.user_id}")
         if result.generated:
             print()
             print(f"  Temporary password (shown once): {result.password}")

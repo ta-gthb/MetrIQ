@@ -32,6 +32,7 @@ from app.security import audit_helpers, refresh_store
 from app.security.passwords import verify_password
 from app.security.permissions import ROLE_DEFINITIONS, role_name, role_permissions
 from app.security.tokens import TokenError, create_access_token, decode_token
+from app.services.identity import ensure_user_code, find_sign_in_user
 
 router = APIRouter(tags=["Authentication"])
 
@@ -92,14 +93,14 @@ def login(
                 " the configured identity provider."
             ),
         )
-    user = db.execute(
-        select(User).where(User.email == payload.email.strip().lower())
-    ).scalars().first()
+    # The identifier the platform issued is the sign-in name. The account it
+    # belongs to carries the role, so the role never has to be chosen or sent.
+    user = find_sign_in_user(db, payload.user_id)
     # Constant-ish work regardless of whether the account exists.
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email address or password.",
+            detail="Incorrect user ID or password.",
         )
     if not user.is_active:
         raise HTTPException(
@@ -107,6 +108,9 @@ def login(
             detail="This account is inactive. Contact an administrator.",
         )
     user.last_login_at = utcnow()
+    # An account created before the platform issued identifiers is given one
+    # here, so every account that can sign in holds one.
+    ensure_user_code(db, user)
     audit_helpers.record_login(db, user=user, ip_address=get_client_ip(request))
 
     session = _session_response(db, user)
@@ -311,6 +315,7 @@ def create_session(
         user.supabase_user_id = principal.subject
     user.auth_provider = "supabase"
     user.last_login_at = utcnow()
+    ensure_user_code(db, user)
     audit_helpers.record_login(
         db, user=user, ip_address=get_client_ip(request), method="supabase"
     )
@@ -345,6 +350,7 @@ def demo_accounts(db: Session = Depends(get_db)) -> dict:
         "password": settings.DEMO_PASSWORD,
         "accounts": [
             {
+                "user_id": user.user_code,
                 "email": user.email,
                 "full_name": user.full_name,
                 "designation": user.designation,

@@ -234,6 +234,7 @@ export function renderShell({ active, title, crumb = 'MetrIQ', actionsHtml = '' 
             </div>
             <div style="text-align:right">
               <div class="small">${escapeHtml(user.full_name)}</div>
+              <div class="faint mono" style="font-size:0.72rem">${escapeHtml(user.user_code || '')}</div>
               <div class="faint" style="font-size:0.72rem">${escapeHtml(getRoleName() || user.role_code)}</div>
             </div>
             <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">

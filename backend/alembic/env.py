@@ -70,6 +70,23 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _sqlite_foreign_keys(connection, enabled: bool) -> None:
+    """Turn SQLite's foreign-key enforcement on or off for this connection.
+
+    SQLite cannot alter a column in place, so a batch migration rebuilds the
+    table: it creates a replacement, copies the rows, drops the original and
+    renames. ``DROP TABLE`` runs the delete it implies, and with foreign keys
+    enforced that delete cascades - rebuilding ``users`` would silently empty
+    every table that references it. The pragma is a no-op inside a transaction,
+    so it has to be issued before the run's transaction opens, and it is put
+    back afterwards because the connection is returned to the application's
+    pool and the next request will use it.
+    """
+    connection.exec_driver_sql(
+        f"PRAGMA foreign_keys={'ON' if enabled else 'OFF'}"
+    )
+
+
 def run_migrations_online() -> None:
     # The application's engine already sets search_path for DB_SCHEMA, applies
     # pool_pre_ping and carries the JSON serializer used by the models, so the
@@ -79,8 +96,15 @@ def run_migrations_online() -> None:
             connection=connection,
             render_as_batch=connection.dialect.name == "sqlite",
         )
-        with context.begin_transaction():
-            context.run_migrations()
+        sqlite = connection.dialect.name == "sqlite"
+        if sqlite:
+            _sqlite_foreign_keys(connection, False)
+        try:
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            if sqlite:
+                _sqlite_foreign_keys(connection, True)
 
 
 if context.is_offline_mode():

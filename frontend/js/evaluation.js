@@ -268,6 +268,14 @@ function bindApplication() {
 
 /* ------------------------------------------------------------ step 15: parties */
 
+function personFields(person) {
+  return [
+    ['Name', person && person.full_name],
+    ['User ID', person && person.user_code],
+    ['Email', person && person.email],
+  ];
+}
+
 function partyCard(title, party, fields) {
   if (!party) return '<div class="card"><div class="card-title"><h3>' + escapeHtml(title) + '</h3></div>' +
     '<div class="faint small">Not recorded.</div></div>';
@@ -304,9 +312,9 @@ function stepParties() {
         ['Email', manufacturer.email], ['City', manufacturer.city]]) +
     '</div>' +
     '<div class="grid cols-3 mt-3">' +
-      partyCard('Assigned engineer', c.engineer, [['Name', c.engineer && c.engineer.full_name], ['Email', c.engineer && c.engineer.email]]) +
-      partyCard('Reviewer', c.reviewer, [['Name', c.reviewer && c.reviewer.full_name], ['Email', c.reviewer && c.reviewer.email]]) +
-      partyCard('Approver', c.approver, [['Name', c.approver && c.approver.full_name], ['Email', c.approver && c.approver.email]]) +
+      partyCard('Assigned engineer', c.engineer, personFields(c.engineer)) +
+      partyCard('Reviewer', c.reviewer, personFields(c.reviewer)) +
+      partyCard('Approver', c.approver, personFields(c.approver)) +
     '</div>' + assignForm + '</div>';
 }
 

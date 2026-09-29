@@ -60,6 +60,7 @@ from app.security.permissions import (  # noqa: E402
     SUPER_ADMIN,
 )
 from app.services import metrology_service  # noqa: E402
+from app.services.identity import generate_user_code  # noqa: E402
 from app.services.test_engine import generate_and_persist_plan  # noqa: E402
 
 # The demonstration password. It is not shipped to the browser: the sign-in page
@@ -197,6 +198,7 @@ def seed_users(db, laboratory: Laboratory, password: str) -> dict[str, User]:
         user = db.execute(select(User).where(User.email == email)).scalars().first()
         if user is None:
             user = User(
+                user_code=generate_user_code(db, role),
                 email=email,
                 full_name=name,
                 designation=designation,

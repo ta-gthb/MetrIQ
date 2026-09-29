@@ -33,8 +33,11 @@
     <div id="notice"></div>
     <form id="login-form" novalidate>
       <div class="field">
-        <label class="req" for="email">Email address</label>
-        <input id="email" name="email" type="email" autocomplete="username" required />
+        <label class="req" for="user-id">User ID</label>
+        <input id="user-id" name="user-id" type="text" autocomplete="username"
+               placeholder="e.g. temadm2026042" required />
+        <div class="hint">The user ID issued to your account. The email address on
+          the account is accepted here too.</div>
       </div>
       <div class="field">
         <label class="req" for="password">Password</label>

@@ -55,7 +55,9 @@ function userForm(user) {
   return '<div class="field"><label class="req">Full name</label>' +
       '<input data-value name="full_name" value="' + escapeHtml(user ? user.full_name : '') + '" /></div>' +
     (editing ? '' : '<div class="field"><label class="req">Email</label>' +
-      '<input data-input name="email" type="email" /></div>') +
+      '<input data-input name="email" type="email" />' +
+      '<div class="hint">The user ID is not entered here: the platform issues it for' +
+      ' the role when the account is created.</div></div>') +
     '<div class="field-row">' +
       '<div class="field"><label>Designation</label><input data-input name="designation" value="' +
         escapeHtml(user ? user.designation || '' : '') + '" /></div>' +
@@ -87,7 +89,9 @@ function collectModal(backdrop) {
 async function renderUsers() {
   const data = state.users;
   const rows = data.map((user) => '<tr>' +
-    '<td><div>' + escapeHtml(user.full_name) + '</div><div class="faint small">' + escapeHtml(user.email) + '</div></td>' +
+    '<td><div>' + escapeHtml(user.full_name) + '</div>' +
+      '<div class="faint small mono">' + escapeHtml(user.user_code || '') + '</div>' +
+      '<div class="faint small">' + escapeHtml(user.email) + '</div></td>' +
     '<td class="mono small">' + escapeHtml(user.role_code) + '</td>' +
     '<td class="small">' + escapeHtml(user.designation || '\u2014') + '</td>' +
     '<td class="small">' + escapeHtml(labName(user.laboratory_id)) + '</td>' +
@@ -162,15 +166,17 @@ function bindUsers() {
       const confirmed = await openModal({
         title: 'Issue a temporary password?',
         submitLabel: 'Reset password',
-        bodyHtml: '<p>A new temporary password will be generated for <strong>' + escapeHtml(user.email) +
-          '</strong>. The previous password stops working immediately. Communicate the new value through an approved channel.</p>',
+        bodyHtml: '<p>A new temporary password will be generated for <strong>' + escapeHtml(user.full_name) +
+          '</strong> (' + escapeHtml(user.user_code || user.email) +
+          '). The previous password stops working immediately. Communicate the new value through an approved channel.</p>',
       });
       if (!confirmed) return;
       try {
         const result = await api.post('/users/' + user.id + '/reset-password', {});
         await openModal({
           title: 'Temporary password', submitLabel: 'Done', cancelLabel: 'Close',
-          bodyHtml: '<div class="calc-panel"><dl><dt>User</dt><dd>' + escapeHtml(user.email) + '</dd>' +
+          bodyHtml: '<div class="calc-panel"><dl><dt>User ID</dt><dd class="mono">' + escapeHtml(user.user_code || '\u2014') + '</dd>' +
+            '<dt>Name</dt><dd>' + escapeHtml(user.full_name) + '</dd>' +
             '<dt>Temporary password</dt><dd class="mono">' + escapeHtml(result.temporary_password) + '</dd></dl></div>' +
             '<div class="hint mt-2">' + escapeHtml(result.delivery || '') + '</div>',
         });
@@ -302,8 +308,8 @@ function lifecyclePill(ruleset) {
   let html = '<span class="pill pill-' + kind + '">' +
     escapeHtml(LIFECYCLE_LABELS[state] || state) + '</span>';
   if (state === 'active' && ruleset.activation_basis === 'provisional') {
-    html += ' <span class="pill pill-warn" title="Activated by the development/demo bootstrap " +
-      "without a metrology review. Its results are not from a verified ruleset.">provisional</span>';
+    html += ' <span class="pill pill-warn" title="Activated by the development/demo bootstrap ' +
+      'without a metrology review. Its results are not from a verified ruleset.">provisional</span>';
   }
   return html;
 }
