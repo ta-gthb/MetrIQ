@@ -171,8 +171,11 @@ class Settings(BaseSettings):
         ]
     )
     # Exact origins only. A wildcard pattern here would be broader than any real
-    # deployment needs and is refused outright when one is configured, because
-    # the middleware also sends credentials (audit item 12).
+    # deployment needs, because the middleware also sends credentials (audit
+    # item 12). A value that cannot be honoured is ignored rather than fatal:
+    # see `cors_allow_origin_regex`. The field stays so the host's variable is
+    # still read and can be reported by `ignored_settings` at /health, instead
+    # of disappearing silently into the pydantic "extra" bucket.
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
 
     # --- Security headers -------------------------------------------------
@@ -212,21 +215,39 @@ class Settings(BaseSettings):
             return [origin for origin in self.CORS_ORIGINS if not _LOCALHOST_ORIGIN.match(origin)]
         return list(self.CORS_ORIGINS)
 
-    @field_validator("CORS_ALLOW_ORIGIN_REGEX")
-    @classmethod
-    def _refuse_broad_origin_pattern(cls, value):
-        """No wildcard origins: name the exact origins in CORS_ORIGINS."""
-        if value is None:
+    @property
+    def cors_allow_origin_regex(self) -> str | None:
+        """The extra origin pattern this deployment may match, or None.
+
+        Audit item 12: the middleware also sends credentials, so a pattern that
+        matches more than a named origin - anything containing ``*`` - is never
+        honoured. It is ignored rather than refused, because a validator that
+        raises here runs while this module is being imported: the service would
+        crash-loop and `/health` could never say why. A host variable left over
+        from an earlier revision of the deployment guide is therefore harmless,
+        and shows up in `ignored_settings` instead.
+        """
+        pattern = (self.CORS_ALLOW_ORIGIN_REGEX or "").strip()
+        if not pattern or "*" in pattern:
             return None
-        pattern = str(value).strip()
-        if not pattern:
-            return None
-        if "*" in pattern:
-            raise ValueError(
-                "CORS_ALLOW_ORIGIN_REGEX must not contain a wildcard; list the exact "
-                "origins in CORS_ORIGINS instead"
-            )
         return pattern
+
+    @property
+    def ignored_settings(self) -> list[str]:
+        """Variables that were configured but deliberately not applied.
+
+        Published by ``GET /health``, so a stale value on the host is visible as
+        "set, and knowingly ignored" rather than as a silent no-op - or a crash
+        loop that hides its own cause.
+        """
+        ignored: list[str] = []
+        pattern = (self.CORS_ALLOW_ORIGIN_REGEX or "").strip()
+        if pattern and "*" in pattern:
+            ignored.append(
+                "CORS_ALLOW_ORIGIN_REGEX: contains a wildcard, so it is not used; "
+                "list the exact origins in CORS_ORIGINS instead"
+            )
+        return ignored
 
     @field_validator("DB_SCHEMA", mode="before")
     @classmethod

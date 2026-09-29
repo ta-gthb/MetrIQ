@@ -149,14 +149,32 @@ def test_the_approved_wording_is_accepted():
 # --------------------------------------------- item 12: CORS and boundaries ---
 
 
-def test_a_wildcard_origin_pattern_is_refused_at_start_up():
-    from pydantic import ValidationError
+def test_a_wildcard_origin_pattern_is_ignored_and_reported():
+    """A stale host variable must not be able to stop the service booting.
 
+    The value used to raise, which is why a leftover
+    `CORS_ALLOW_ORIGIN_REGEX` on Render produced a crash loop whose own cause
+    `/health` could never report. It is now ignored, and said so.
+    """
     from app.config import Settings
 
-    with pytest.raises(ValidationError):
-        Settings(CORS_ALLOW_ORIGIN_REGEX=r"https://.*\.vercel\.app")
-    assert Settings(CORS_ALLOW_ORIGIN_REGEX=None).CORS_ALLOW_ORIGIN_REGEX is None
+    wildcard = Settings(CORS_ALLOW_ORIGIN_REGEX=r"https://.*\.vercel\.app")
+    assert wildcard.cors_allow_origin_regex is None
+    assert [item.split(":")[0] for item in wildcard.ignored_settings] == [
+        "CORS_ALLOW_ORIGIN_REGEX"
+    ]
+
+    assert Settings(CORS_ALLOW_ORIGIN_REGEX=None).cors_allow_origin_regex is None
+    assert Settings(CORS_ALLOW_ORIGIN_REGEX="").ignored_settings == []
+    assert Settings(CORS_ALLOW_ORIGIN_REGEX=None).ignored_settings == []
+
+
+def test_an_exact_origin_pattern_still_passes_through():
+    from app.config import Settings
+
+    exact = Settings(CORS_ALLOW_ORIGIN_REGEX=r"https://metriq(-[a-z0-9]+)?\.vercel\.app")
+    assert exact.cors_allow_origin_regex == r"https://metriq(-[a-z0-9]+)?\.vercel\.app"
+    assert exact.ignored_settings == []
 
 
 def test_production_drops_the_development_origins():

@@ -86,8 +86,10 @@ app.add_middleware(
     CORSMiddleware,
     # `cors_origins`, not the raw list: the localhost defaults are dropped in
     # production, and no wildcard pattern is accepted at all (audit item 12).
+    # The regex property yields None for a wildcard, so a stale host variable
+    # is ignored instead of widening the allow-list.
     allow_origins=settings.cors_origins,
-    allow_origin_regex=settings.CORS_ALLOW_ORIGIN_REGEX,
+    allow_origin_regex=settings.cors_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -240,6 +242,11 @@ def health() -> dict:
         # not take effect" and "the setting did not take effect" look identical.
         "git_commit": (os.environ.get("RENDER_GIT_COMMIT") or "unknown")[:7],
         "auth_provider": settings.AUTH_PROVIDER,
+        # Variables the host has set that this build deliberately does not
+        # apply, with the reason. A non-empty list is not an error: it is how a
+        # leftover `CORS_ALLOW_ORIGIN_REGEX` from the older deployment guide
+        # becomes visible instead of silently changing behaviour.
+        "ignored_settings": settings.ignored_settings,
         "storage_backend": storage,
         "ai_provider": settings.AI_PROVIDER,
         "ai_enabled": settings.AI_ENABLED,

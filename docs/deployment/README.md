@@ -212,25 +212,26 @@ is used in development and in the demonstration deployment only.
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:8000,http://localhost:3000` | Comma-separated **exact** origins, no trailing slash. In `ENVIRONMENT=production` the localhost defaults are dropped, so this is empty unless you add your UI's origin |
-| `CORS_ALLOW_ORIGIN_REGEX` | unset | Leave it unset. A pattern containing `*` is refused at start-up |
+| `CORS_ALLOW_ORIGIN_REGEX` | unset | Leave it unset. A pattern containing `*` is ignored, and reported at `/health` |
 
 CORS is only involved when the browser calls the API **cross-origin**. The
 Vercel rewrite described in section 5 makes the calls same-origin, so no CORS
 entry is needed for the deployed UI - including a Vercel preview deployment,
 which is served through the same rewrite.
 
-A wildcard is refused rather than ignored, because the middleware sends
-credentials. Setting `CORS_ALLOW_ORIGIN_REGEX=https://.*\.vercel\.app` - which
-earlier revisions of this guide suggested - makes the service fail to boot:
+A wildcard is never honoured, because the middleware sends credentials. Setting
+`CORS_ALLOW_ORIGIN_REGEX=https://.*\.vercel\.app` - which earlier revisions of
+this guide suggested - is ignored rather than fatal: the service still boots, and
+`/health` lists the variable under `ignored_settings`:
 
-```
-pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
-CORS_ALLOW_ORIGIN_REGEX
-  Value error, CORS_ALLOW_ORIGIN_REGEX must not contain a wildcard; list the
-  exact origins in CORS_ORIGINS instead
+```json
+"ignored_settings": [
+  "CORS_ALLOW_ORIGIN_REGEX: contains a wildcard, so it is not used; list the exact origins in CORS_ORIGINS instead"
+]
 ```
 
-Delete that variable from the host's environment and redeploy. To allow a UI that
+Delete that variable from the host's environment (and from any Environment
+Group) to clear the entry - nothing else depends on it. To allow a UI that
 genuinely calls the API cross-origin, list its exact origin in `CORS_ORIGINS`.
 
 ### AI
@@ -609,7 +610,8 @@ grants.
 | Sign-in fails with "Confirm your email address first" | A new Supabase project requires confirmation | Confirm from the email, or turn confirmation off for a demo project |
 | Nothing arrives after "Forgot your password?" | Supabase's built-in SMTP is rate limited, or no custom SMTP is configured | Wait, or configure Project Settings -> Auth -> SMTP |
 | Browser calls fail with a CORS error | UI calling Render cross-origin without the origin allowed | Use the Vercel rewrite, or add the exact origin to `CORS_ORIGINS` |
-| Deploy crash-loops with `ValidationError ... CORS_ALLOW_ORIGIN_REGEX must not contain a wildcard` | A wildcard origin pattern (`https://.*\.vercel\.app`) is still set on the host, from an earlier revision of this guide | Delete `CORS_ALLOW_ORIGIN_REGEX` from the service's environment variables and redeploy. The bundled UI is same-origin through the Vercel rewrite, so production needs no CORS entry at all |
+| `/health` lists `ignored_settings` with `CORS_ALLOW_ORIGIN_REGEX` | A wildcard origin pattern (`https://.*\.vercel\.app`) is still set on the host, from an earlier revision of this guide | Harmless: the value is ignored and the service boots. Delete `CORS_ALLOW_ORIGIN_REGEX` from the service's environment variables (and any Environment Group) to clear it. The bundled UI is same-origin through the Vercel rewrite, so production needs no CORS entry at all |
+| Deploy crash-loops with `ValidationError ... CORS_ALLOW_ORIGIN_REGEX` | A build older than the current `main` is being served | Redeploy from the latest commit: `/health` reports the served `git_commit`, and current builds ignore the value instead of raising |
 | `/api/*` returns Vercel 404 | Rewrite destination still points at the placeholder host | Update `vercel.json` and redeploy |
 | Sign-in returns `503` "A database error occurred" | The API cannot reach the database at all | `curl /health`; if `"database"` is not `"ok"`, fix `DATABASE_URL` (session pooler, port 5432, percent-encoded password) and redeploy |
 | `/health` shows `"storage_backend":"local"` in production | `STORAGE_BACKEND` was never set on the service | Set `STORAGE_BACKEND=supabase` and `STORAGE_BUCKET=metriq-evidence`, then redeploy - local files do not survive a restart |
