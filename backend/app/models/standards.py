@@ -50,8 +50,32 @@ class StandardVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     activated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
 
+    # --- Governed lifecycle (audit items 6 and 10) -------------------------
+    # draft -> under_review -> approved -> scheduled -> active, plus the
+    # terminal states a superseded or withdrawn version ends in.
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    review_reference: Mapped[str | None] = mapped_column(String(120))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    approved_by_name: Mapped[str | None] = mapped_column(String(160))
+    approval_note: Mapped[str | None] = mapped_column(Text)
+    scheduled_for: Mapped[date | None] = mapped_column(Date)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deactivated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    deactivation_reason: Mapped[str | None] = mapped_column(Text)
+    # sha256 over the reviewed content. Recomputed at activation, so a rule that
+    # changes after sign-off cannot ride in under the old approval.
+    approved_fingerprint: Mapped[str | None] = mapped_column(String(72))
+    # "domain_review" or "provisional" - how this version came to be active.
+    activation_basis: Mapped[str | None] = mapped_column(String(32))
+
     standard: Mapped[Standard] = relationship(back_populates="versions", lazy="joined")
     rule_versions: Mapped[list["RuleVersion"]] = relationship(
+        back_populates="standard_version", cascade="all, delete-orphan"
+    )
+    reviews: Mapped[list["RuleReview"]] = relationship(
         back_populates="standard_version", cascade="all, delete-orphan"
     )
 
@@ -95,6 +119,44 @@ class RuleVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     rule: Mapped[Rule] = relationship(lazy="joined")
     standard_version: Mapped[StandardVersion] = relationship(back_populates="rule_versions")
+
+
+class RuleReview(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """A metrology reviewer's decision about a rule, or about a whole rule set.
+
+    Audit item 6: metrology correctness cannot be established by software tests
+    alone. Every rule that becomes part of a production ruleset therefore
+    carries the name of the qualified reviewer who validated it, the revision of
+    the controlled source they worked from, their decision and a change note.
+    Boundary-case coverage is recorded alongside, because a rule is only as
+    trustworthy as the edges that were exercised against it.
+    """
+
+    __tablename__ = "rule_reviews"
+
+    standard_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("standard_versions.id", ondelete="CASCADE"), index=True
+    )
+    rule_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("rule_versions.id", ondelete="CASCADE"), index=True
+    )
+    # "rule" or "ruleset": a reviewer may sign off a single band or the whole set.
+    scope: Mapped[str] = mapped_column(String(16), default="rule", index=True)
+    # approved | rejected | needs_changes
+    decision: Mapped[str] = mapped_column(String(24), index=True)
+    reviewer_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    reviewer_credentials: Mapped[str | None] = mapped_column(String(255))
+    reviewer_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    source_revision: Mapped[str | None] = mapped_column(String(255))
+    clause_reference: Mapped[str | None] = mapped_column(String(80))
+    boundary_cases_passed: Mapped[bool | None] = mapped_column(Boolean)
+    boundary_case_reference: Mapped[str | None] = mapped_column(String(255))
+    change_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Fingerprint of the reviewed content, so a later edit is detectable.
+    fingerprint: Mapped[str | None] = mapped_column(String(72))
+
+    standard_version: Mapped[StandardVersion] = relationship(back_populates="reviews")
 
 
 class ReportTemplate(Base, UUIDPrimaryKeyMixin, TimestampMixin):

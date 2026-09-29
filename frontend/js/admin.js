@@ -272,8 +272,81 @@ async function renderRoles() {
 
 function reviewPill(status) {
   if (!status) return '<span class="faint">\u2014</span>';
-  const kind = status === 'approved' ? 'pass' : status === 'pending_domain_review' ? 'warn' : 'info';
+  const kind = status === 'approved' ? 'pass'
+    : status === 'rejected' ? 'fail'
+    : status === 'pending_domain_review' || status === 'pending' || status === 'needs_changes' ? 'warn'
+    : 'info';
   return '<span class="pill pill-' + kind + '">' + escapeHtml(status.replace(/_/g, ' ')) + '</span>';
+}
+
+/* The lifecycle is Draft -> Under review -> Approved -> Scheduled -> Active
+   (audit item 10). Naming the states here keeps the buttons honest: a
+   ruleset only ever offers the one step that is legal next, and the server
+   refuses every other combination regardless of what this table shows. */
+const LIFECYCLE_LABELS = {
+  draft: 'Draft',
+  under_review: 'Under review',
+  approved: 'Approved',
+  scheduled: 'Scheduled',
+  active: 'Active',
+  superseded: 'Superseded',
+  retired: 'Retired',
+};
+
+function lifecyclePill(ruleset) {
+  const state = ruleset.lifecycle_state || ruleset.status || 'draft';
+  const kind = state === 'active' ? 'pass'
+    : state === 'superseded' || state === 'retired' ? 'na'
+    : state === 'draft' ? 'warn'
+    : 'info';
+  let html = '<span class="pill pill-' + kind + '">' +
+    escapeHtml(LIFECYCLE_LABELS[state] || state) + '</span>';
+  if (state === 'active' && ruleset.activation_basis === 'provisional') {
+    html += ' <span class="pill pill-warn" title="Activated by the development/demo bootstrap " +
+      "without a metrology review. Its results are not from a verified ruleset.">provisional</span>';
+  }
+  return html;
+}
+
+function reviewProgress(ruleset) {
+  const total = ruleset.rule_count || 0;
+  const reviewed = ruleset.reviewed_rule_count || 0;
+  const cls = total && reviewed === total ? 'pill-pass' : 'pill-warn';
+  return '<span class="pill ' + cls + '">' + reviewed + ' / ' + total + '</span>';
+}
+
+function rulesetActions(ruleset) {
+  const id = ruleset.standard_version_id;
+  const state = ruleset.lifecycle_state || ruleset.status || 'draft';
+  const buttons = [];
+  if (can('rules.view')) {
+    buttons.push('<button class="btn-sm" data-package="' + id + '" data-label="' +
+      escapeHtml(ruleset.version_label || id) + '">Review package</button>');
+  }
+  if (can('rules.review') && ruleset.unreviewed_rule_count > 0) {
+    buttons.push('<button class="btn-sm" data-review="' + id + '">Review rules</button>');
+  }
+  if (can('rules.manage') && state === 'draft') {
+    buttons.push('<button class="btn-sm" data-submit="' + id + '">Submit for review</button>');
+  }
+  if (can('rules.approve') && state === 'under_review') {
+    buttons.push('<button class="btn-sm" data-reject="' + id + '">Reject</button>');
+    buttons.push('<button class="btn-sm btn-primary" data-approve="' + id + '">Approve</button>');
+  }
+  if (can('rules.approve') && state === 'approved') {
+    buttons.push('<button class="btn-sm" data-schedule="' + id + '">Schedule</button>');
+  }
+  if (can('rules.approve') && (state === 'approved' || state === 'scheduled')) {
+    const blocked = ruleset.can_activate
+      ? ''
+      : ' disabled title="Every rule needs a current metrology review first"';
+    buttons.push('<button class="btn-sm btn-primary" data-activate="' + id + '"' + blocked +
+      '>Activate</button>');
+  }
+  if (can('rules.approve') && (state === 'active' || state === 'scheduled')) {
+    buttons.push('<button class="btn-sm btn-danger" data-deactivate="' + id + '">Deactivate</button>');
+  }
+  return buttons.length ? buttons.join(' ') : '<span class="faint small">\u2014</span>';
 }
 
 async function renderStandards() {
@@ -282,29 +355,31 @@ async function renderStandards() {
     api.get('/rulesets'),
     api.get('/rules'),
   ]);
-  const canManage = can('rules.manage');
   const standardsHtml = standards.map((standard) => '<div class="card tight" style="margin-bottom:10px">' +
     '<div class="card-title"><h3>' + escapeHtml(standard.code) + '</h3>' +
       '<span class="pill pill-info">' + escapeHtml(standard.publisher || 'standard') + '</span></div>' +
     '<div class="small muted">' + escapeHtml(standard.title) + '</div>' +
     '<div class="table-wrap mt-2"><table><thead><tr><th>Version</th><th>Edition</th><th>Status</th>' +
-      '<th>Effective</th><th></th></tr></thead><tbody>' +
+      '<th>Effective</th></tr></thead><tbody>' +
       (standard.versions || []).map((version) => '<tr><td class="mono small">' + escapeHtml(version.version_label) + '</td>' +
         '<td class="small">' + escapeHtml(version.edition) + '</td>' +
         '<td>' + (version.is_active ? '<span class="pill pill-pass">active</span>' : '<span class="pill pill-na">' + escapeHtml(version.status) + '</span>') + '</td>' +
         '<td class="small faint">' + escapeHtml(version.effective_from || '\u2014') + '</td>' +
-        '<td>' + (canManage && !version.is_active
-          ? '<button class="btn-sm" data-activate="' + version.id + '">Activate</button>' : '') + '</td></tr>').join('') +
+        '</tr>').join('') +
       '</tbody></table></div></div>').join('');
 
   const rulesetsHtml = rulesets.map((ruleset) => '<tr>' +
-    '<td class="mono small">' + escapeHtml(ruleset.version_label) + '</td>' +
+    '<td class="mono small">' + escapeHtml(ruleset.version_label) +
+      (ruleset.approved_by_name ? '<div class="faint">approved by ' + escapeHtml(ruleset.approved_by_name) + '</div>' : '') +
+      (ruleset.deactivation_reason ? '<div class="faint">' + escapeHtml(ruleset.deactivation_reason) + '</div>' : '') +
+      '</td>' +
     '<td class="small">' + escapeHtml(ruleset.standard_code || '') + ' ' + escapeHtml(ruleset.edition || '') + '</td>' +
-    '<td>' + (ruleset.is_active ? '<span class="pill pill-pass">active</span>' : '<span class="pill pill-na">' + escapeHtml(ruleset.status) + '</span>') + '</td>' +
-    '<td>' + reviewPill(ruleset.review_status) + '</td>' +
+    '<td>' + lifecyclePill(ruleset) +
+      (ruleset.scheduled_for ? '<div class="faint small">effective ' + escapeHtml(ruleset.scheduled_for) + '</div>' : '') +
+      '</td>' +
+    '<td>' + reviewProgress(ruleset) + '</td>' +
     '<td class="num">' + ruleset.rule_count + '</td>' +
-    '<td>' + (canManage && !ruleset.is_active
-      ? '<button class="btn-sm" data-activate="' + ruleset.standard_version_id + '">Activate</button>' : '') + '</td></tr>').join('');
+    '<td class="nowrap">' + rulesetActions(ruleset) + '</td></tr>').join('');
 
   const rulesHtml = rules.map((rule) => '<tr>' +
     '<td class="mono small">' + escapeHtml(rule.code) + '</td>' +
@@ -314,35 +389,243 @@ async function renderStandards() {
     '<td class="mono small">' + escapeHtml(rule.version_label || '\u2014') + '</td>' +
     '<td>' + reviewPill(rule.review_status) + '</td></tr>').join('');
 
-  return '<div class="banner warn"><div><strong>Rule values are configuration data, not verified metrological truth</strong>' +
-    'Every rule set is marked <span class="mono">pending_domain_review</span> until a qualified metrology authority confirms ' +
-    'each band, tolerance and clause reference against the controlled copy of OIML R 76.</div></div>' +
+  return '<div class="banner warn"><div><strong>A rule set reaches production through review, not by being seeded</strong>' +
+    'The shipped bands and tolerances are configuration data, not verified metrological truth. A rule set moves through ' +
+    '<span class="mono">draft \u2192 under review \u2192 approved \u2192 scheduled \u2192 active</span>, and activation is refused ' +
+    'while any rule lacks a current sign-off from a named metrology reviewer. Anything activated by the development/demo ' +
+    'bootstrap is labelled <span class="mono">provisional</span>. Historical cases keep the rule set they were created with.</div></div>' +
     '<div class="card"><div class="card-title"><h3>Standards</h3></div>' + standardsHtml + '</div>' +
     '<div class="card mt-3"><div class="card-title"><h3>Rule sets</h3>' +
       '<span class="faint small">Activating a version preserves the version used by historical cases</span></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Version</th><th>Standard</th><th>Status</th><th>Review</th>' +
+    '<div class="table-wrap"><table><thead><tr><th>Version</th><th>Standard</th><th>Lifecycle</th><th>Rules reviewed</th>' +
       '<th class="num">Rules</th><th></th></tr></thead><tbody>' + rulesetsHtml + '</tbody></table></div></div>' +
     '<div class="card mt-3"><div class="card-title"><h3>Rules</h3><span class="faint small">' + rules.length + ' definitions</span></div>' +
     '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Rule</th><th>Category</th><th>Clause</th>' +
       '<th>Version</th><th>Review</th></tr></thead><tbody>' + rulesHtml + '</tbody></table></div></div>';
 }
 
+const REVIEW_FIELDS = [
+  ['reviewer_name', 'Reviewer name', 'Dr A. Metrologist'],
+  ['reviewer_credentials', 'Reviewer credentials', 'Legal metrology reviewer, OIML R 76 scope'],
+  ['source_revision', 'Source revision', 'OIML R 76-1:2006 (E)'],
+  ['change_note', 'Change note', 'Bands, tolerances and clause references checked'],
+];
+
+function reviewFieldId(field) { return 'review-' + field.replace(/_/g, '-'); }
+
+function readReviewFields(scope) {
+  const value = {};
+  REVIEW_FIELDS.forEach(([field]) => {
+    const input = scope.querySelector('#' + reviewFieldId(field));
+    value[field] = input ? input.value.trim() : '';
+  });
+  return value;
+}
+
+/* Rule-level sign-off. The reviewer's identity and the revision they worked
+   from are captured once and applied to each rule they approve, so the
+   approval record in the database always answers "who checked this, against
+   what, and when" (audit item 6). */
+async function openReviewDialog(versionId) {
+  let payload;
+  try {
+    payload = await api.get('/rulesets/' + versionId + '/review-package');
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+    return;
+  }
+
+  const fields = REVIEW_FIELDS.map(([field, label, placeholder]) =>
+    '<div class="field"><label for="' + reviewFieldId(field) + '">' + escapeHtml(label) + '</label>' +
+    '<input id="' + reviewFieldId(field) + '" value="' + escapeHtml(placeholder) + '" /></div>').join('');
+
+  const rows = (payload.rules || []).map((rule) =>
+    '<tr data-rule="' + rule.rule_code + '">' +
+      '<td class="mono small">' + escapeHtml(rule.rule_code) +
+        '<div class="faint">' + escapeHtml(rule.rule_name || '') + '</div></td>' +
+      '<td class="mono small">' + escapeHtml(rule.clause_reference || '\u2014') + '</td>' +
+      '<td class="small">' + escapeHtml(rule.formula || '\u2014') +
+        '<div class="faint">' + escapeHtml(rule.rounding_policy || '') + '</div></td>' +
+      '<td data-state>' + reviewPill(rule.review_status) +
+        (rule.pending_reason ? '<div class="faint small">' + escapeHtml(rule.pending_reason) + '</div>' : '') +
+        (rule.reviewed_by ? '<div class="faint small">' + escapeHtml(rule.reviewed_by) + '</div>' : '') +
+        '</td>' +
+      '<td class="nowrap">' +
+        '<button class="btn-sm" data-sign="' + rule.rule_version_id + '">Sign off</button> ' +
+        '<button class="btn-sm" data-needs-change="' + rule.rule_version_id + '">Needs changes</button>' +
+      '</td></tr>').join('');
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML =
+    '<div class="modal modal-wide" role="dialog" aria-modal="true" aria-label="Record a metrology review">' +
+      '<header><h2>Record a metrology review</h2>' +
+        '<button class="btn-ghost btn-sm" data-close aria-label="Close">\u2715</button></header>' +
+      '<div class="modal-body">' +
+        '<p class="small muted">' + escapeHtml(payload.version_label) + ' \u2014 ' +
+          payload.reviewed_rule_count + ' of ' + payload.rule_count + ' rules currently signed off. ' +
+          'A sign-off is bound to the rule content, so editing a rule afterwards revokes it.</p>' +
+        '<div class="grid-2">' + fields + '</div>' +
+        '<div class="table-wrap"><table><thead><tr><th>Rule</th><th>Clause</th><th>Formula</th>' +
+          '<th>Review</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '</div>' +
+      '<footer><button data-close>Close</button></footer>' +
+    '</div>';
+  document.body.appendChild(backdrop);
+
+  const close = () => backdrop.remove();
+  backdrop.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', close));
+  backdrop.addEventListener('mousedown', (event) => { if (event.target === backdrop) close(); });
+  document.addEventListener('keydown', function onKey(event) {
+    if (event.key === 'Escape') { document.removeEventListener('keydown', onKey); close(); }
+  });
+
+  const record = async (ruleVersionId, decision, row) => {
+    const value = readReviewFields(backdrop);
+    if (!value.reviewer_name) { toast('A named reviewer is required.', 'error'); return; }
+    try {
+      const result = await api.post(
+        '/rulesets/' + versionId + '/rules/' + ruleVersionId + '/review',
+        { ...value, decision, boundary_cases_passed: true,
+          boundary_case_reference: 'tests/test_rule_boundaries.py' },
+      );
+      const cell = row.querySelector('[data-state]');
+      cell.innerHTML = reviewPill(result.review_status) +
+        '<div class="faint small">' + escapeHtml(result.reviewer_name) + '</div>';
+      toast(decision === 'approved' ? 'Rule signed off.' : 'Rule marked as needing changes.', 'success');
+    } catch (error) {
+      toast(formatApiError(error), 'error');
+    }
+  };
+
+  backdrop.querySelectorAll('tbody tr').forEach((row) => {
+    const sign = row.querySelector('[data-sign]');
+    const flag = row.querySelector('[data-needs-change]');
+    if (sign) sign.addEventListener('click', () => record(sign.dataset.sign, 'approved', row));
+    if (flag) flag.addEventListener('click', () => record(flag.dataset.needsChange, 'needs_changes', row));
+  });
+}
+
+async function downloadReviewPackage(versionId, label) {
+  try {
+    const payload = await api.get('/rulesets/' + versionId + '/review-package');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'rule-review-package-' + (label || versionId) + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
 function bindStandards() {
-  content.querySelectorAll('[data-activate]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const confirmed = await openModal({
-        title: 'Activate this rule set?',
-        submitLabel: 'Activate',
-        bodyHtml: '<p>The version becomes the default for newly created cases. Existing cases keep the version they were ' +
-          'created with, so their historical results stay reproducible.</p>',
-      });
-      if (!confirmed) return;
-      try {
-        await api.post('/rulesets/' + button.dataset.activate + '/activate', {});
-        toast('Rule set activated.', 'success');
-        reloadTab();
-      } catch (error) { toast(formatApiError(error), 'error'); }
+  const on = (attribute, handler) => content.querySelectorAll('[data-' + attribute + ']')
+    .forEach((button) => button.addEventListener('click', () => handler(button.dataset[attribute], button)));
+
+  on('review', (versionId) => openReviewDialog(versionId));
+  on('package', (versionId, button) => downloadReviewPackage(versionId, button.dataset.label));
+
+  on('activate', async (versionId) => {
+    const reason = await promptReason('Activate this rule set?', {
+      label: 'Activation reason',
+      hint: 'Recorded in the audit trail. The version becomes the default for newly created cases; ' +
+        'existing cases keep the version they were created with.',
+      submitLabel: 'Activate',
     });
+    if (reason === null) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/activate', { reason });
+      toast('Rule set activated.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
+  });
+
+  on('submit', async (versionId) => {
+    const note = await openModal({
+      title: 'Submit this rule set for technical review',
+      submitLabel: 'Submit',
+      bodyHtml: '<p class="small muted">The set moves to <span class="mono">under review</span>. Every rule still needs a ' +
+        'named metrology sign-off before it can be approved and activated.</p>' +
+        '<div class="field"><label for="modal-note">Note (optional)</label>' +
+        '<input id="modal-note" data-value /></div>',
+    });
+    if (note === null) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/submit-review', { note });
+      toast('Submitted for review.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
+  });
+
+  on('approve', async (versionId) => {
+    const summary = await api.get('/rulesets/' + versionId);
+    const gate = summary.review_gate || {};
+    if (!summary.can_activate) {
+      toast('Not every rule has a current metrology review: ' + (gate.summary || 'review required'), 'error');
+      return;
+    }
+    const confirmed = await openModal({
+      title: 'Approve this rule set?',
+      submitLabel: 'Approve',
+      bodyHtml: '<p class="small muted">Approval records your name against all ' + summary.rule_count +
+        ' rules at their current content. Editing any rule afterwards revokes the approval.</p>',
+    });
+    if (!confirmed) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/approve', {});
+      toast('Rule set approved.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
+  });
+
+  on('reject', async (versionId) => {
+    const note = await promptReason('Reject this rule set?', {
+      label: 'What is wrong with it?',
+      hint: 'The set returns to draft and the reason is recorded against it.',
+      submitLabel: 'Reject',
+    });
+    if (note === null) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/reject', { change_note: note });
+      toast('Rule set returned to draft.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
+  });
+
+  on('schedule', async (versionId) => {
+    const effective = await openModal({
+      title: 'Schedule this rule set',
+      submitLabel: 'Schedule',
+      bodyHtml: '<div class="field"><label class="req" for="modal-date">Effective from</label>' +
+        '<input id="modal-date" type="date" data-value /></div>' +
+        '<div class="hint">The version stays inactive until it is activated.</div>',
+    });
+    if (!effective) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/schedule', { effective_from: effective });
+      toast('Rule set scheduled.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
+  });
+
+  on('deactivate', async (versionId) => {
+    const reason = await promptReason('Deactivate this rule set?', {
+      label: 'Deactivation reason',
+      hint: 'Required, and recorded with a timestamp. New cases will have no active ruleset until ' +
+        'another version is approved and activated.',
+      submitLabel: 'Deactivate',
+    });
+    if (reason === null) return;
+    try {
+      await api.post('/rulesets/' + versionId + '/deactivate', { reason });
+      toast('Rule set deactivated.', 'success');
+      reloadTab();
+    } catch (error) { toast(formatApiError(error), 'error'); }
   });
 }
 

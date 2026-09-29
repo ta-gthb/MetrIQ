@@ -17,6 +17,11 @@ class P:
     EQUIPMENT_MANAGE = "equipment.manage"
     RULES_MANAGE = "rules.manage"
     RULES_VIEW = "rules.view"
+    # Metrology/domain review of a rule and lifecycle approval of a ruleset
+    # (audit items 6 and 10). Deliberately separate from rules.manage: the
+    # person who drafts or edits a rule must not be able to sign it off alone.
+    RULES_REVIEW = "rules.review"
+    RULES_APPROVE = "rules.approve"
     AUDIT_VIEW = "audit.view"
     AUDIT_VIEW_LIMITED = "audit.view.limited"
     AUDIT_VIEW_SCOPE = "audit.view.scope"
@@ -54,6 +59,8 @@ PERMISSION_CATALOGUE: list[tuple[str, str, str]] = [
     (P.EQUIPMENT_MANAGE, "Manage test equipment and calibrations", "masters"),
     (P.RULES_MANAGE, "Manage standards, rulesets and templates", "standards"),
     (P.RULES_VIEW, "View standards, rulesets and templates", "standards"),
+    (P.RULES_REVIEW, "Record a metrology review of a rule or ruleset", "standards"),
+    (P.RULES_APPROVE, "Approve and activate a ruleset", "standards"),
     (P.AUDIT_VIEW, "View audit logs (all laboratories)", "governance"),
     (P.AUDIT_VIEW_SCOPE, "View audit logs within own laboratory", "governance"),
     (P.AUDIT_VIEW_LIMITED, "View case-level audit entries", "governance"),
@@ -179,6 +186,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.DASHBOARD_VIEW,
                 P.LABS_VIEW,
                 P.RULES_VIEW,
+                P.RULES_REVIEW,
                 P.AUDIT_VIEW_SCOPE,
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
@@ -203,6 +211,8 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.DASHBOARD_VIEW,
                 P.LABS_VIEW,
                 P.RULES_VIEW,
+                P.RULES_REVIEW,
+                P.RULES_APPROVE,
                 P.AUDIT_VIEW_SCOPE,
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,

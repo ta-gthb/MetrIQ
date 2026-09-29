@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,7 +32,8 @@ from app.schemas.reports import (
 )
 from app.schemas.tests import TestDefinitionOut
 from app.security.permissions import P
-from app.services import audit_service
+from app.services import audit_service, ruleset_lifecycle
+from app.services.ruleset_lifecycle import LifecycleError
 from app.services.calculation_engine import ENGINE_VERSION, CalcContext, evaluate
 from app.services.calculation_engine.engine import build_observation, supported_test_codes
 from app.services.calculation_engine.mpe import MpeResolutionError, resolve_mpe
@@ -130,6 +132,8 @@ def list_rulesets(db: Session = Depends(get_db), user: User = Depends(get_curren
             select(RuleVersion).where(RuleVersion.standard_version_id == version.id)
         ).scalars().all()
         ruleset_row = next((row for row in counts if (row.definition or {}).get("mpe")), None)
+        gate_count = len(ruleset_lifecycle.review_gaps(db, version))
+        can_activate, _gate = ruleset_lifecycle.can_activate(db, version)
         output.append(
             {
                 "standard_version_id": version.id,
@@ -143,6 +147,20 @@ def list_rulesets(db: Session = Depends(get_db), user: User = Depends(get_curren
                 "notes": version.notes,
                 "rule_count": len(counts),
                 "rules": [],
+                # Governed lifecycle summary (audit items 6 and 10), so a
+                # client can show what the next step is without a second call.
+                "lifecycle_state": version.status,
+                "activation_basis": version.activation_basis,
+                "submitted_at": version.submitted_at,
+                "approved_at": version.approved_at,
+                "approved_by_name": version.approved_by_name,
+                "scheduled_for": version.scheduled_for,
+                "activated_at": version.activated_at,
+                "deactivated_at": version.deactivated_at,
+                "deactivation_reason": version.deactivation_reason,
+                "reviewed_rule_count": len(counts) - gate_count,
+                "unreviewed_rule_count": gate_count,
+                "can_activate": can_activate,
             }
         )
     return output
@@ -157,6 +175,10 @@ def get_ruleset(
     version = db.get(StandardVersion, standard_version_id)
     if version is None:
         raise HTTPException(status_code=404, detail="Ruleset not found")
+    return _ruleset_payload(db, version)
+
+
+def _ruleset_payload(db: Session, version: StandardVersion) -> dict:
     rule_versions = db.execute(
         select(RuleVersion, Rule)
         .join(Rule, Rule.id == RuleVersion.rule_id)
@@ -164,6 +186,7 @@ def get_ruleset(
         .order_by(Rule.category, Rule.code)
     ).all()
     ruleset_row = next((row for row, _rule in rule_versions if (row.definition or {}).get("mpe")), None)
+    can_activate, gate = ruleset_lifecycle.can_activate(db, version)
     return {
         "standard_version_id": version.id,
         "version_label": version.version_label,
@@ -177,6 +200,7 @@ def get_ruleset(
         "rule_count": len(rule_versions),
         "rules": [
             {
+                "rule_version_id": row.id,
                 "code": rule.code,
                 "name": rule.name,
                 "category": rule.category,
@@ -186,39 +210,299 @@ def get_ruleset(
                 "formula": row.formula,
                 "review_status": row.review_status,
                 "definition": row.definition,
+                "fingerprint": ruleset_lifecycle.rule_fingerprint(rule, row),
             }
             for row, rule in rule_versions
         ],
+        "lifecycle_state": version.status,
+        "activation_basis": version.activation_basis,
+        "submitted_at": version.submitted_at,
+        "approved_at": version.approved_at,
+        "approved_by_name": version.approved_by_name,
+        "approval_note": version.approval_note,
+        "scheduled_for": version.scheduled_for,
+        "activated_at": version.activated_at,
+        "deactivated_at": version.deactivated_at,
+        "deactivation_reason": version.deactivation_reason,
+        "approved_fingerprint": version.approved_fingerprint,
+        "can_activate": can_activate,
+        "review_gate": gate,
     }
 
 
-@router.post("/rulesets/{standard_version_id}/activate", response_model=RuleSetOut, summary="Activate a rule set")
-def activate_ruleset(
-    standard_version_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_permission(P.RULES_MANAGE)),
-) -> dict:
+# ------------------------------------------------ governed rule lifecycle ---
+# Items 6 and 10 of the audit: draft -> technical review -> approved ->
+# scheduled -> active, with the reviewer recorded and activation refused
+# while any rule lacks a current metrology sign-off.
+
+class SubmitReviewRequest(BaseModel):
+    note: str | None = None
+
+
+class RuleReviewRequest(BaseModel):
+    decision: str = Field(description="approved, rejected or needs_changes")
+    reviewer_name: str | None = None
+    reviewer_credentials: str | None = None
+    source_revision: str | None = None
+    change_note: str | None = None
+    boundary_cases_passed: bool | None = None
+    boundary_case_reference: str | None = None
+
+
+class RulesetReviewRequest(BaseModel):
+    reviewer_name: str | None = None
+    reviewer_credentials: str | None = None
+    source_revision: str | None = None
+    change_note: str | None = None
+
+
+class ScheduleRequest(BaseModel):
+    effective_from: date
+    reason: str | None = None
+
+
+class DeactivateRequest(BaseModel):
+    reason: str
+
+
+class ActivateRequest(BaseModel):
+    reason: str | None = None
+
+
+def _ruleset_or_404(db: Session, standard_version_id: uuid.UUID) -> StandardVersion:
     version = db.get(StandardVersion, standard_version_id)
     if version is None:
         raise HTTPException(status_code=404, detail="Ruleset not found")
-    siblings = db.execute(
-        select(StandardVersion).where(StandardVersion.standard_id == version.standard_id)
-    ).scalars().all()
-    for sibling in siblings:
-        sibling.is_active = sibling.id == version.id
-        if sibling.id == version.id:
-            sibling.status = "active"
-            sibling.activated_at = utcnow()
-            sibling.activated_by = user.id
-        elif sibling.status == "active":
-            sibling.status = "superseded"
+    return version
 
+
+def _lifecycle_error(exc: LifecycleError) -> HTTPException:
+    return HTTPException(
+        status_code=exc.status_code,
+        detail={"message": exc.message, **(exc.detail or {})},
+    )
+
+
+@router.get("/rulesets/{standard_version_id}/review-package", summary="Rule review package for a metrology reviewer")
+def get_review_package(
+    standard_version_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_VIEW)),
+) -> dict:
+    """Everything a qualified reviewer needs, and the gate that decides activation."""
+    version = _ruleset_or_404(db, standard_version_id)
+    return ruleset_lifecycle.review_package(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/submit-review", response_model=RuleSetOut, summary="Submit a draft ruleset for technical review")
+def submit_ruleset_for_review(
+    standard_version_id: uuid.UUID,
+    payload: SubmitReviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_MANAGE)),
+) -> dict:
+    version = _ruleset_or_404(db, standard_version_id)
+    try:
+        ruleset_lifecycle.submit_for_review(db, version, actor=user, note=payload.note)
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
     audit_service.record(
-        db, event_type="RULE_ACTIVATION", entity_type="standard_version", entity_id=version.id,
-        actor=user, after={"version_label": version.version_label, "activated_at": str(version.activated_at)},
+        db, event_type="RULE_SUBMIT", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.note,
+        after={"version_label": version.version_label, "status": version.status},
     )
     db.commit()
-    return get_ruleset(standard_version_id, db=db, user=user)
+    return _ruleset_payload(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/rules/{rule_version_id}/review", summary="Record a metrology review of one rule")
+def review_rule_version(
+    standard_version_id: uuid.UUID,
+    rule_version_id: uuid.UUID,
+    payload: RuleReviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_REVIEW)),
+) -> dict:
+    """A named reviewer validates one rule against the controlled standard (item 6)."""
+    version = _ruleset_or_404(db, standard_version_id)
+    rule_version = db.get(RuleVersion, rule_version_id)
+    if rule_version is None or rule_version.standard_version_id != version.id:
+        raise HTTPException(status_code=404, detail="Rule version not found in this ruleset")
+    try:
+        review = ruleset_lifecycle.review_rule(
+            db, version, rule_version,
+            actor=user,
+            decision=payload.decision,
+            reviewer_name=payload.reviewer_name or "",
+            reviewer_credentials=payload.reviewer_credentials,
+            source_revision=payload.source_revision,
+            change_note=payload.change_note,
+            boundary_cases_passed=payload.boundary_cases_passed,
+            boundary_case_reference=payload.boundary_case_reference,
+        )
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    rule = db.get(Rule, rule_version.rule_id)
+    audit_service.record(
+        db, event_type="RULE_REVIEW", entity_type="rule_version", entity_id=rule_version.id,
+        actor=user, reason=payload.change_note,
+        after={
+            "rule_code": rule.code if rule else None,
+            "decision": payload.decision,
+            "reviewer": review.reviewer_name,
+            "source_revision": review.source_revision,
+            "fingerprint": review.fingerprint,
+        },
+    )
+    db.commit()
+    return {
+        "rule_version_id": rule_version.id,
+        "rule_code": rule.code if rule else None,
+        "decision": review.decision,
+        "review_status": rule_version.review_status,
+        "reviewer_name": review.reviewer_name,
+        "reviewer_credentials": review.reviewer_credentials,
+        "source_revision": review.source_revision,
+        "clause_reference": review.clause_reference,
+        "boundary_cases_passed": review.boundary_cases_passed,
+        "reviewed_at": review.reviewed_at,
+        "fingerprint": review.fingerprint,
+        "can_activate": ruleset_lifecycle.can_activate(db, version)[0],
+    }
+
+
+@router.post("/rulesets/{standard_version_id}/approve", response_model=RuleSetOut, summary="Approve a reviewed ruleset")
+def approve_ruleset(
+    standard_version_id: uuid.UUID,
+    payload: RulesetReviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_APPROVE)),
+) -> dict:
+    version = _ruleset_or_404(db, standard_version_id)
+    try:
+        ruleset_lifecycle.approve_ruleset(
+            db, version,
+            actor=user,
+            reviewer_name=payload.reviewer_name or "",
+            reviewer_credentials=payload.reviewer_credentials,
+            source_revision=payload.source_revision,
+            change_note=payload.change_note,
+        )
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    audit_service.record(
+        db, event_type="RULE_APPROVAL", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.change_note,
+        after={
+            "version_label": version.version_label,
+            "approved_by": version.approved_by_name,
+            "fingerprint": version.approved_fingerprint,
+        },
+    )
+    db.commit()
+    return _ruleset_payload(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/reject", response_model=RuleSetOut, summary="Reject a ruleset and send it back to draft")
+def reject_ruleset(
+    standard_version_id: uuid.UUID,
+    payload: RulesetReviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_APPROVE)),
+) -> dict:
+    version = _ruleset_or_404(db, standard_version_id)
+    if not (payload.change_note or "").strip():
+        raise HTTPException(status_code=422, detail="A rejection needs a change note.")
+    try:
+        ruleset_lifecycle.reject_ruleset(
+            db, version, actor=user,
+            reviewer_name=payload.reviewer_name or "",
+            reviewer_credentials=payload.reviewer_credentials,
+            source_revision=payload.source_revision,
+            change_note=payload.change_note,
+        )
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    audit_service.record(
+        db, event_type="RULE_REJECTION", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.change_note,
+        after={"version_label": version.version_label, "status": version.status},
+    )
+    db.commit()
+    return _ruleset_payload(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/schedule", response_model=RuleSetOut, summary="Schedule an approved ruleset for an effective date")
+def schedule_ruleset(
+    standard_version_id: uuid.UUID,
+    payload: ScheduleRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_APPROVE)),
+) -> dict:
+    version = _ruleset_or_404(db, standard_version_id)
+    try:
+        ruleset_lifecycle.schedule(
+            db, version, effective_from=payload.effective_from, actor=user, reason=payload.reason
+        )
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    audit_service.record(
+        db, event_type="RULE_SCHEDULE", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.reason,
+        after={"version_label": version.version_label, "effective_from": str(payload.effective_from)},
+    )
+    db.commit()
+    return _ruleset_payload(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/activate", response_model=RuleSetOut, summary="Activate an approved rule set")
+def activate_ruleset(
+    standard_version_id: uuid.UUID,
+    payload: ActivateRequest | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_APPROVE)),
+) -> dict:
+    """Make this the active ruleset. Refused unless every rule is reviewed.\n\n"""
+    version = _ruleset_or_404(db, standard_version_id)
+    try:
+        ruleset_lifecycle.activate(
+            db, version, actor=user, reason=payload.reason if payload else None
+        )
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    audit_service.record(
+        db, event_type="RULE_ACTIVATION", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.reason if payload else None,
+        after={
+            "version_label": version.version_label,
+            "activated_at": str(version.activated_at),
+            "activation_basis": version.activation_basis,
+            "fingerprint": version.approved_fingerprint,
+        },
+    )
+    db.commit()
+    return _ruleset_payload(db, version)
+
+
+@router.post("/rulesets/{standard_version_id}/deactivate", response_model=RuleSetOut, summary="Deactivate the active ruleset, with a reason")
+def deactivate_ruleset(
+    standard_version_id: uuid.UUID,
+    payload: DeactivateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_APPROVE)),
+) -> dict:
+    version = _ruleset_or_404(db, standard_version_id)
+    try:
+        ruleset_lifecycle.deactivate(db, version, actor=user, reason=payload.reason)
+    except LifecycleError as exc:
+        raise _lifecycle_error(exc) from exc
+    audit_service.record(
+        db, event_type="RULE_DEACTIVATION", entity_type="standard_version", entity_id=version.id,
+        actor=user, reason=payload.reason,
+        after={"version_label": version.version_label, "deactivated_at": str(version.deactivated_at)},
+    )
+    db.commit()
+    return _ruleset_payload(db, version)
 
 
 @router.get("/test-definitions", response_model=list[TestDefinitionOut], summary="Test catalogue")

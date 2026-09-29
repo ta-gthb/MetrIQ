@@ -18,6 +18,9 @@ if __package__ in (None, ""):
 from scripts._bootstrap import banner, ok, warn  # noqa: E402
 
 from app.database import session_scope  # noqa: E402
+from app.services.reference_data.bootstrap import (  # noqa: E402
+    activate_seeded_ruleset,
+)
 from app.services.reference_data.rules import (  # noqa: E402
     seed_report_template,
     seed_ruleset,
@@ -33,12 +36,17 @@ def main() -> int:
         standard_version = seed_ruleset(db)
         template_version = seed_report_template(db, standard_version)
         definitions = seed_test_catalogue(db, standard_version)
-        standard_version.is_active = True
-        standard_version.status = "active"
-    ok(f"standard version {standard_version.version_label}: active")
+        activation = activate_seeded_ruleset(db, standard_version)
+    ok(f"standard version {standard_version.version_label}: {activation['state']}")
     ok(f"report template {template_version.version_label}: {template_version.id}")
     ok(f"test catalogue: {definitions} definitions")
     print()
+    if activation.get("provisional"):
+        warn("Activated provisionally: the bootstrap may do that outside production,")
+        warn("and every surface labels it. It is not a metrology sign-off.")
+    else:
+        warn("The ruleset is not active. Record a review for every rule, then approve")
+        warn("and activate it, before any evaluation case can be created.")
     warn("Every seeded rule carries review_status='pending_domain_review'.")
     warn("A qualified metrology authority must verify the bands, tolerances and clause")
     warn("references against the controlled standard before production use (PRD 25).")
