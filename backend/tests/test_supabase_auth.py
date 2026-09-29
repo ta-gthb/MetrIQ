@@ -19,6 +19,7 @@ it are exercised through the HS256 path.
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 
@@ -37,6 +38,12 @@ SUPABASE_URL = "https://test-project.supabase.co"
 SUPABASE_ANON_KEY = "anon-key-for-tests-only"
 SUPABASE_SECRET = "supabase-jwt-secret-for-tests"
 SUPABASE_ISSUER = SUPABASE_URL + "/auth/v1"
+
+#: What every refused token gets back, whatever the internal reason was. The
+#: caller is told the outcome; the reason is an operator diagnostic and stays in
+#: the service log, so no deployment detail ever reaches a message a person may
+#: read (the interface is formal and self-contained).
+TOKEN_REFUSED = "The sign-in token could not be verified."
 
 #: Every permission the engineer's role does not carry. None of these may appear
 #: in a session created from a token that claims to be a super admin.
@@ -181,7 +188,7 @@ def test_a_token_signed_with_metriqs_own_key_is_refused(client, accounts, supaba
     assert exchange(client, forged).status_code == 401
 
 
-def test_an_unsigned_token_is_refused(client, accounts, supabase):
+def test_an_unsigned_token_is_refused(client, accounts, supabase, caplog):
     """``alg: none`` takes the algorithm from the token itself, so without an
     allow-list a token that was never signed is simply trusted."""
     unsigned = pyjwt.encode(
@@ -190,10 +197,12 @@ def test_an_unsigned_token_is_refused(client, accounts, supabase):
         algorithm="none",
     )
 
-    response = exchange(client, unsigned)
+    with caplog.at_level(logging.WARNING, logger="metriq.auth"):
+        response = exchange(client, unsigned)
 
     assert response.status_code == 401
-    assert "algorithm" in response.json()["detail"]
+    assert response.json()["detail"] == TOKEN_REFUSED
+    assert "algorithm" in caplog.text
 
 
 def test_an_expired_token_is_refused(client, accounts, supabase):
@@ -214,24 +223,31 @@ def test_a_token_issued_by_another_project_is_refused(client, accounts, supabase
     assert exchange(client, other).status_code == 401
 
 
-def test_a_token_for_another_audience_is_refused(client, accounts, supabase):
-    response = exchange(client, supabase_token(email=accounts["emails"][ENGINEER], aud="other"))
+def test_a_token_for_another_audience_is_refused(client, accounts, supabase, caplog):
+    with caplog.at_level(logging.WARNING, logger="metriq.auth"):
+        response = exchange(client, supabase_token(email=accounts["emails"][ENGINEER], aud="other"))
 
     assert response.status_code == 401
-    # Both mismatches are a one-line configuration fix, so the message says
-    # which value this deployment wanted rather than just "invalid token".
-    assert "audience mismatch" in response.json()["detail"]
-    assert settings.JWT_AUDIENCE in response.json()["detail"]
+    assert response.json()["detail"] == TOKEN_REFUSED
+    # Both mismatches are a one-line configuration fix, so the log the operator
+    # reads says which value this deployment wanted rather than "invalid token".
+    assert "audience mismatch" in caplog.text
+    assert settings.JWT_AUDIENCE in caplog.text
 
 
-def test_an_issuer_mismatch_names_the_expected_issuer(client, accounts, supabase):
-    response = exchange(
-        client, supabase_token(email=accounts["emails"][ENGINEER], iss="https://elsewhere.supabase.co/auth/v1")
-    )
+def test_an_issuer_mismatch_names_the_expected_issuer(client, accounts, supabase, caplog):
+    with caplog.at_level(logging.WARNING, logger="metriq.auth"):
+        response = exchange(
+            client,
+            supabase_token(
+                email=accounts["emails"][ENGINEER], iss="https://elsewhere.supabase.co/auth/v1"
+            ),
+        )
 
     assert response.status_code == 401
-    assert "issuer mismatch" in response.json()["detail"]
-    assert SUPABASE_ISSUER in response.json()["detail"]
+    assert response.json()["detail"] == TOKEN_REFUSED
+    assert "issuer mismatch" in caplog.text
+    assert SUPABASE_ISSUER in caplog.text
 
 
 def test_the_expected_issuer_is_derived_from_the_project_url(supabase):
@@ -261,7 +277,7 @@ def test_the_anon_key_is_not_a_user_session(client, accounts, supabase):
     assert response.status_code == 401
 
 
-def test_the_service_role_key_is_not_a_user_session(client, accounts, supabase):
+def test_the_service_role_key_is_not_a_user_session(client, accounts, supabase, caplog):
     """It bypasses row-level security, so a leaked one must not become a session
     even though its signature is valid."""
     service = pyjwt.encode(
@@ -276,23 +292,27 @@ def test_the_service_role_key_is_not_a_user_session(client, accounts, supabase):
         algorithm="HS256",
     )
 
-    response = exchange(client, service)
+    with caplog.at_level(logging.WARNING, logger="metriq.auth"):
+        response = exchange(client, service)
 
     assert response.status_code == 401
-    assert "service_role" in response.json()["detail"]
+    assert response.json()["detail"] == TOKEN_REFUSED
+    assert "service_role" in caplog.text
 
 
-def test_an_hs256_token_without_the_project_secret_is_refused(client, accounts, monkeypatch):
+def test_an_hs256_token_without_the_project_secret_is_refused(client, accounts, monkeypatch, caplog):
     """A clear failure beats a silent fallback on to the wrong key."""
     monkeypatch.setattr(settings, "AUTH_PROVIDER", "hybrid")
     monkeypatch.setattr(settings, "SUPABASE_URL", SUPABASE_URL)
     monkeypatch.setattr(settings, "SUPABASE_ANON_KEY", SUPABASE_ANON_KEY)
     monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", None)
 
-    response = exchange(client, supabase_token(email=accounts["emails"][ENGINEER]))
+    with caplog.at_level(logging.WARNING, logger="metriq.auth"):
+        response = exchange(client, supabase_token(email=accounts["emails"][ENGINEER]))
 
     assert response.status_code == 401
-    assert "SUPABASE_JWT_SECRET" in response.json()["detail"]
+    assert response.json()["detail"] == TOKEN_REFUSED
+    assert "SUPABASE_JWT_SECRET" in caplog.text
 
 
 # ------------------------------------------------------------------- authorisation
@@ -390,7 +410,7 @@ def test_a_metriq_token_is_not_accepted_by_the_exchange(client, tokens, supabase
     response = exchange(client, local)
 
     assert response.status_code == 401
-    assert "Supabase access tokens only" in response.json()["detail"]
+    assert "identity provider" in response.json()["detail"]
 
 
 def test_the_exchange_needs_a_token_at_all(client, supabase):
@@ -418,7 +438,10 @@ def test_a_production_deployment_refuses_the_local_password(client, accounts, mo
     )
 
     assert response.status_code == 403
-    assert "Supabase Auth" in response.json()["detail"]
+    # Formal and self-contained: the deployment's own choice is stated, without
+    # naming the vendor or the endpoint that performs the exchange.
+    assert "not enabled" in response.json()["detail"]
+    assert "Supabase" not in response.json()["detail"]
 
 
 def test_a_demonstration_deployment_still_allows_the_local_password(client, accounts, monkeypatch):

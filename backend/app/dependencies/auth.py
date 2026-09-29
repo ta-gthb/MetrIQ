@@ -78,7 +78,8 @@ def get_current_user(
     try:
         principal = decode_token(credentials.credentials, expected_type="access")
     except TokenError as exc:
-        raise _unauthorised(f"Invalid or expired token: {exc}") from exc
+        # The reason is an operator diagnostic; the caller is told the outcome.
+        raise _unauthorised("Invalid or expired token") from exc
 
     user = _resolve_user(db, principal)
     if user is None:

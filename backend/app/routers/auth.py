@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
@@ -32,6 +34,8 @@ from app.security.permissions import ROLE_DEFINITIONS, role_name, role_permissio
 from app.security.tokens import TokenError, create_access_token, decode_token
 
 router = APIRouter(tags=["Authentication"])
+
+logger = logging.getLogger("metriq.auth")
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -76,15 +80,16 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> LoginResponse:
-    # Audit item 4: production signs in through Supabase Auth. Hiding the form is
-    # not enough - a caller can post here directly - so the rule is enforced.
+    # Audit item 4: production signs in through the identity provider. Hiding the
+    # form is not enough - a caller can post here directly - so the rule is
+    # enforced. The message states the deployment's choice and what to do about
+    # it, without naming the vendor or the endpoint that performs the exchange.
     if not settings.local_login_allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "This deployment signs in through Supabase Auth, so a MetrIQ password"
-                " is not accepted. Sign in there and post the access token to"
-                " /auth/session."
+                "Password sign-in is not enabled on this deployment. Sign in through"
+                " the configured identity provider."
             ),
         )
     user = db.execute(
@@ -253,26 +258,34 @@ def create_session(
     if not settings.supabase_login_enabled:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Supabase sign-in is not enabled on this deployment.",
+            detail="Federated sign-in is not enabled on this deployment.",
         )
     if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="A Supabase access token is required.",
+            detail="An access token is required.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
         principal = decode_token(credentials.credentials, expected_type="access")
     except TokenError as exc:
+        # The reason - a misconfigured issuer, an audience that does not match,
+        # an unreachable key set - is a deployment diagnostic. It is logged for
+        # the operator and never returned, so the reply says what happened and
+        # nothing about how this service is configured.
+        logger.warning("Sign-in token rejected: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {exc}",
+            detail="The sign-in token could not be verified.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     if principal.source != "supabase":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This endpoint exchanges Supabase access tokens only.",
+            detail=(
+                "This endpoint accepts access tokens from the configured identity"
+                " provider only."
+            ),
             headers={"WWW-Authenticate": "Bearer"},
         )
 

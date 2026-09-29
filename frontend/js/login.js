@@ -58,20 +58,14 @@ async function renderDemoAccounts() {
 /* Which identity provider this deployment uses (audit item 4).
  *
  * The backend decides, and enforces it: this only reflects the decision in the
- * page. Supabase never replaces MetrIQ's own session - the backend verifies the
- * Supabase token and issues a short-lived MetrIQ one - so the UI behaves the
- * same after sign-in either way.
+ * page, so the reset link appears only where the API accepts it. Nothing about
+ * the provider, or about how a session is minted, is printed on the page.
  */
 let authConfig = { supabase: null, local_login: true, password_reset: null };
 
 async function applyAuthConfig() {
   authConfig = await loadAuthConfig();
 
-  if (authConfig.supabase) {
-    document.getElementById('provider-note').innerHTML =
-      '<div class="banner"><div>Passwords are verified by <strong>Supabase Auth</strong>.' +
-      ' MetrIQ then issues its own short-lived session.</div></div>';
-  }
   if (authConfig.password_reset) document.getElementById('reset-link').hidden = false;
 
   // The demonstration panel is only meaningful where MetrIQ checks the password
@@ -97,8 +91,8 @@ if (params.get('reset')) {
   notice.innerHTML = '<div class="banner pass"><div>Your password was changed. Sign in with the new one.</div></div>';
 }
 
-/* Password reset. The request goes to the identity provider, which owns the
- * credential and sends the link; MetrIQ is not in the loop (audit item 4). */
+/* Password reset. The request goes to the identity provider, which issues the
+ * link the user follows (audit item 4). */
 const resetForm = document.getElementById('reset-form');
 const resetEmail = document.getElementById('reset-email');
 const resetSubmit = document.getElementById('reset-submit');

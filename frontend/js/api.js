@@ -198,7 +198,7 @@ export function loadAuthConfig() {
   return authConfigInFlight;
 }
 
-/** A Supabase error body, turned into something a person can act on. */
+/** An identity-provider error body, turned into something a person can act on. */
 async function supabaseMessage(response) {
   let message = '';
   try {
@@ -208,7 +208,7 @@ async function supabaseMessage(response) {
 
   if (/invalid login credentials/i.test(message)) return 'Incorrect email address or password.';
   if (/email not confirmed/i.test(message)) {
-    return 'Confirm your email address first - check your inbox for the Supabase message.';
+    return 'Confirm your email address first. The verification message is in your inbox.';
   }
   if (response.status === 429 || /rate limit/i.test(message)) {
     return 'Too many attempts. Wait a moment and try again.';
@@ -216,10 +216,11 @@ async function supabaseMessage(response) {
   return message || `Sign-in failed (${response.status}).`;
 }
 
-/* Supabase Auth verifies the password; MetrIQ never sees it. The refresh token
- * Supabase returns is dropped on purpose: the backend exchanges the access
- * token for a MetrIQ session whose refresh token is an HttpOnly cookie, so no
- * long-lived credential is left within reach of a script (items 4 and 13). */
+/* The provider verifies the password and this application never sees it. The
+ * refresh token the provider returns is dropped on purpose: the backend
+ * exchanges the access token for a MetrIQ session whose refresh token is an
+ * HttpOnly cookie, so no long-lived credential is left within reach of a script
+ * (items 4 and 13). */
 async function supabaseLogin(supabase, email, password) {
   let response;
   try {
@@ -229,7 +230,7 @@ async function supabaseLogin(supabase, email, password) {
       body: JSON.stringify({ email, password }),
     });
   } catch (error) {
-    throw new ApiError(0, 'The Supabase sign-in service cannot be reached. Check your connection and retry.');
+    throw new ApiError(0, 'The sign-in service cannot be reached. Check your connection and try again.');
   }
   if (!response.ok) {
     throw new ApiError(response.status === 400 ? 401 : response.status, await supabaseMessage(response));
@@ -266,7 +267,7 @@ export async function requestPasswordReset(email) {
       body: JSON.stringify({ email }),
     });
   } catch (error) {
-    throw new ApiError(0, 'The Supabase service cannot be reached. Check your connection and retry.');
+    throw new ApiError(0, 'The service cannot be reached. Check your connection and try again.');
   }
   if (!response.ok) throw new ApiError(response.status, await supabaseMessage(response));
   return true;

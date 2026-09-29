@@ -85,6 +85,40 @@ def test_git_history_carries_no_credential():
     assert scan_git_history() == []
 
 
+# ------------------------------------------- copy: formal, no implementation ---
+
+
+def test_sign_in_copy_does_not_explain_the_identity_provider():
+    """Sign-in is described in the product's own terms.
+
+    Which service verifies a password, and how a session is minted afterwards,
+    is an implementation detail. Printed on the sign-in page it reads as a note
+    to the developer rather than to the person signing in - and it names a
+    vendor the product's copy does not otherwise mention.
+    """
+    for asset, phrase in (
+        ("frontend/login.html", "verified by"),
+        ("frontend/login.html", "provider-note"),
+        ("frontend/js/login.js", "Passwords are verified by"),
+        ("frontend/js/login.js", "issues its own short-lived session"),
+        ("frontend/js/api.js", "Supabase sign-in service"),
+        ("frontend/js/api.js", "Supabase service"),
+        ("frontend/js/api.js", "Supabase message"),
+    ):
+        text = (REPO_ROOT / asset).read_text(encoding="utf-8")
+        assert phrase not in text, f"{asset} still carries {phrase!r}"
+
+
+def test_a_refused_token_is_reported_without_a_deployment_diagnostic():
+    """The reply names the outcome; the reason belongs in the service log."""
+    from app.routers import auth
+
+    source = (REPO_ROOT / "backend" / "app" / "routers" / "auth.py").read_text(encoding="utf-8")
+    assert "The sign-in token could not be verified." in source
+    assert "logger.warning(" in source, "the rejected reason has to be logged somewhere"
+    assert auth.logger.name == "metriq.auth"
+
+
 # ------------------------------------------------- item 3: demo credentials ---
 
 

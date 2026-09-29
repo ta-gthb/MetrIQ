@@ -30,9 +30,6 @@
     </div>
     <h1>Sign in</h1>
     <div id="notice"></div>
-    <!-- Filled in by login.js when this deployment signs in through Supabase
-         Auth, so the page says who verifies the password (audit item 4). -->
-    <div id="provider-note"></div>
     <form id="login-form" novalidate>
       <div class="field">
         <label class="req" for="email">Email address</label>
@@ -49,8 +46,7 @@
     </form>
 
     <!-- Password reset, offered only when the identity provider can email a
-         link. Supabase owns the credential, so the new password is set on the
-         page that link opens (reset-password.html); MetrIQ never handles it. -->
+         link; the form is revealed by login.js when the API reports one. -->
     <form id="reset-form" class="mt-4" hidden novalidate>
       <div class="field">
         <label class="req" for="reset-email">Email address</label>
@@ -58,7 +54,7 @@
       </div>
       <button class="btn" type="submit" style="width:100%" id="reset-submit">Email me a reset link</button>
       <p class="small muted" style="margin-top:8px">
-        The link sets a new password; it is verified by Supabase, not by MetrIQ.
+        The link opens a secure page on which you set a new password.
       </p>
     </form>
     <!-- Filled in by login.js, and only while the API reports demo mode. The
