@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from app.utils.decimals import decimal_str
+from app.utils.decimals import decimal_str, to_decimal
 
 
 @dataclass(slots=True)
@@ -22,6 +22,7 @@ class ObservationRow:
     temperature_c: Decimal | None = None
     value: Decimal | None = None
     unit: str | None = None
+    range_no: int | None = None
     conforms: bool | None = None
     item_code: str | None = None
     remarks: str | None = None
@@ -38,6 +39,7 @@ class ObservationRow:
             "temperature_c": decimal_str(self.temperature_c),
             "value": decimal_str(self.value),
             "unit": self.unit,
+            "range_no": self.range_no,
             "conforms": self.conforms,
             "item_code": self.item_code,
             "remarks": self.remarks,
@@ -102,11 +104,36 @@ class CalcContext:
     environment: dict[str, Any] = field(default_factory=dict)
     stage: str = "verification"
     rule_version: str | None = None
+    ranges: list[dict[str, Any]] = field(default_factory=list)
 
     # --- convenience accessors -------------------------------------------
     @property
     def e(self) -> Decimal | None:
         return self.instrument.get("e")
+
+    def e_for(self, load: Decimal | None = None) -> Decimal | None:
+        """The verification scale interval that applies to a load.
+
+        Multi-range and multi-interval instruments declare one ``e`` per range,
+        and OIML R 76-1 Table 1 is indexed by ``m = load / e``. Resolving the
+        band with the interval the load actually falls in is what makes
+        range-specific testing meaningful; a single-range instrument falls back
+        to its declared ``e``.
+        """
+        if load is None:
+            return self.e
+        magnitude = abs(load)
+        for item in self.ranges or []:
+            upper = to_decimal(item.get("max_capacity"), field="ranges.max_capacity")
+            lower = to_decimal(item.get("min_capacity"), field="ranges.min_capacity")
+            candidate = to_decimal(item.get("e"), field="ranges.e")
+            if upper is None or candidate is None or candidate <= 0:
+                continue
+            if lower is not None and magnitude < lower:
+                continue
+            if magnitude <= upper:
+                return candidate
+        return self.e
 
     @property
     def d(self) -> Decimal | None:

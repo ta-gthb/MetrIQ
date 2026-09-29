@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from app.models.test import TestImplementationStatus
 from app.rules.expressions import EvaluationTrace, evaluate
 from app.utils.decimals import decimal_str
 
@@ -27,6 +28,13 @@ class PlanItem:
     trace: list[dict[str, Any]] = field(default_factory=list)
     definition_id: str | None = None
     manual_override: bool = False
+    implementation_status: str = "implemented"
+    unsupported_reason: str | None = None
+
+    @property
+    def supported(self) -> bool:
+        """True when a deterministic calculator exists for this test code."""
+        return self.implementation_status == "implemented"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -41,7 +49,27 @@ class PlanItem:
             "trace": self.trace,
             "definition_id": self.definition_id,
             "manual_override": self.manual_override,
+            "implementation_status": self.implementation_status,
+            "unsupported_reason": self.unsupported_reason,
+            "supported": self.supported,
         }
+
+
+def range_payload(instrument) -> list[dict[str, Any]]:
+    """Range/interval table as plain data, so expressions can test it."""
+    payload: list[dict[str, Any]] = []
+    for item in getattr(instrument, "ranges", None) or []:
+        payload.append(
+            {
+                "range_no": getattr(item, "range_no", None),
+                "min_capacity": decimal_str(getattr(item, "min_capacity", None)),
+                "max_capacity": decimal_str(getattr(item, "max_capacity", None)),
+                "e": decimal_str(getattr(item, "verification_scale_interval", None)),
+                "d": decimal_str(getattr(item, "actual_scale_interval", None)),
+                "unit": getattr(item, "unit", None),
+            }
+        )
+    return payload
 
 
 def build_applicability_context(
@@ -56,6 +84,7 @@ def build_applicability_context(
     def get(name: str, default=None):
         return getattr(instrument, name, default)
 
+    ranges = range_payload(instrument)
     context: dict[str, Any] = {
         "instrument": {
             "instrument_class": get("instrument_class"),
@@ -73,6 +102,8 @@ def build_applicability_context(
             "has_tare_device": bool(get("has_tare_device")),
             "has_zero_device": bool(get("has_zero_device")),
             "has_level_indicator": bool(get("has_level_indicator")),
+            "range_count": len(ranges),
+            "ranges": ranges,
         },
         "environment": environment or {},
     }
@@ -118,6 +149,13 @@ def generate_plan(
                 reason=reason,
                 trace=checks,
                 definition_id=str(getattr(definition, "id", "")) or None,
+                implementation_status=getattr(
+                    definition,
+                    "implementation_status",
+                    TestImplementationStatus.IMPLEMENTED,
+                )
+                or TestImplementationStatus.IMPLEMENTED,
+                unsupported_reason=getattr(definition, "unsupported_reason", None),
             )
         )
     items.sort(key=lambda item: (not item.applicable, item.sequence_no, item.test_code))

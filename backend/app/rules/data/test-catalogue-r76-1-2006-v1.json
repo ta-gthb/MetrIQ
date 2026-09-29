@@ -7,6 +7,39 @@
     "app/rules/expressions.py. Phase 2 entries are seeded inactive and become",
     "available when the laboratory enables them."
   ],
+  "coverage": {
+    "basis": "Every prescribed test procedure of OIML R 76-1:2006 (Annex A.4 and the T-series test procedures) that this platform intends to support, including the procedures that are not yet executable.",
+    "status_legend": {
+      "implemented": "A deterministic calculator is registered for the test code: the engine computes the result and the compliance engine decides PASS or FAIL from the versioned ruleset.",
+      "not_implemented": "The catalogue entry, input schema, validation, report mapping and evidence requirements are complete, but no deterministic calculator exists yet, so the test cannot produce a result. The entry stays visible in the test plan and in the coverage matrix instead of being hidden."
+    },
+    "totals": {"entries": 17, "implemented": 11, "not_implemented": 6},
+    "unsupported_tests": ["T-TILT", "T-TARE", "T-WARMUP", "T-VOLT", "T-EMC", "T-DAMP"],
+    "clause_references_provisional": [
+      "T-WP",
+      "T-REP",
+      "T-ECC",
+      "T-ZR",
+      "T-CREEP",
+      "T-TEMP-NL",
+      "T-SENS",
+      "T-DISC",
+      "T-STAB",
+      "T-CHK-CON",
+      "T-CHK-ID",
+      "T-TILT",
+      "T-TARE",
+      "T-WARMUP",
+      "T-VOLT",
+      "T-EMC",
+      "T-DAMP"
+    ],
+    "notes": [
+      "Implementation status is per entry and is surfaced by the test plan, the standards API and the coverage matrix (docs/architecture/oiml-coverage-matrix.md).",
+      "Clause references are collected from the project baseline and are marked provisional until a competent metrology reviewer validates them against the controlled OIML R 76-1 text (audit item 6).",
+      "A test that is not implemented is reported as unsupported; it is never silently dropped from the plan."
+    ]
+  },
   "tests": [
     {
       "test_code": "T-WP",
@@ -15,11 +48,20 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 10,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 1,
+      "required_capabilities": [],
       "description": "Error of indication determined at loads distributed over the weighing range, compared with the applicable MPE.",
       "applicability_expression": {"always": true},
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "additional_load", "label": "Additional load to changeover dL", "type": "decimal", "unit": "instrument", "required": false},
@@ -49,11 +91,20 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 20,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": [],
       "description": "Repeated weighings of the same load; the spread of the resulting errors shall not exceed the MPE for that load.",
       "applicability_expression": {"always": true},
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "additional_load", "label": "Additional load to changeover dL", "type": "decimal", "unit": "instrument", "required": false},
@@ -82,11 +133,20 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 30,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": [],
       "description": "Application of a load at eccentric positions; the difference from the centre position shall not exceed the MPE.",
       "applicability_expression": {"always": true},
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "position_label", "label": "Position", "type": "text", "required": true},
           {"key": "load", "label": "Applied load L", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
@@ -116,11 +176,20 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 40,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": [],
       "description": "Deviation of the zero indication after removing the load, relative to the initial zero reading.",
       "applicability_expression": {"always": true},
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "label", "label": "Stage", "type": "text", "required": true},
           {"key": "value", "label": "Indication at zero", "type": "decimal", "unit": "instrument", "required": true}
         ],
@@ -139,11 +208,20 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 50,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": [],
       "description": "Change in indication under a constant load held near maximum capacity over the observation period.",
       "applicability_expression": {"always": true},
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "elapsed_seconds", "label": "Elapsed time (s)", "type": "decimal", "required": true},
           {"key": "value", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "temperature_c", "label": "Temperature (C)", "type": "decimal", "required": false}
@@ -163,6 +241,14 @@
       "category": "influence",
       "phase": "MVP",
       "sequence_no": 60,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
       "description": "Variation of the no-load indication over the specified temperature range for electronic instruments.",
       "applicability_expression": {
         "all": [
@@ -173,6 +259,7 @@
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "temperature_c", "label": "Temperature (C)", "type": "decimal", "required": true},
           {"key": "value", "label": "No-load indication", "type": "decimal", "unit": "instrument", "required": true}
         ],
@@ -191,6 +278,14 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 70,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
       "description": "Response of the instrument to a defined change of the applied load.",
       "applicability_expression": {
         "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
@@ -198,6 +293,7 @@
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "load", "label": "Applied load", "type": "decimal", "unit": "instrument", "required": true},
           {"key": "indication", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true}
         ],
@@ -216,6 +312,14 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 80,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 1,
+      "required_capabilities": ["is_electronic"],
       "description": "The indication shall change by at least one d when an additional load of 1.4 d is applied.",
       "applicability_expression": {
         "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
@@ -223,6 +327,7 @@
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "load", "label": "Additional load applied", "type": "decimal", "unit": "instrument", "required": false},
           {"key": "value", "label": "Change in indication", "type": "decimal", "unit": "instrument", "required": true}
         ],
@@ -241,6 +346,14 @@
       "category": "metrological",
       "phase": "MVP",
       "sequence_no": 90,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
       "description": "Variation of the indication during the stability observation period.",
       "applicability_expression": {
         "all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]
@@ -248,6 +361,7 @@
       "input_schema": {
         "layout": "table",
         "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
           {"key": "elapsed_seconds", "label": "Elapsed time (s)", "type": "decimal", "required": false},
           {"key": "value", "label": "Indication", "type": "decimal", "unit": "instrument", "required": true}
         ],
@@ -266,6 +380,14 @@
       "category": "construction",
       "phase": "MVP",
       "sequence_no": 200,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 1,
+      "required_capabilities": [],
       "description": "Conformity checklist for the construction of the instrument.",
       "applicability_expression": {"always": true},
       "input_schema": {
@@ -297,6 +419,14 @@
       "category": "construction",
       "phase": "MVP",
       "sequence_no": 210,
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 1,
+      "required_capabilities": [],
       "description": "Presence and consistency of the markings required on the instrument.",
       "applicability_expression": {"always": true},
       "input_schema": {
@@ -323,18 +453,340 @@
     }
   ],
   "phase2_tests": [
-    {"test_code": "T-TILT", "name": "Tilting", "clause_reference": "OIML R 76-1:2006 T.3.6", "category": "influence", "sequence_no": 100,
-     "description": "Effect of tilting on the indication (phase 2).", "applicability_expression": {"always": true}},
-    {"test_code": "T-TARE", "name": "Tare", "clause_reference": "OIML R 76-1:2006 T.3.7", "category": "metrological", "sequence_no": 110,
-     "description": "Tare device behaviour (phase 2).", "applicability_expression": {"all": [{"field": "instrument.has_tare_device", "op": "eq", "value": true}]}},
-    {"test_code": "T-WARMUP", "name": "Warm-up time", "clause_reference": "OIML R 76-1:2006 T.3.8", "category": "influence", "sequence_no": 120,
-     "description": "Performance after warm-up (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
-    {"test_code": "T-VOLT", "name": "Voltage variation, dips and interruptions", "clause_reference": "OIML R 76-1:2006 T.3.9", "category": "influence", "sequence_no": 130,
-     "description": "Performance under power-supply disturbance (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
-    {"test_code": "T-EMC", "name": "Electrical bursts, surges, ESD and RF immunity", "clause_reference": "OIML R 76-1:2006 T.3.10", "category": "influence", "sequence_no": 140,
-     "description": "Immunity tests (phase 2).", "applicability_expression": {"all": [{"field": "instrument.is_electronic", "op": "eq", "value": true}]}},
-    {"test_code": "T-DAMP", "name": "Damp heat, span stability and endurance", "clause_reference": "OIML R 76-1:2006 T.3.11", "category": "influence", "sequence_no": 150,
-     "description": "Environmental and endurance tests (phase 2).", "applicability_expression": {"always": true}}
+    {
+      "test_code": "T-TILT",
+      "name": "Tilting",
+      "clause_reference": "OIML R 76-1:2006 T.3.6",
+      "category": "influence",
+      "phase": "2",
+      "sequence_no": 100,
+      "description": "Effect of tilting the instrument away from its reference position on the indication.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "The permitted tilt error is not expressed in the versioned ruleset (there is no 'tilt' tolerance), so no deterministic calculator can judge the readings. The entry, input schema and report mapping are complete and become executable once a metrology reviewer adds the reviewed limit.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": [],
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
+          {"key": "label", "label": "Tilt direction and angle", "type": "text", "required": true},
+          {"key": "load", "label": "Test load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {
+            "key": "additional_load",
+            "label": "Additional load to changeover dL",
+            "type": "decimal",
+            "unit": "instrument",
+            "required": false
+          },
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Tilt position"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "deviation_from_reference",
+        "reference_row": "level",
+        "tolerance_key": "tilt",
+        "require_additional_load": false,
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:tilt"},
+      "report_section_mapping": {"section": "tests", "number": "6.12", "title": "Tilting"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph", "tilt_angle_record"]}
+    },
+    {
+      "test_code": "T-TARE",
+      "name": "Tare device",
+      "clause_reference": "OIML R 76-1:2006 T.3.7",
+      "category": "metrological",
+      "phase": "2",
+      "sequence_no": 110,
+      "description": "Deviation introduced by the tare device, measured against the MPE applicable at the tare load.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "Tare deviation is judged against the MPE at the tare load, but the taring mode (subtractive, additive, preset) changes which rule applies and that rule is not yet in the versioned ruleset.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": true,
+      "range_scope": "per_range",
+      "min_observations": 2,
+      "required_capabilities": ["has_tare_device"],
+      "applicability_expression": {
+        "all": [
+          {
+            "field": "instrument.has_tare_device",
+            "op": "eq",
+            "value": true,
+            "description": "Tare test applies to instruments fitted with a tare device"
+          }
+        ]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "range_no", "label": "Range / interval no", "type": "integer", "required": false},
+          {"key": "label", "label": "Tare stage", "type": "text", "required": true},
+          {"key": "load", "label": "Tare load T", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {
+            "key": "additional_load",
+            "label": "Additional load to changeover dL",
+            "type": "decimal",
+            "unit": "instrument",
+            "required": false
+          },
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Tare stage"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "tare_deviation",
+        "tare_mode": "subtractive",
+        "tolerance_key": "tare",
+        "require_additional_load": false,
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:tare"},
+      "report_section_mapping": {"section": "tests", "number": "6.13", "title": "Tare device"},
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-WARMUP",
+      "name": "Warm-up time",
+      "clause_reference": "OIML R 76-1:2006 T.3.8",
+      "category": "influence",
+      "phase": "2",
+      "sequence_no": 120,
+      "description": "Drift of the indication between power-on and the end of the warm-up period.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "The warm-up drift limit and the permitted settling time are not yet in the versioned ruleset; elapsed time is recorded so the rule can be reviewed and added without a schema change.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
+      "applicability_expression": {
+        "all": [
+          {
+            "field": "instrument.is_electronic",
+            "op": "eq",
+            "value": true,
+            "description": "Warm-up test applies to electronic instruments"
+          }
+        ]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "label", "label": "Stage", "type": "text", "required": true},
+          {"key": "elapsed_seconds", "label": "Elapsed time since power-on", "type": "decimal", "required": true},
+          {"key": "temperature_c", "label": "Ambient temperature", "type": "decimal", "required": false},
+          {"key": "load", "label": "Test load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Warm-up observation"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "required_fields": ["load", "indication", "elapsed_seconds"],
+        "non_negative_fields": ["load", "indication", "elapsed_seconds"]
+      },
+      "calculation_rules": {
+        "method": "deviation_from_reference",
+        "reference_row": "first",
+        "tolerance_key": "warmup",
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:warmup"},
+      "report_section_mapping": {"section": "tests", "number": "6.14", "title": "Warm-up time"},
+      "evidence_requirements": {"required": false, "recommended": ["power_on_time_record"]}
+    },
+    {
+      "test_code": "T-VOLT",
+      "name": "Voltage variation, dips and short interruptions",
+      "clause_reference": "OIML R 76-1:2006 T.3.9",
+      "category": "influence",
+      "phase": "2",
+      "sequence_no": 130,
+      "description": "Error introduced by mains voltage variation, voltage dips and short interruptions.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "The disturbance error limit and the nominal-supply reference are not yet in the versioned ruleset. Supply readings can be recorded against this schema but cannot be judged until the reviewed limit exists.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
+      "applicability_expression": {
+        "all": [
+          {
+            "field": "instrument.is_electronic",
+            "op": "eq",
+            "value": true,
+            "description": "Mains-supply test applies to electronic instruments"
+          }
+        ]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "label", "label": "Supply condition", "type": "text", "required": true},
+          {"key": "voltage_v", "label": "Supply voltage", "type": "decimal", "required": false},
+          {"key": "load", "label": "Test load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {
+            "key": "additional_load",
+            "label": "Additional load to changeover dL",
+            "type": "decimal",
+            "unit": "instrument",
+            "required": false
+          },
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Supply condition"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load", "voltage_v"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "deviation_from_reference",
+        "reference_row": "nominal",
+        "tolerance_key": "voltage_variation",
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:voltage_variation"},
+      "report_section_mapping": {
+        "section": "tests",
+        "number": "6.15",
+        "title": "Voltage variation, dips and short interruptions"
+      },
+      "evidence_requirements": {"required": false, "recommended": ["test_setup_photograph"]}
+    },
+    {
+      "test_code": "T-EMC",
+      "name": "Electrical bursts, surges, ESD and RF immunity",
+      "clause_reference": "OIML R 76-1:2006 T.3.10",
+      "category": "influence",
+      "phase": "2",
+      "sequence_no": 140,
+      "description": "Immunity of the instrument to electrical disturbances and radio-frequency fields.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "The immunity error limit is not yet in the versioned ruleset, and the disturbances are generated by accredited EMC test equipment outside this application. Recorded observations are stored; the verdict stays with the EMC laboratory until the reviewed limit is added.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 2,
+      "required_capabilities": ["is_electronic"],
+      "applicability_expression": {
+        "all": [
+          {
+            "field": "instrument.is_electronic",
+            "op": "eq",
+            "value": true,
+            "description": "Immunity tests apply to electronic instruments"
+          }
+        ]
+      },
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "label", "label": "Disturbance", "type": "text", "required": true},
+          {"key": "disturbance_level", "label": "Applied disturbance level", "type": "decimal", "required": false},
+          {"key": "load", "label": "Test load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {
+            "key": "additional_load",
+            "label": "Additional load to changeover dL",
+            "type": "decimal",
+            "unit": "instrument",
+            "required": false
+          },
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Disturbance"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "additional_load", "disturbance_level"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "deviation_from_reference",
+        "reference_row": "before_disturbance",
+        "tolerance_key": "emc_immunity",
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:emc_immunity"},
+      "report_section_mapping": {
+        "section": "tests",
+        "number": "6.16",
+        "title": "Electrical bursts, surges, ESD and RF immunity"
+      },
+      "evidence_requirements": {"required": false, "recommended": ["emc_laboratory_certificate"]}
+    },
+    {
+      "test_code": "T-DAMP",
+      "name": "Damp heat, span stability and endurance",
+      "clause_reference": "OIML R 76-1:2006 T.3.11",
+      "category": "influence",
+      "phase": "2",
+      "sequence_no": 150,
+      "description": "Effect of damp heat and of repeated loading on the span and on the indication stability.",
+      "implementation_status": "not_implemented",
+      "unsupported_reason": "Damp-heat and span-stability limits are not yet in the versioned ruleset. Temperature and humidity readings are recorded against this schema so the reviewed limits can be applied without a schema change.",
+      "clause_reference_status": "provisional",
+      "supports_repeated_observations": true,
+      "supports_ranges": false,
+      "range_scope": "instrument",
+      "min_observations": 2,
+      "required_capabilities": [],
+      "applicability_expression": {"always": true},
+      "input_schema": {
+        "layout": "table",
+        "columns": [
+          {"key": "label", "label": "Stage", "type": "text", "required": true},
+          {"key": "temperature_c", "label": "Chamber temperature", "type": "decimal", "required": false},
+          {"key": "humidity_percent", "label": "Relative humidity", "type": "decimal", "required": false},
+          {"key": "load", "label": "Test load L", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "indication", "label": "Indication I", "type": "decimal", "unit": "instrument", "required": true},
+          {"key": "unit", "label": "Row unit", "type": "unit", "required": false}
+        ],
+        "row_label": "Conditioning stage"
+      },
+      "validation_rules": {
+        "min_rows": 2,
+        "non_negative_fields": ["load", "indication", "humidity_percent"],
+        "required_fields": ["load", "indication"]
+      },
+      "calculation_rules": {
+        "method": "deviation_from_reference",
+        "reference_row": "before_conditioning",
+        "tolerance_key": "damp_heat",
+        "round_to_resolution": false
+      },
+      "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:damp_heat"},
+      "report_section_mapping": {"section": "tests", "number": "6.17", "title": "Damp heat, span stability and endurance"},
+      "evidence_requirements": {"required": false, "recommended": ["chamber_conditions_record"]}
+    }
   ],
   "construction_checklist_items": [
     {"item_code": "CON-01", "label": "Metrological characteristics are marked and consistent"},

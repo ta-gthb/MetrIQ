@@ -33,6 +33,20 @@ class TestInstanceStatus:
     ALL = [NOT_STARTED, IN_PROGRESS, COMPLETED]
 
 
+class TestImplementationStatus:
+    """Whether the deterministic engine can execute a catalogue entry.
+
+    Audit item 7: every prescribed test has a catalogue entry, and each entry
+    says plainly whether it is executable. ``not_implemented`` entries are
+    surfaced by the test plan instead of being hidden.
+    """
+
+    IMPLEMENTED = "implemented"
+    NOT_IMPLEMENTED = "not_implemented"
+
+    ALL = [IMPLEMENTED, NOT_IMPLEMENTED]
+
+
 class ApplicabilityStatus:
     APPLICABLE = "APPLICABLE"
     NOT_APPLICABLE = "NOT_APPLICABLE"
@@ -54,6 +68,13 @@ class TestDefinition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     clause_reference: Mapped[str | None] = mapped_column(String(80))
     category: Mapped[str] = mapped_column(String(40), default="metrological")
     phase: Mapped[str] = mapped_column(String(16), default="MVP")
+    implementation_status: Mapped[str] = mapped_column(
+        String(24),
+        default=TestImplementationStatus.IMPLEMENTED,
+        server_default=TestImplementationStatus.IMPLEMENTED,
+        nullable=False,
+    )
+    unsupported_reason: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     applicability_expression: Mapped[dict] = mapped_column(JSONType, default=dict)
     input_schema: Mapped[dict] = mapped_column(JSONType, default=dict)

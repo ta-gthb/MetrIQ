@@ -590,11 +590,12 @@ function stepPlan() {
         '<td class="mono">' + item.sequence_no + '</td>' +
         '<td>' + (item.applicable ? '<span class="pill pill-info">APPLICABLE</span>' : '<span class="pill pill-na">NOT APPLICABLE</span>') +
           (item.manual_override ? ' <span class="pill pill-warn">manual</span>' : '') + '</td>' +
+        '<td>' + implementationCell(item) + '</td>' +
         '<td class="small">' + escapeHtml(item.reason) +
           ((item.trace || []).length ? '<details class="faint small"><summary>trace</summary><div class="mono">' +
             item.trace.map((t) => escapeHtml(t.check) + ' \u2192 ' + (t.result ? 'true' : 'false')).join('<br/>') +
             '</div></details>' : '') + '</td></tr>').join('')
-    : '<tr><td colspan="6" class="faint small">No plan items.</td></tr>';
+    : '<tr><td colspan="7" class="faint small">No plan items.</td></tr>';
   return '<div class="card"><div class="step-head"><span class="step-no">19</span>' +
     '<div><h2>Applicable test-plan generation</h2>' +
     '<div class="faint small">Applicability was evaluated against the instrument characteristics and the active rule set. ' +
@@ -607,7 +608,32 @@ function stepPlan() {
       (canRegenerate ? '<button class="btn-sm" id="regenerate-plan">Regenerate plan</button>' : '') +
     '</div>' +
     '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Test</th><th>Category</th><th>Seq</th>' +
-      '<th>Applicability</th><th>Reason</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+      '<th>Applicability</th><th>Implementation</th><th>Reason</th></tr></thead><tbody>' + rows +
+      '</tbody></table></div>' +
+    (unsupportedNotice(items)) + '</div>';
+}
+
+function implementationCell(item) {
+  // A catalogue entry can be complete and still have no deterministic
+  // calculator. That is reported as "not implemented" with the reason the
+  // catalogue gives, never hidden (audit item 7).
+  if (item.supported === false || item.implementation_status === 'not_implemented') {
+    const reason = item.unsupported_reason || 'no deterministic calculator is available';
+    return '<span class="pill pill-warn" title="' + escapeHtml(reason) + '">NOT IMPLEMENTED</span>' +
+      '<div class="faint small">' + escapeHtml(reason) + '</div>';
+  }
+  return '<span class="pill pill-pass">IMPLEMENTED</span>';
+}
+
+function unsupportedNotice(items) {
+  const unsupported = (items || []).filter((item) =>
+    item.applicable && (item.supported === false || item.implementation_status === 'not_implemented'));
+  if (!unsupported.length) return '';
+  return '<div class="banner warn small" style="margin-top:10px">' +
+    '<strong>' + unsupported.length + ' applicable test(s) cannot be executed yet:</strong> ' +
+    unsupported.map((item) => escapeHtml(item.test_code)).join(', ') +
+    '. They are shown here rather than removed from the plan; their limits must be reviewed and added ' +
+    'to the rule set before the engine can decide them.</div>';
 }
 
 function bindPlan() {
@@ -645,11 +671,13 @@ function testListHtml() {
     state.tests.map((test) => {
       const definition = test.definition || {};
       const na = test.applicability_status === 'NOT_APPLICABLE';
-      const label = (definition.test_code || '') + ' \u00b7 ' + (definition.name || '');
-      return '<button class="test-item ' + (test.id === selectedTestId ? 'active' : '') + '" data-test="' + test.id + '" title="' + escapeHtml(label) + '"' + (na ? ' disabled' : '') + '>' +
+      const unsupported = definition.implementation_status === 'not_implemented';
+      const label = (definition.test_code || '') + ' \u00b7 ' + (definition.name || '') +
+        (unsupported ? ' \u2014 not implemented: ' + (definition.unsupported_reason || '') : '');
+      return '<button class="test-item ' + (test.id === selectedTestId ? 'active' : '') + '" data-test="' + test.id + '" title="' + escapeHtml(label) + '"' + (na || unsupported ? ' disabled' : '') + '>' +
         '<span class="code">' + escapeHtml(definition.test_code || '') + '</span>' +
         '<span class="name">' + escapeHtml(definition.name || '') + '</span>' +
-        '<span style="flex:0 0 6px"></span>' + resultPill(test.result_status) + '</button>';
+        '<span style="flex:0 0 6px"></span>' + (unsupported ? '<span class="pill pill-warn">unsupported</span>' : '') + resultPill(test.result_status) + '</button>';
     }).join('') + '</div>';
 }
 

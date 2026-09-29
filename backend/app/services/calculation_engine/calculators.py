@@ -63,7 +63,15 @@ def _rounding_policy(ctx: CalcContext) -> str:
     return ROUNDING_POLICY_R76 if ctx.calc_rule("round_to_resolution", False) else ROUNDING_POLICY_EXACT
 
 
-def _tolerance(ctx: CalcContext, key: str) -> tuple[Decimal | None, dict[str, Any]]:
+def _tolerance(
+    ctx: CalcContext, key: str, load: Decimal | None = None
+) -> tuple[Decimal | None, dict[str, Any]]:
+    """Resolve a tolerance, using the scale interval of the range the load is in.
+
+    ``load`` is optional: when it is supplied on a multi-range or
+    multi-interval instrument the ``e``-based tolerance is expressed in the
+    interval the observation was taken in (``CalcContext.e_for``).
+    """
     tol = ctx.tolerance(key)
     if not tol:
         return None, {}
@@ -72,9 +80,9 @@ def _tolerance(ctx: CalcContext, key: str) -> tuple[Decimal | None, dict[str, An
         return None, tol
     unit = tol.get("unit", "e")
     if unit == "e":
-        limit = factor * _require_e(ctx)
+        limit = factor * (ctx.e_for(load) or _require_e(ctx))
     elif unit == "d":
-        resolution = ctx.d if ctx.d and ctx.d > 0 else _require_e(ctx)
+        resolution = ctx.d if ctx.d and ctx.d > 0 else (ctx.e_for(load) or _require_e(ctx))
         limit = factor * resolution
     else:
         limit = factor
@@ -122,7 +130,7 @@ def _mpe_for(ctx: CalcContext, load: Decimal) -> MpeResolution:
         ruleset=ctx.ruleset,
         instrument_class=ctx.instrument_class,
         load=load,
-        e=_require_e(ctx),
+        e=ctx.e_for(load) or _require_e(ctx),
         stage=ctx.stage,
         rule_version=ctx.rule_version,
     )
@@ -180,6 +188,7 @@ def calc_weighing_performance(ctx: CalcContext) -> CalcOutcome:
             within=margin >= 0,
             detail={
                 **comp.as_dict(),
+                "range_no": obs.range_no,
                 "rule_id": resolution.rule_id,
                 "band": resolution.band_label,
                 "m_over_e": resolution.m,
@@ -415,7 +424,8 @@ def calc_eccentricity(ctx: CalcContext) -> CalcOutcome:
 # ---------------------------------------------------------------------------
 def _deviation_calculator(tolerance_key: str, method: str, minimum_rows: int = 2):
     def calculator(ctx: CalcContext) -> CalcOutcome:
-        limit, tol = _tolerance(ctx, tolerance_key)
+        reference_load = next((obs.load for obs in ctx.observations if obs.load is not None), None)
+        limit, tol = _tolerance(ctx, tolerance_key, reference_load)
         if limit is None:
             raise ValidationError(
                 f"ruleset is missing tolerance '{tolerance_key}'; cannot evaluate this test"
@@ -450,6 +460,7 @@ def _deviation_calculator(tolerance_key: str, method: str, minimum_rows: int = 2
                     detail={
                         "reference_value": reference_value,
                         "deviation": deviation,
+                        "range_no": obs.range_no,
                         "elapsed_seconds": obs.elapsed_seconds,
                         "temperature_c": obs.temperature_c,
                         "clause_reference": tol.get("clause_reference"),
@@ -487,7 +498,8 @@ def _deviation_calculator(tolerance_key: str, method: str, minimum_rows: int = 2
 # Sensitivity
 # ---------------------------------------------------------------------------
 def calc_sensitivity(ctx: CalcContext) -> CalcOutcome:
-    limit, tol = _tolerance(ctx, "sensitivity")
+    reference_reload = next((obs.load for obs in ctx.observations if obs.load is not None), None)
+    limit, tol = _tolerance(ctx, "sensitivity", reference_reload)
     if limit is None:
         raise ValidationError("ruleset is missing tolerance 'sensitivity'")
     if len(ctx.observations) < 2:
@@ -550,7 +562,8 @@ def calc_sensitivity(ctx: CalcContext) -> CalcOutcome:
 # Discrimination (changeover)
 # ---------------------------------------------------------------------------
 def calc_discrimination(ctx: CalcContext) -> CalcOutcome:
-    limit, tol = _tolerance(ctx, "discrimination")
+    reference_load = next((obs.load for obs in ctx.observations if obs.load is not None), None)
+    limit, tol = _tolerance(ctx, "discrimination", reference_load)
     if limit is None:
         raise ValidationError("ruleset is missing tolerance 'discrimination'")
     if not ctx.observations:

@@ -36,6 +36,13 @@ def build_observation(data: dict[str, Any], index: int) -> ObservationRow:
     if isinstance(conforms, str):
         conforms = conforms.strip().lower() in {"true", "yes", "y", "1", "conforms", "pass"}
 
+    range_no = merged.get("range_no")
+    if range_no is not None:
+        try:
+            range_no = int(range_no)
+        except (TypeError, ValueError):
+            range_no = None
+
     return ObservationRow(
         observation_no=int(data.get("observation_no") or index),
         label=data.get("position_label") or merged.get("label") or merged.get("position"),
@@ -46,6 +53,7 @@ def build_observation(data: dict[str, Any], index: int) -> ObservationRow:
         temperature_c=number("temperature_c"),
         value=number("value"),
         unit=merged.get("unit"),
+        range_no=range_no,
         conforms=conforms,
         item_code=merged.get("item_code") or merged.get("code"),
         remarks=merged.get("remarks"),

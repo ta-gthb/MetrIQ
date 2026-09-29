@@ -137,6 +137,17 @@ def build_calc_context(
         "has_tare_device": instrument.has_tare_device,
         "has_zero_device": instrument.has_zero_device,
         "model": instrument.model,
+        "ranges": [
+            {
+                "range_no": item.range_no,
+                "min_capacity": item.min_capacity,
+                "max_capacity": item.max_capacity,
+                "e": item.verification_scale_interval,
+                "d": item.actual_scale_interval,
+                "unit": item.unit,
+            }
+            for item in sorted(instrument.ranges, key=lambda item: item.range_no or 0)
+        ],
     }
 
     return CalcContext(
@@ -148,7 +159,19 @@ def build_calc_context(
         environment=environment or {},
         stage=effective_stage,
         rule_version=rule_version,
+        ranges=instrument_payload["ranges"],
     )
+
+
+def _jsonable(value: Any) -> Any:
+    """Keep nested instrument data (the range table) JSON-serialisable."""
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Decimal):
+        return decimal_str(value)
+    return value
 
 
 def _input_snapshot(ctx: CalcContext) -> dict[str, Any]:
@@ -157,7 +180,9 @@ def _input_snapshot(ctx: CalcContext) -> dict[str, Any]:
         "stage": ctx.stage,
         "rule_version": ctx.rule_version,
         "instrument": {
-            key: decimal_str(value) if isinstance(value, Decimal) else value
+            key: decimal_str(value)
+            if isinstance(value, Decimal)
+            else _jsonable(value)
             for key, value in ctx.instrument.items()
         },
         "observations": [row.as_dict() for row in ctx.observations],

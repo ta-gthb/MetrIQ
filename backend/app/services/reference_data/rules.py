@@ -20,6 +20,7 @@ from app.models import (
     Standard,
     StandardVersion,
     TestDefinition,
+    TestImplementationStatus,
     utcnow,
 )
 from app.rules.loader import (  # noqa: E402
@@ -265,6 +266,10 @@ def _upsert_test_definition(
         "clause_reference": entry.get("clause_reference"),
         "category": entry.get("category", "metrological"),
         "phase": entry.get("phase", phase),
+        "implementation_status": entry.get(
+            "implementation_status", TestImplementationStatus.IMPLEMENTED
+        ),
+        "unsupported_reason": entry.get("unsupported_reason"),
         "description": description or entry.get("description"),
         "applicability_expression": entry.get("applicability_expression") or {},
         "input_schema": entry.get("input_schema") or {},

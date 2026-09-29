@@ -92,6 +92,8 @@ class TestDefinitionOut(ORMModel):
     description: str | None = None
     sequence_no: int
     is_active: bool
+    implementation_status: str = "implemented"
+    unsupported_reason: str | None = None
     input_schema: dict = Field(default_factory=dict)
     validation_rules: dict = Field(default_factory=dict)
     calculation_rules: dict = Field(default_factory=dict)
@@ -134,6 +136,9 @@ class TestPlanItemOut(BaseModel):
     trace: list[dict] = Field(default_factory=list)
     definition_id: str | None = None
     manual_override: bool = False
+    implementation_status: str = "implemented"
+    unsupported_reason: str | None = None
+    supported: bool = True
 
 
 class TestPlanOut(BaseModel):
