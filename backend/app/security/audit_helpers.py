@@ -5,7 +5,15 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 
-def record_login(db: Session, *, user, ip_address: str | None = None) -> None:
+def record_login(
+    db: Session, *, user, ip_address: str | None = None, method: str = "password"
+) -> None:
+    """Record a successful sign-in.
+
+    ``method`` distinguishes a Supabase sign-in from a locally checked password,
+    which is what makes "was this account signed into through the identity
+    provider?" answerable from the trail alone (audit items 4 and 10).
+    """
     from app.services import audit_service
 
     audit_service.record(
@@ -15,7 +23,7 @@ def record_login(db: Session, *, user, ip_address: str | None = None) -> None:
         entity_id=user.id,
         actor=user,
         ip_address=ip_address,
-        extra={"role": user.role_code},
+        extra={"role": user.role_code, "method": method},
     )
 
 

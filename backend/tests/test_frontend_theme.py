@@ -16,7 +16,7 @@ FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 
 APP_PAGES = ["admin.html", "assistant.html", "dashboard.html", "evaluation.html",
              "evaluations.html", "reports.html"]
-AUTH_PAGES = ["index.html", "login.html"]
+AUTH_PAGES = ["index.html", "login.html", "reset-password.html"]
 
 # Colour tokens every theme must define; anything here missing from the light
 # block would silently render as the dark value.

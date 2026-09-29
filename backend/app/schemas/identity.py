@@ -40,6 +40,32 @@ class LoginResponse(BaseModel):
     user: UserOut
 
 
+class SupabaseConfigOut(BaseModel):
+    """What the browser needs in order to sign in through Supabase Auth.
+
+    Public values only. The anon key is designed to be shipped to browsers, and
+    row-level security plus this API's own checks are what protect the data; the
+    service-role key is never part of this payload, and a test asserts that.
+    """
+
+    url: str
+    auth_url: str
+    anon_key: str
+
+
+class AuthConfigOut(BaseModel):
+    """How this deployment expects a browser to sign in (audit item 4)."""
+
+    provider: str
+    #: Present only when Supabase sign-in is configured.
+    supabase: SupabaseConfigOut | None = None
+    #: Whether MetrIQ's own password check may be used: development and demo only.
+    local_login: bool
+    demo_mode: bool
+    #: Where a user goes to reset a password, when the deployment supports it.
+    password_reset: str | None = None
+
+
 class PermissionOut(ORMModel):
     code: str
     description: str | None = None

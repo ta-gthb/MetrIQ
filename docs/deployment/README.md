@@ -170,22 +170,30 @@ read-only at boot and run the scripts in section 7 by hand.
 
 ### Authentication
 
+Production signs in through Supabase Auth - see 3.4. MetrIQ's own password check
+is used in development and in the demonstration deployment only.
+
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `AUTH_PROVIDER` | `hybrid` | `supabase`, `local` or `hybrid`. Keep `hybrid` in production (see below) |
-| `JWT_SECRET` | `change-me-in-production` | **Must** be replaced in production |
-| `JWT_ALGORITHM` | `HS256` | |
-| `ACCESS_TOKEN_TTL_MINUTES` | `480` | |
-| `SUPABASE_URL` | - | Project URL |
-| `SUPABASE_ANON_KEY` | - | Frontend/anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | - | Server-side key; never exposed to the browser |
-| `SUPABASE_JWKS_URL` | - | JWKS endpoint used to verify Supabase JWTs |
-| `SUPABASE_JWT_SECRET` | - | Only for legacy HS256 Supabase projects |
+| `AUTH_PROVIDER` | `hybrid` | `supabase`, `local` or `hybrid`: which identity providers may sign in |
+| `JWT_SECRET` | `change-me-in-production` | **Must** be replaced in production. Signs MetrIQ's session tokens; never used to verify Supabase tokens |
+| `JWT_ALGORITHM` | `HS256` | MetrIQ's own tokens only |
+| `ACCESS_TOKEN_TTL_MINUTES` | `60` | Short on purpose: the frontend transparently refreshes a 401 once (item 13) |
+| `REFRESH_TOKEN_TTL_DAYS` | `14` | Rotated on every use, in an HttpOnly cookie |
+| `SUPABASE_URL` | - | Project URL. The JWKS endpoint and the expected token issuer are derived from it |
+| `SUPABASE_ANON_KEY` | - | Publishable key, served to browsers by `GET /api/v1/auth/config` |
+| `SUPABASE_SERVICE_ROLE_KEY` | - | Server-side key. It bypasses row-level security, so it must never reach a browser |
+| `SUPABASE_JWKS_URL` | - | Only when the key set is not at the default path |
+| `SUPABASE_JWT_SECRET` | - | Only for a project still signing with the legacy HS256 shared secret |
+| `SUPABASE_JWT_ISSUER` | - | Only when `iss` is not `<project URL>/auth/v1` |
+| `DEMO_MODE` | `false` | Re-enables the local password path and the demonstration panel |
 
-> **`AUTH_PROVIDER` must stay `hybrid`.** The API mints its own JWTs at
-> `/auth/login`. With `AUTH_PROVIDER=supabase` only Supabase-issued tokens are
-> accepted, so every account that signs in through this service is rejected with
-> 401 as soon as `SUPABASE_JWT_SECRET` is set. `hybrid` verifies both kinds.
+> **`AUTH_PROVIDER` selects who may sign in, never whether your own session
+> works.** MetrIQ mints its own access token in every case - after a Supabase
+> sign-in it exchanges the provider's token at `/auth/session` for one - so that
+> token format is always accepted. `hybrid` also accepts Supabase tokens at the
+> exchange; `supabase` accepts only those; `local` refuses Supabase sign-in
+> outright. Local *passwords* are governed by `DEMO_MODE`, not by this variable.
 
 ### Storage
 
@@ -283,6 +291,44 @@ cases/<case_id>/<uuid>/<filename>      evidence uploads
 reports/<report_no>-R<n>.pdf|docx      generated report artefacts
 ```
 
+### 3.4 Sign-in with Supabase Auth
+
+Supabase Auth is the production identity provider (audit item 4). The design and
+what gets verified are in `docs/architecture/supabase-auth.md`; this is the
+setup.
+
+1. **Project Settings -> API**: copy the project URL and the `anon` publishable
+   key, and set `SUPABASE_URL` and `SUPABASE_ANON_KEY` on Render.
+2. **Token verification usually needs nothing else.** A project on today's
+   asymmetric signing keys is verified through its JWKS endpoint, which is
+   derived from `SUPABASE_URL`. A project still signing with the legacy shared
+   secret additionally needs `SUPABASE_JWT_SECRET` (Project Settings -> API ->
+   JWT Settings). If it is missing, the 401 says so.
+3. **Authentication -> URL Configuration**: set **Site URL** to the deployed
+   frontend origin, and add `<origin>/reset-password.html` to **Redirect URLs**.
+   Supabase only redirects to an allow-listed URL, so without this the
+   password-reset email has nowhere to go.
+4. **Create the accounts**: Authentication -> Users -> Add user, using **the same
+   email address** as the MetrIQ user. The first sign-in links the two and records
+   the Supabase identity. A Supabase user with no MetrIQ account is refused with
+   `No MetrIQ account is linked to this identity`, so open sign-ups expose no
+   data - but turning them off (Providers -> Email) is still worth doing.
+5. **Confirm the email.** A new project requires confirmation
+   (`mailer_autoconfirm=false`), so an account cannot sign in until the address is
+   confirmed; the sign-in page turns that error into a sentence saying so.
+6. **Email delivery.** Password-reset mail uses Supabase's built-in SMTP, which
+   is rate limited to a handful of messages an hour and is meant for testing.
+   Configure a custom SMTP under Project Settings -> Auth before relying on
+   resets.
+7. **CSP.** The browser calls the project directly, so the origin has to be in
+   `connect-src`: the API derives it from `SUPABASE_URL`, and `vercel.json`
+   lists it explicitly because Vercel serves the static frontend. Changing
+   project means changing both.
+
+A demonstration deployment keeps `DEMO_MODE=true` so the seeded `@metriq.local`
+accounts still work. Without it, `/auth/login` answers 403 by design and those
+accounts can only sign in if they also exist in Supabase.
+
 ## 4. Render: the API
 
 1. **New -> Blueprint**, point it at the repository. Render reads `render.yaml`
@@ -295,7 +341,8 @@ reports/<report_no>-R<n>.pdf|docx      generated report artefacts
    | `SUPABASE_URL` | `https://<ref>.supabase.co` |
    | `SUPABASE_ANON_KEY` | from Project Settings -> API |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Project Settings -> API |
-   | `SUPABASE_JWT_SECRET` | optional; leave blank unless you use Supabase Auth |
+   | `SUPABASE_JWT_SECRET` | only for a project still signing with the legacy HS256 secret; a project on asymmetric signing keys needs nothing here (see 3.4) |
+   | `SUPABASE_JWT_ISSUER` | only when `iss` is not `<SUPABASE_URL>/auth/v1` |
    | `SUPABASE_JWKS_URL` | optional - derived from `SUPABASE_URL` when blank |
    | `CORS_ORIGINS` | your Vercel URL, e.g. `https://metriq.vercel.app` (optional) |
    | `AI_API_KEY` | blank for the `stub` provider |
@@ -555,6 +602,12 @@ grants.
 | Upload fails with `(400) Bucket not found` | Bucket name mismatch | Create the bucket or fix `STORAGE_BUCKET` |
 | Reports download `410` | Artefact missing from the bucket | Confirm `reports/...` objects exist; check the service key |
 | `SSL connection has been closed unexpectedly` under load | Direct/IPv6 connection or the wrong pooler port | Use the session pooler (5432) URI |
+| Sign-in returns `403` "signs in through Supabase Auth" | `ENVIRONMENT=production` without `DEMO_MODE`, so the local password path is refused - by design | Sign in through Supabase, or set `DEMO_MODE=true` if this is a demonstration deployment |
+| `401` from `/auth/session` mentioning `SUPABASE_JWT_SECRET` | The project signs tokens with the legacy HS256 secret, which is not configured | Set `SUPABASE_JWT_SECRET` from Project Settings -> API, or move the project to asymmetric signing keys so JWKS is used |
+| `401` from `/auth/session` with `issuer mismatch` | The project's `iss` is not `<SUPABASE_URL>/auth/v1`, usually a custom domain | Set `SUPABASE_JWT_ISSUER` to the value the message names |
+| `401` "No MetrIQ account is linked to this identity" | A Supabase user exists with no matching MetrIQ user | Create the MetrIQ user with the same email address (`manage_admin.py`); the next sign-in links them |
+| Sign-in fails with "Confirm your email address first" | A new Supabase project requires confirmation | Confirm from the email, or turn confirmation off for a demo project |
+| Nothing arrives after "Forgot your password?" | Supabase's built-in SMTP is rate limited, or no custom SMTP is configured | Wait, or configure Project Settings -> Auth -> SMTP |
 | Browser calls fail with a CORS error | UI calling Render cross-origin without the origin allowed | Use the Vercel rewrite, or add the exact origin to `CORS_ORIGINS` |
 | Deploy crash-loops with `ValidationError ... CORS_ALLOW_ORIGIN_REGEX must not contain a wildcard` | A wildcard origin pattern (`https://.*\.vercel\.app`) is still set on the host, from an earlier revision of this guide | Delete `CORS_ALLOW_ORIGIN_REGEX` from the service's environment variables and redeploy. The bundled UI is same-origin through the Vercel rewrite, so production needs no CORS entry at all |
 | `/api/*` returns Vercel 404 | Rewrite destination still points at the placeholder host | Update `vercel.json` and redeploy |

@@ -85,20 +85,43 @@ backend/app/
 
 ## 4. Authentication and authorization flow
 
-```
-Client --(POST /auth/login)--> password check (bcrypt) --> local JWT (HS256)
-       <-- access_token (type=access) + refresh_token (type=refresh)
-Client --(Authorization: Bearer <access>)--> API
-                                          decode_token(expected_type="access")
+Production signs in through Supabase Auth (audit item 4); MetrIQ's own password
+check survives only for development and the demonstration deployment.
+
+```text
+Browser --(password, apikey)--> Supabase Auth
+        <-- Supabase access token (ES256, verified against the project JWKS)
+
+Browser --(POST /auth/session, Bearer <supabase token>)--> API
+                                          decode_token()   algorithm allow-list,
+                                                           signature, iss, aud,
+                                                           role not anon/service_role
                                           resolve_user_for_principal()
+                                                           by supabase_user_id, else
+                                                           email; linked on first use
+        <-- MetrIQ access_token (type=access) + refresh_token (HttpOnly cookie)
+
+Client  --(Authorization: Bearer <metrIQ access>)--> API
+                                          decode_token(expected_type="access")
                                           require_permission(...) -> 403
                                           laboratory_filter() / case_visible() -> scope
 ```
 
-* `AUTH_PROVIDER=hybrid` accepts both Supabase-issued JWTs and locally issued
-  demo JWTs. `supabase` verifies JWTs against JWKS; `local` issues them.
+Development and demonstration instead post to `/auth/login`, where bcrypt is
+checked against `users.password_hash`, and receive the same MetrIQ session.
+
+* Supabase authenticates, MetrIQ authorises. The provider's token is exchanged
+  for a MetrIQ session rather than passed through, so the provider's token
+  lifetime never becomes the session length and its refresh token is discarded
+  instead of being kept in page storage (item 13).
+* `AUTH_PROVIDER=hybrid` accepts both Supabase-issued and locally issued JWTs;
+  `supabase` accepts only the former. In production without `DEMO_MODE`,
+  `/auth/login` answers 403, so a session can only come from the exchange.
+* Roles and permissions come from `users.role_code` alone. No claim in a token -
+  `role`, `app_metadata` or `user_metadata` - can elevate a session.
 * Access and refresh tokens carry a `type` claim so a refresh token can never be
   used as an access token and vice versa.
+* Full detail: `docs/architecture/supabase-auth.md`.
 * Authorization is enforced in three layers: role permission check, laboratory
   scope, and record scope (engineer may only edit cases assigned to them).
 * Those three layers are application-side. A fourth, database-side layer - the
@@ -225,6 +248,7 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
 | `docs/architecture/oiml-coverage-matrix.md` | Generated traceability matrix: clause -> test -> rule -> formula -> limit -> PASS/FAIL logic -> report section -> automated test. Regenerate with `python -m scripts.build_coverage_matrix` from `backend/`; `tests/test_coverage_matrix.py` fails if it drifts from the rule data. |
 | `docs/architecture/ruleset-governance.md` | The ruleset lifecycle, the review records a metrology reviewer signs, and the activation gate. |
 | `docs/architecture/report-mapping.md` | How clause-to-report mapping is validated, and the golden report fixtures that pin the rendered output. |
+| `docs/architecture/supabase-auth.md` | Supabase Auth as the production identity provider: the token exchange, what is verified before a token is trusted, how a Supabase identity is linked to a MetrIQ user, password reset, and what is deliberately out of scope. |
 | `docs/architecture/row-level-security.md` | The database-level laboratory policies: what they cover, the deny-by-default scope setting, why the schema owner is deliberately exempt, and the unit and PostgreSQL integration tests (plus the CI job) that prove cross-laboratory reads and writes are refused. |
 
 A test that the engine cannot execute is listed in the catalogue, the matrix and

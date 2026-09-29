@@ -3,22 +3,26 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies.auth import (
+    bearer_scheme,
     get_current_active_user,
     get_client_ip,
     resolve_user_for_principal,
 )
 from app.models import User, utcnow
 from app.schemas.identity import (
+    AuthConfigOut,
     LoginRequest,
     LoginResponse,
     MeOut,
     PermissionOut,
+    SupabaseConfigOut,
     TokenRefreshRequest,
     UserOut,
 )
@@ -72,6 +76,17 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> LoginResponse:
+    # Audit item 4: production signs in through Supabase Auth. Hiding the form is
+    # not enough - a caller can post here directly - so the rule is enforced.
+    if not settings.local_login_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "This deployment signs in through Supabase Auth, so a MetrIQ password"
+                " is not accepted. Sign in there and post the access token to"
+                " /auth/session."
+            ),
+        )
     user = db.execute(
         select(User).where(User.email == payload.email.strip().lower())
     ).scalars().first()
@@ -180,6 +195,117 @@ def logout(
     db.commit()
     _clear_refresh_cookie(response)
     return {"revoked": user_id is not None}
+
+
+@router.get(
+    "/auth/config",
+    response_model=AuthConfigOut,
+    summary="How this deployment expects a browser to sign in",
+)
+def auth_config() -> AuthConfigOut:
+    """Public: the sign-in page reads this before it draws the form.
+
+    Only public values are returned, so the frontend carries no baked-in project
+    URL or key: the deployment decides the identity provider, and switching it is
+    a configuration change rather than a rebuild (audit items 3 and 4).
+    """
+    supabase = None
+    if settings.supabase_login_enabled:
+        supabase = SupabaseConfigOut(
+            url=(settings.SUPABASE_URL or "").rstrip("/"),
+            auth_url=settings.supabase_auth_url or "",
+            anon_key=settings.SUPABASE_ANON_KEY or "",
+        )
+    return AuthConfigOut(
+        provider=settings.AUTH_PROVIDER,
+        supabase=supabase,
+        local_login=settings.local_login_allowed,
+        demo_mode=settings.DEMO_MODE,
+        password_reset="supabase" if supabase else None,
+    )
+
+
+@router.post(
+    "/auth/session",
+    response_model=LoginResponse,
+    summary="Exchange a Supabase access token for a MetrIQ session",
+)
+def create_session(
+    request: Request,
+    response: Response,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> LoginResponse:
+    """Supabase authenticates; MetrIQ authorises (audit item 4).
+
+    The browser signs in against Supabase Auth and posts the access token here.
+    The token is verified - signature, algorithm, issuer, audience and role - then
+    mapped onto a MetrIQ user, creating the link on first use, and exchanged for a
+    MetrIQ session: a short-lived access token plus the same HttpOnly, rotating
+    refresh cookie a password sign-in would have received.
+
+    Keeping our own session is deliberate. It means the lifetime of a Supabase
+    token never becomes the session length, the refresh token stays out of page
+    storage (item 13), and revocation keeps working exactly as it did. The role
+    always comes from the user row, so nothing in the Supabase token can elevate
+    a session.
+    """
+    if not settings.supabase_login_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Supabase sign-in is not enabled on this deployment.",
+        )
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="A Supabase access token is required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = decode_token(credentials.credentials, expected_type="access")
+    except TokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired token: {exc}",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    if principal.source != "supabase":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This endpoint exchanges Supabase access tokens only.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = resolve_user_for_principal(db, principal)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "No MetrIQ account is linked to this identity. Ask an administrator"
+                " to provision access."
+            ),
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is inactive. Contact an administrator.",
+        )
+
+    # First Supabase sign-in for this account: remember the link, so later
+    # requests resolve by identity rather than by matching an email address. The
+    # endpoint owns the transaction, so this is committed with the session.
+    if not user.supabase_user_id:
+        user.supabase_user_id = principal.subject
+    user.auth_provider = "supabase"
+    user.last_login_at = utcnow()
+    audit_helpers.record_login(
+        db, user=user, ip_address=get_client_ip(request), method="supabase"
+    )
+
+    session = _session_response(db, user)
+    db.commit()
+    _set_refresh_cookie(response, session.refresh_token or "")
+    return session
 
 
 @router.get("/auth/demo-accounts", summary="Seeded demonstration accounts (demo mode only)")

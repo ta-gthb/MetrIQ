@@ -44,9 +44,13 @@ services:
       - key: AUTO_SEED_REFERENCE
         value: "true"
 
-      # hybrid verifies Supabase-issued JWTs *and* the tokens this API mints at
-      # /auth/login. Setting this to `supabase` alone locks out every account
-      # that signs in through this service, so leave it as hybrid.
+      # Which identity providers may sign in: hybrid accepts Supabase-issued
+      # JWTs and this API's own session tokens. MetrIQ mints its own access
+      # token in every case - after a Supabase sign-in it exchanges the
+      # provider's token at /auth/session for one - so that format is accepted
+      # whatever this is set to, and only Supabase sign-in is affected. Local
+      # *passwords* are governed by DEMO_MODE below. See
+      # docs/architecture/supabase-auth.md.
       - key: AUTH_PROVIDER
         value: hybrid
 

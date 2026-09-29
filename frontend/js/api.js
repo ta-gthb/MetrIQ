@@ -70,9 +70,14 @@ function buildUrl(path, query) {
 }
 
 async function request(method, path, options = {}) {
-  const { body, formData, query, blob, redirectOn401 = true, skipRefresh = false } = options;
+  const {
+    body, formData, query, blob, redirectOn401 = true, skipRefresh = false, authorization,
+  } = options;
   const headers = {};
-  if (session && session.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  // `authorization` lets /auth/session present a Supabase token before any
+  // MetrIQ session exists; everything else uses the session's access token.
+  const token = authorization !== undefined ? authorization : (session && session.access_token);
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   let payload;
   if (formData) {
@@ -175,11 +180,96 @@ async function refreshSession() {
   return refreshInFlight;
 }
 
+/* How this deployment signs users in (audit item 4). Read once per page load
+ * from the API, so no project URL or key is baked into this bundle - switching
+ * identity provider stays a server-side configuration change. A failed fetch
+ * falls back to the local form, which the backend will reject if this
+ * deployment has moved to Supabase. */
+let authConfigInFlight = null;
+
+export function loadAuthConfig() {
+  if (!authConfigInFlight) {
+    authConfigInFlight = api
+      .get('/auth/config', { redirectOn401: false, skipRefresh: true })
+      .catch(() => ({
+        provider: 'local', supabase: null, local_login: true, demo_mode: false, password_reset: null,
+      }));
+  }
+  return authConfigInFlight;
+}
+
+/** A Supabase error body, turned into something a person can act on. */
+async function supabaseMessage(response) {
+  let message = '';
+  try {
+    const payload = await response.json();
+    message = payload.error_description || payload.msg || payload.error || '';
+  } catch (error) { /* not JSON */ }
+
+  if (/invalid login credentials/i.test(message)) return 'Incorrect email address or password.';
+  if (/email not confirmed/i.test(message)) {
+    return 'Confirm your email address first - check your inbox for the Supabase message.';
+  }
+  if (response.status === 429 || /rate limit/i.test(message)) {
+    return 'Too many attempts. Wait a moment and try again.';
+  }
+  return message || `Sign-in failed (${response.status}).`;
+}
+
+/* Supabase Auth verifies the password; MetrIQ never sees it. The refresh token
+ * Supabase returns is dropped on purpose: the backend exchanges the access
+ * token for a MetrIQ session whose refresh token is an HttpOnly cookie, so no
+ * long-lived credential is left within reach of a script (items 4 and 13). */
+async function supabaseLogin(supabase, email, password) {
+  let response;
+  try {
+    response = await fetch(`${supabase.auth_url}/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: supabase.anon_key },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (error) {
+    throw new ApiError(0, 'The Supabase sign-in service cannot be reached. Check your connection and retry.');
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status === 400 ? 401 : response.status, await supabaseMessage(response));
+  }
+  const tokens = await response.json();
+  return api.post('/auth/session', undefined, {
+    redirectOn401: false,
+    skipRefresh: true,
+    authorization: tokens.access_token,
+  });
+}
+
 export async function login(email, password) {
-  const tokens = await api.post('/auth/login', { email, password }, { redirectOn401: false });
+  const config = await loadAuthConfig();
+  const tokens = config.supabase
+    ? await supabaseLogin(config.supabase, email, password)
+    : await api.post('/auth/login', { email, password }, { redirectOn401: false });
   setSession({ ...withoutRefreshToken(tokens), permissions: [] });
   await refreshProfile();
   return session;
+}
+
+/** Ask the identity provider to email a password-reset link. */
+export async function requestPasswordReset(email) {
+  const config = await loadAuthConfig();
+  if (!config.supabase) {
+    throw new ApiError(400, 'This deployment does not offer password reset by email. Ask an administrator.');
+  }
+  let response;
+  try {
+    response = await fetch(`${config.supabase.auth_url}/recover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: config.supabase.anon_key },
+      body: JSON.stringify({ email }),
+    });
+  } catch (error) {
+    throw new ApiError(0, 'The Supabase service cannot be reached. Check your connection and retry.');
+  }
+  if (!response.ok) throw new ApiError(response.status, await supabaseMessage(response));
+  return true;
 }
 
 export async function refreshProfile() {
@@ -195,6 +285,7 @@ export async function refreshProfile() {
 }
 
 export async function logout() {
+  authConfigInFlight = null;
   try {
     // Revoke the session on the server, not only in this browser. Without this
     // a captured refresh token would keep working after "sign out".

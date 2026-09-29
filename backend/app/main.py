@@ -111,8 +111,19 @@ DOCS_CSP = (
 
 
 def _application_csp() -> str:
-    """The policy for the application, with any extra API origin added."""
-    extra = settings.CSP_EXTRA_CONNECT_SRC.split()
+    """The policy for the application, with every origin it must reach.
+
+    Supabase Auth is called directly by the browser to exchange credentials for
+    an access token, so its origin is derived from the configuration rather than
+    asked for separately - otherwise enabling Supabase sign-in would silently
+    fail against a policy that still said ``connect-src 'self'`` (audit item 4).
+    """
+    extra = list(settings.CSP_EXTRA_CONNECT_SRC.split())
+    supabase = settings.SUPABASE_URL
+    if settings.supabase_login_enabled and supabase:
+        origin = supabase.rstrip("/")
+        if origin not in extra:
+            extra.append(origin)
     if not extra:
         return settings.CSP_POLICY
     return settings.CSP_POLICY.replace(

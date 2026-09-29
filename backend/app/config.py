@@ -84,7 +84,12 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
     SUPABASE_JWKS_URL: str | None = None
+    # Only needed for a project still signing with the legacy HS256 shared
+    # secret; a project on asymmetric signing keys is verified through JWKS.
     SUPABASE_JWT_SECRET: str | None = None
+    # The `iss` a Supabase token must carry, when it is not the project URL plus
+    # /auth/v1 - a project on a custom domain, or behind a different external URL.
+    SUPABASE_JWT_ISSUER: str | None = None
 
     # --- Demonstration mode -----------------------------------------------
     # Sign-in for the seeded demonstration accounts. The frontend bundle
@@ -279,6 +284,50 @@ class Settings(BaseSettings):
         """May the bootstrap activate the shipped ruleset without a review?"""
         if self.ALLOW_PROVISIONAL_RULESET_ACTIVATION is not None:
             return bool(self.ALLOW_PROVISIONAL_RULESET_ACTIVATION)
+        return self.ENVIRONMENT != "production" or self.DEMO_MODE
+
+    @property
+    def supabase_auth_url(self) -> str | None:
+        """The project's Supabase Auth (GoTrue) base URL, or None if unset."""
+        if not self.SUPABASE_URL:
+            return None
+        return self.SUPABASE_URL.rstrip("/") + "/auth/v1"
+
+    @property
+    def supabase_issuer(self) -> str | None:
+        """The ``iss`` a Supabase token for this project has to carry.
+
+        Derived from the project URL, which is what Supabase uses, but
+        overridable: a project on a custom domain, or one whose external URL
+        differs, would otherwise have every otherwise-valid token refused.
+        """
+        if self.SUPABASE_JWT_ISSUER:
+            return self.SUPABASE_JWT_ISSUER.rstrip("/")
+        return self.supabase_auth_url
+
+    @property
+    def supabase_login_enabled(self) -> bool:
+        """Whether sign-in through Supabase Auth is offered at all.
+
+        Needs the project URL and the publishable anon key. Both are public by
+        design - the anon key is what a browser is expected to carry, and
+        row-level security plus this API's own checks are what protect the data.
+        """
+        return bool(
+            self.AUTH_PROVIDER in {"supabase", "hybrid"}
+            and self.SUPABASE_URL
+            and self.SUPABASE_ANON_KEY
+        )
+
+    @property
+    def local_login_allowed(self) -> bool:
+        """May a password be checked against MetrIQ's own password hash?
+
+        Audit item 4: production sign-in is Supabase's job, and local sign-in
+        survives only for development and the demonstration deployment. This is
+        enforced in the endpoint, not by hiding the form - a caller can always
+        post to /auth/login directly.
+        """
         return self.ENVIRONMENT != "production" or self.DEMO_MODE
 
 

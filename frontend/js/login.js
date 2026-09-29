@@ -1,6 +1,8 @@
 /* Sign-in page. */
 
-import { api, login, formatApiError, getSession } from './api.js';
+import {
+  api, login, formatApiError, getSession, loadAuthConfig, requestPasswordReset,
+} from './api.js';
 import { escapeHtml, toast } from './ui.js';
 import { initTheme } from './theme.js';
 import { startClocks } from './clock.js';
@@ -53,7 +55,32 @@ async function renderDemoAccounts() {
   });
 }
 
-renderDemoAccounts();
+/* Which identity provider this deployment uses (audit item 4).
+ *
+ * The backend decides, and enforces it: this only reflects the decision in the
+ * page. Supabase never replaces MetrIQ's own session - the backend verifies the
+ * Supabase token and issues a short-lived MetrIQ one - so the UI behaves the
+ * same after sign-in either way.
+ */
+let authConfig = { supabase: null, local_login: true, password_reset: null };
+
+async function applyAuthConfig() {
+  authConfig = await loadAuthConfig();
+
+  if (authConfig.supabase) {
+    document.getElementById('provider-note').innerHTML =
+      '<div class="banner"><div>Passwords are verified by <strong>Supabase Auth</strong>.' +
+      ' MetrIQ then issues its own short-lived session.</div></div>';
+  }
+  if (authConfig.password_reset) document.getElementById('reset-link').hidden = false;
+
+  // The demonstration panel is only meaningful where MetrIQ checks the password
+  // itself; the endpoint answers 404 everywhere else.
+  if (authConfig.local_login) await renderDemoAccounts();
+  else document.getElementById('demo-panel').hidden = true;
+}
+
+applyAuthConfig();
 
 const params = new URLSearchParams(window.location.search);
 const notice = document.getElementById('notice');
@@ -65,6 +92,48 @@ if (getSession() && getSession().access_token) {
 if (params.get('expired')) {
   notice.innerHTML = '<div class="banner warn"><div>Your session expired. Please sign in again.</div></div>';
 }
+
+if (params.get('reset')) {
+  notice.innerHTML = '<div class="banner pass"><div>Your password was changed. Sign in with the new one.</div></div>';
+}
+
+/* Password reset. The request goes to the identity provider, which owns the
+ * credential and sends the link; MetrIQ is not in the loop (audit item 4). */
+const resetForm = document.getElementById('reset-form');
+const resetEmail = document.getElementById('reset-email');
+const resetSubmit = document.getElementById('reset-submit');
+
+document.getElementById('forgot').addEventListener('click', (event) => {
+  event.preventDefault();
+  resetForm.hidden = !resetForm.hidden;
+  if (!resetForm.hidden) {
+    resetEmail.value = document.getElementById('email').value.trim();
+    resetEmail.focus();
+  }
+});
+
+resetForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  resetEmail.classList.remove('invalid');
+  if (!resetEmail.value.trim()) { resetEmail.classList.add('invalid'); return; }
+
+  resetSubmit.disabled = true;
+  resetSubmit.textContent = 'Sending\u2026';
+  try {
+    await requestPasswordReset(resetEmail.value.trim());
+    // The provider answers the same way whether or not the account exists, so
+    // this wording must not either.
+    notice.innerHTML = '<div class="banner pass"><div>If that address has an account, a' +
+      ' reset link is on its way. Open it to choose a new password.</div></div>';
+    resetForm.hidden = true;
+  } catch (error) {
+    notice.innerHTML = '<div class="banner fail"><div><strong>Could not send the reset link' +
+      '</strong>' + escapeHtml(formatApiError(error)) + '</div></div>';
+  } finally {
+    resetSubmit.disabled = false;
+    resetSubmit.textContent = 'Email me a reset link';
+  }
+});
 
 document.getElementById('login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
