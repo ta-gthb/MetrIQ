@@ -202,7 +202,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 | Reports | `POST /cases/{id}/reports/generate`, `GET /cases/{id}/reports`, `GET /reports`, `GET /reports/{id}/snapshot`, `/revisions`, `/download?fmt=pdf\|docx` |
 | Evidence | `POST/GET /cases/{id}/attachments`, `GET /cases/{id}/evidence-requirements`, `GET /attachments/{id}/download`, `POST /attachments/{id}/classify`, `PATCH /attachments/{id}` |
 | Standards | `GET /standards`, `/rules`, `/rulesets`, `/test-definitions`, `/report-templates`, `POST /rulesets/{id}/activate`, `POST /calculations/mpe`, `/calculations/preview` |
-| AI | `GET/PATCH /ai/features`, `POST /ai/nameplate-extract`, `/ai/anomaly-check`, `/ai/classify`, `/ai/knowledge`, `/ai/disposition` |
+| AI | `GET/PATCH /ai/features`, `POST /ai/nameplate-extract`, `/ai/anomaly-check`, `/ai/report-consistency`, `/ai/classify`, `/ai/knowledge`, `/ai/disposition` |
 | Admin | `GET/POST/PATCH /users`, `POST /users/{id}/reset-password`, `GET/POST/PATCH /laboratories`, `GET /admin/roles`, `/admin/permissions`, `GET/PUT /settings`, `GET /audit-logs` |
 | Platform | `GET /health`, `GET /api/v1`, `GET /platform/statistics` (public, aggregate) |
 
@@ -210,7 +210,7 @@ The API prefix is `/api/v1`. Selected endpoints:
 
 ```bash
 cd backend
-python -m pytest -q      # 453 tests
+python -m pytest -q      # 538 tests, no external services
 ```
 
 Coverage includes calculation-engine boundaries, the API contract, auth and
@@ -219,6 +219,26 @@ immutability and hash stability, the AI disable/fallback behaviour, and a
 per-role pass (`tests/test_role_functionality.py`) that drives each of the six
 roles through the work only that role may do and proves the read-only role
 cannot write.
+
+Two optional layers sit outside the default run (`pytest.ini` points it at
+`tests/`), so a machine without a browser or a network never sees a red suite:
+
+```bash
+cd backend
+python -m playwright install chromium   # once
+python -m pytest e2e -q                 # Chromium drives the real journey
+
+python scripts/smoke_deploy.py --api https://metriq-api-vgao.onrender.com \
+    --frontend https://metriq.vercel.app
+```
+
+`backend/e2e/` starts uvicorn against a throwaway database, seeds the
+demonstration dataset and drives the home page, the theme switch, sign-in and
+the evaluation workspace - including the advisory report-consistency review -
+in a real browser. `scripts/smoke_deploy.py` is the read-only post-deployment
+gate: it checks the API index, health details, OpenAPI routes, public
+statistics, the frontend pages and the `/api` rewrite, and (with `--user` /
+`--password` or `--token`) one authenticated round trip.
 
 ## Deployment
 

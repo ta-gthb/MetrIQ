@@ -86,10 +86,24 @@ cd backend
 python -m pytest -q
 ```
 
-The suite (453 tests) covers the calculation engine boundaries, the API
+The suite (538 tests) covers the calculation engine boundaries, the API
 contract, authentication/authorization, the review workflow, artefact storage
 and the AI fallback behaviour. It runs against a throwaway SQLite database; no
 external services are needed.
+
+Two optional layers are run on demand:
+
+```bash
+python -m playwright install chromium    # once
+python -m pytest e2e -q                  # browser journey (real Chromium)
+python scripts/smoke_deploy.py --api https://metriq-api-vgao.onrender.com \
+    --frontend https://metriq.vercel.app
+```
+
+`e2e/` boots the application with uvicorn, seeds the demo dataset and checks
+the home page, theme switching, sign-in and the evaluation workspace. The smoke
+script is read-only and checks the deployed API, the published routes, the
+public statistics, the frontend pages and the `/api` rewrite.
 
 ## 2. Environment variables
 

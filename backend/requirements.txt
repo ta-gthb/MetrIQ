@@ -19,3 +19,6 @@ pytest-asyncio==0.25.0
 coverage==7.6.10
 # Reads the rendered PDF back so the golden report fixtures can compare text.
 pypdf==6.19.0
+# Optional: the browser end-to-end journey in backend/e2e (see README, "Tests").
+# Install the browser once with: python -m playwright install chromium
+playwright==1.63.0
