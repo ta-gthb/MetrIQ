@@ -202,7 +202,12 @@ def render_docx(snapshot: dict[str, Any]) -> bytes:
             ("Pending", summary.get("pending")),
             ("Overall", summary.get("overall")),
             ("Result breakdown", summary.get("by_status")),
-        ],
+        ]
+        + (
+            [("Superseded re-tests", summary.get("superseded"))]
+            if summary.get("superseded")
+            else []
+        ),
     )
     _table(
         document,

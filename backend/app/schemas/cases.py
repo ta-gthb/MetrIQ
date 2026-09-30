@@ -126,4 +126,5 @@ class CaseDetailOut(CaseListOut):
     template_version_label: str | None = None
     conditions: list[EnvironmentalConditionOut] = Field(default_factory=list)
     tests: list[dict] = Field(default_factory=list)
+    superseded_tests: list[dict] = Field(default_factory=list)
     test_plan: list[dict] = Field(default_factory=list)

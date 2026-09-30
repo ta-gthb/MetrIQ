@@ -108,6 +108,11 @@ class TestInstanceOut(ORMModel):
     case_id: uuid.UUID
     test_definition_id: uuid.UUID
     sequence_no: int
+    revision_no: int = 1
+    supersedes_test_instance_id: uuid.UUID | None = None
+    superseded_by_test_instance_id: uuid.UUID | None = None
+    retest_reason: str | None = None
+    superseded_at: datetime | None = None
     applicability_status: str
     applicability_reason: str | None = None
     applicability_trace: dict | None = None
@@ -179,6 +184,12 @@ class CalculationOut(BaseModel):
     rows: list[dict] = Field(default_factory=list)
     rounding_policy: str | None = None
     calculated_at: datetime | None = None
+
+
+class RetestRequest(BaseModel):
+    """A re-test has to say why: the reason is part of the permanent record."""
+
+    reason: str = Field(min_length=5, max_length=2000)
 
 
 class ManualOverrideRequest(BaseModel):

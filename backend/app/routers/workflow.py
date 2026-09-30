@@ -68,9 +68,13 @@ def submit_case(
     )
     _assert_participant(case, user, "engineer", "submit")
 
+    from app.services.readiness import live_tests
+
     incomplete: list[str] = []
     failed: list[str] = []
-    for test_instance in case.tests:
+    # A superseded record is history: the test that has to be resolved is the
+    # live revision of it (audit item 16).
+    for test_instance in live_tests(case):
         if test_instance.applicability_status == "NOT_APPLICABLE":
             if not test_instance.applicability_reason:
                 incomplete.append(f"{test_instance.definition.test_code} (not applicable without a reason)")

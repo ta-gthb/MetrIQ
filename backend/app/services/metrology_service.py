@@ -312,12 +312,18 @@ def recalculate_case(db: Session, *, case: EvaluationCase, actor=None) -> list[T
 
 
 def summarise_case(case: EvaluationCase) -> dict[str, Any]:
-    """Aggregate case-level test metrics for the dashboard and report."""
+    """Aggregate case-level test metrics for the dashboard and report.
+
+    A superseded record is history: its replacement carries the result, so only
+    the live revision of each test is counted (audit item 16). The superseded
+    count is published beside it rather than hidden.
+    """
+    tests = [test for test in case.tests if test.superseded_at is None]
     counts: dict[str, int] = {}
-    for test_instance in case.tests:
+    for test_instance in tests:
         status = test_instance.result_status or "PENDING"
         counts[status] = counts.get(status, 0) + 1
-    applicable = [t for t in case.tests if t.applicability_status != "NOT_APPLICABLE"]
+    applicable = [t for t in tests if t.applicability_status != "NOT_APPLICABLE"]
     completed = [t for t in applicable if t.status == "COMPLETED"]
     unresolved = any(
         t.result_status in {TestResultStatus.PENDING, TestResultStatus.INCOMPLETE, TestResultStatus.INVALID}
@@ -330,10 +336,11 @@ def summarise_case(case: EvaluationCase) -> dict[str, Any]:
     else:
         overall = "PASS"
     return {
-        "total": len(case.tests),
+        "total": len(tests),
         "applicable": len(applicable),
         "completed": len(completed),
         "pending": len(applicable) - len(completed),
+        "superseded": len(case.tests) - len(tests),
         "by_status": counts,
         "overall": overall,
     }

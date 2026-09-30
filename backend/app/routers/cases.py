@@ -42,7 +42,7 @@ from app.schemas.common import Paginated
 from app.schemas.masters import InstrumentCreate
 from app.security.permissions import P, SUPER_ADMIN
 from app.security.scope import case_editable_by, laboratory_filter
-from app.services import audit_service
+from app.services import audit_service, readiness
 from app.services.test_engine import generate_and_persist_plan
 
 router = APIRouter(tags=["Evaluation cases"])
@@ -234,11 +234,46 @@ def get_case(
             "limit_value": instance.compliance_result.limit_value if instance.compliance_result else None,
             "unit": instance.compliance_result.unit if instance.compliance_result else None,
             "observation_count": len(instance.observations),
+            "revision_no": instance.revision_no,
+            "supersedes_test_instance_id": instance.supersedes_test_instance_id,
+            "superseded_at": instance.superseded_at,
+            "retest_reason": instance.retest_reason,
         }
         for instance in case.tests
+        if instance.superseded_at is None
+    ]
+    payload["superseded_tests"] = [
+        {
+            "id": instance.id,
+            "test_code": instance.definition.test_code,
+            "revision_no": instance.revision_no,
+            "result_status": instance.result_status,
+            "superseded_at": instance.superseded_at,
+            "retest_reason": instance.retest_reason,
+        }
+        for instance in case.tests
+        if instance.superseded_at is not None
     ]
     payload["test_plan"] = (case.test_plan_snapshot or {}).get("items", [])
     return payload
+
+
+@router.get(
+    "/cases/{case_id}/readiness",
+    summary="What still stands between this case and technical review",
+)
+def case_readiness(
+    case_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    """Completion, blocking items, missing data and what is merely a warning.
+
+    The same checks the submission gate applies, published before it is reached
+    so a case is not discovered to be incomplete by being refused (audit item 16).
+    """
+    case = get_case_or_404(db, case_id, user)
+    return readiness.case_readiness(db, case)
 
 
 @router.patch("/cases/{case_id}", response_model=CaseDetailOut, summary="Update an evaluation case")

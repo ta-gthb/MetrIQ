@@ -114,6 +114,20 @@ class TestInstance(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     completed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     is_waived: Mapped[bool] = mapped_column(Boolean, default=False)
     waiver_reason: Mapped[str | None] = mapped_column(Text)
+    # A controlled re-test is a new record, never an edit of the old one: the
+    # superseded row keeps its observations and its result, so the history of
+    # what was measured survives the correction (PRD 18.2, audit item 16).
+    revision_no: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )
+    supersedes_test_instance_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("test_instances.id", ondelete="SET NULL"), index=True
+    )
+    superseded_by_test_instance_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("test_instances.id", ondelete="SET NULL"), index=True
+    )
+    retest_reason: Mapped[str | None] = mapped_column(Text)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     case = relationship("EvaluationCase", back_populates="tests")
     definition = relationship("TestDefinition", lazy="joined")

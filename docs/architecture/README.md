@@ -308,6 +308,7 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
 | `docs/architecture/ruleset-governance.md` | The ruleset lifecycle, the review records a metrology reviewer signs, and the activation gate. |
 | `docs/architecture/report-mapping.md` | How clause-to-report mapping is validated, and the golden report fixtures that pin the rendered output. |
 | `docs/architecture/supabase-auth.md` | Supabase Auth as the production identity provider: the token exchange, what is verified before a token is trusted, how a Supabase identity is linked to a MetrIQ user, password reset, and what is deliberately out of scope. |
+| `docs/architecture/readiness-and-retests.md` | Case readiness, the "why this result" explanation, the plan scope (including what the plan does not run), and the controlled re-test workflow: what is superseded, what the replacement carries, and how each consumer treats a superseded record. |
 | `docs/architecture/row-level-security.md` | The database-level laboratory policies: what they cover, the deny-by-default scope setting, why the schema owner is deliberately exempt, and the unit and PostgreSQL integration tests (plus the CI job) that prove cross-laboratory reads and writes are refused. |
 
 A test that the engine cannot execute is listed in the catalogue, the matrix and

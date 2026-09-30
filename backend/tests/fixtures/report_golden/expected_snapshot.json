@@ -4,6 +4,7 @@
     "report_no": "<removed>",
     "revision_no": 1,
     "case_revision_no": 1,
+    "superseded_tests": 0,
     "generated_at": "<removed>",
     "generated_by": "<removed>",
     "platform": "MetrIQ NAWI OIML R 76 Test Report Automation Platform",
@@ -173,6 +174,7 @@
     "applicable": 11,
     "completed": 11,
     "pending": 0,
+    "superseded": 0,
     "by_status": {
       "FAIL": 1,
       "PASS": 10
@@ -185,6 +187,7 @@
       "name": "Weighing performance",
       "clause_reference": "OIML R 76-1:2006 T.3.1 / A.4.4",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -503,6 +506,7 @@
       "name": "Repeatability",
       "clause_reference": "OIML R 76-1:2006 T.3.2 / 3.5.2",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -792,6 +796,7 @@
       "name": "Eccentricity using weights",
       "clause_reference": "OIML R 76-1:2006 T.3.3",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -1081,6 +1086,7 @@
       "name": "Zero return",
       "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -1341,6 +1347,7 @@
       "name": "Creep",
       "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -1590,6 +1597,7 @@
       "name": "Temperature effect on no-load indication",
       "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2",
       "category": "influence",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -1837,6 +1845,7 @@
       "name": "Sensitivity",
       "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -2065,6 +2074,7 @@
       "name": "Discrimination",
       "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -2254,6 +2264,7 @@
       "name": "Stability of equilibrium",
       "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7",
       "category": "metrological",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -2496,6 +2507,7 @@
       "name": "Examination of construction",
       "clause_reference": "OIML R 76-1:2006 6 / T.4",
       "category": "construction",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -2927,6 +2939,7 @@
       "name": "Identification and markings",
       "clause_reference": "OIML R 76-1:2006 7 / T.4",
       "category": "construction",
+      "revision_no": 1,
       "applicability": {
         "status": "APPLICABLE",
         "reason": "All applicability conditions satisfied.",
@@ -3324,6 +3337,7 @@
       }
     }
   ],
+  "superseded_tests": [],
   "evidence": [],
   "review": {
     "engineer": "Arjun Mehta",

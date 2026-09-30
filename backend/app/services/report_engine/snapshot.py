@@ -92,6 +92,7 @@ def _test_snapshot(test_instance: TestInstance) -> dict[str, Any]:
         "name": definition.name,
         "clause_reference": definition.clause_reference,
         "category": definition.category,
+        "revision_no": test_instance.revision_no,
         "applicability": {
             "status": test_instance.applicability_status,
             "reason": test_instance.applicability_reason,
@@ -147,6 +148,7 @@ def build_report_snapshot(
             "report_no": report_no,
             "revision_no": revision_no,
             "case_revision_no": case.revision_no,
+            "superseded_tests": len([item for item in case.tests if item.superseded_at is not None]),
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "generated_by": generated_by,
             "platform": f"{settings.APP_NAME} {settings.APP_SUBTITLE}",
@@ -239,7 +241,21 @@ def build_report_snapshot(
             for item in equipment_rows
         ],
         "summary": summarise_case(case),
-        "tests": [_test_snapshot(item) for item in case.tests],
+        # Only the live revision of each test is reported; the superseded
+        # records stay in the case history (audit item 16).
+        "tests": [_test_snapshot(item) for item in case.tests if item.superseded_at is None],
+        "superseded_tests": [
+            {
+                "test_code": item.definition.test_code,
+                "name": item.definition.name,
+                "revision_no": item.revision_no,
+                "result_status": item.result_status,
+                "superseded_at": _fmt(item.superseded_at),
+                "reason": item.retest_reason,
+            }
+            for item in case.tests
+            if item.superseded_at is not None
+        ],
         "evidence": [
             {
                 "filename": item.original_filename,

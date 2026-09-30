@@ -26,12 +26,13 @@ from app.schemas.tests import (
     CalculationOut,
     ManualOverrideRequest,
     ObservationBatchIn,
+    RetestRequest,
     TestInstanceOut,
     TestInstanceUpdate,
 )
 from app.security.permissions import P
 from app.security.scope import case_editable_by
-from app.services import audit_service, metrology_service
+from app.services import audit_service, metrology_service, readiness
 from app.services.ai_service import get_ai_service
 from app.utils.decimals import decimal_str
 
@@ -78,6 +79,11 @@ def _serialise_test(instance: TestInstance) -> dict:
         "remarks": instance.remarks,
         "is_waived": instance.is_waived,
         "waiver_reason": instance.waiver_reason,
+        "revision_no": instance.revision_no,
+        "supersedes_test_instance_id": instance.supersedes_test_instance_id,
+        "superseded_by_test_instance_id": instance.superseded_by_test_instance_id,
+        "retest_reason": instance.retest_reason,
+        "superseded_at": instance.superseded_at,
         "started_at": instance.started_at,
         "completed_at": instance.completed_at,
         "definition": instance.definition,
@@ -90,11 +96,19 @@ def _serialise_test(instance: TestInstance) -> dict:
 @router.get("/cases/{case_id}/tests", response_model=list[TestInstanceOut], summary="List case tests")
 def list_tests(
     case_id: uuid.UUID,
+    include_superseded: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_active_user),
 ) -> list[dict]:
+    """The live revision of every test, or the whole history on request.
+
+    A superseded record is history. It is listed only when it is asked for, so
+    no execution view has to remember to filter it out (audit item 16).
+    """
     case = get_case_or_404(db, case_id, user)
-    return [_serialise_test(instance) for instance in case.tests]
+    if include_superseded:
+        return [_serialise_test(instance) for instance in case.tests]
+    return [_serialise_test(instance) for instance in readiness.live_tests(case)]
 
 
 @router.get("/tests/{test_id}", response_model=TestInstanceOut, summary="Test instance detail")
@@ -281,6 +295,54 @@ def calculate_test(
         }
     )
     return payload
+
+
+@router.get(
+    "/tests/{test_id}/explanation",
+    summary="Why this test has the result it has, and what to do next",
+)
+def explain_test(
+    test_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    """The stored evidence for the result: rule, clause, governing row, steps.
+
+    Read-only. A test that has not been calculated yet is dry-run so the answer
+    names what is missing instead of saying "no result" (audit item 16).
+    """
+    instance, case = _load_test(db, test_id, user)
+    return readiness.test_explanation(db, case, instance)
+
+
+@router.post(
+    "/tests/{test_id}/retest",
+    response_model=TestInstanceOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Supersede this test record with a re-test",
+)
+def retest(
+    test_id: uuid.UUID,
+    payload: RetestRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
+) -> dict:
+    """Start a new revision of this test, keeping the record it replaces.
+
+    Nothing is overwritten: the superseded row keeps its observations, its
+    calculation runs and its result, and the replacement points back at it, so
+    what was measured before the correction stays readable.
+    """
+    instance, case = _load_test(db, test_id, user)
+    try:
+        replacement = readiness.start_retest(
+            db, case=case, test=instance, actor=user, reason=payload.reason
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(replacement)
+    return _serialise_test(replacement)
 
 
 @router.post("/tests/{test_id}/anomaly-check", summary="AI statistical review of observations")
