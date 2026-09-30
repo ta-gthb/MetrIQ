@@ -61,9 +61,20 @@ class WorkflowActionRequest(BaseModel):
 
 
 class EnvironmentalConditionIn(BaseModel):
+    """A condition record: the reading at the start, the maximum, and the end.
+
+    ``temperature_c`` and ``relative_humidity_pct`` are the readings taken when
+    the period opened; ``max_*`` is the extreme seen during it; ``end_*`` is the
+    reading taken when it closed (audit item 12).
+    """
+
     label: str = "Ambient"
     temperature_c: Decimal | None = None
     relative_humidity_pct: Decimal | None = None
+    max_temperature_c: Decimal | None = None
+    end_temperature_c: Decimal | None = None
+    max_relative_humidity_pct: Decimal | None = None
+    end_relative_humidity_pct: Decimal | None = None
     barometric_pressure_kpa: Decimal | None = None
     air_density_kg_m3: Decimal | None = None
     started_at: datetime | None = None
@@ -75,8 +86,13 @@ class EnvironmentalConditionIn(BaseModel):
 class EnvironmentalConditionOut(ORMModel):
     id: uuid.UUID
     label: str
+    test_instance_id: uuid.UUID | None = None
     temperature_c: Decimal | None = None
     relative_humidity_pct: Decimal | None = None
+    max_temperature_c: Decimal | None = None
+    end_temperature_c: Decimal | None = None
+    max_relative_humidity_pct: Decimal | None = None
+    end_relative_humidity_pct: Decimal | None = None
     barometric_pressure_kpa: Decimal | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None

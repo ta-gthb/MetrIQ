@@ -403,8 +403,16 @@ def add_condition(
     case = get_case_or_404(db, case_id, user)
     if not case_editable_by(user, case):
         raise HTTPException(status_code=409, detail="Conditions cannot be added in the current status.")
+    data = payload.model_dump()
+    _validate_condition(data)
+    if data.get("test_instance_id") is not None:
+        test = db.get(TestInstance, data["test_instance_id"])
+        if test is None or test.case_id != case.id:
+            raise HTTPException(
+                status_code=422, detail="That test belongs to a different evaluation case."
+            )
     record = EnvironmentalCondition(
-        case_id=case.id, recorded_by=user.id, **payload.model_dump()
+        case_id=case.id, recorded_by=user.id, **data
     )
     db.add(record)
     audit_service.record(
@@ -428,6 +436,37 @@ def list_conditions(
 ) -> list[EnvironmentalCondition]:
     case = get_case_or_404(db, case_id, user)
     return case.conditions
+
+
+def _validate_condition(data: dict) -> None:
+    """Start, maximum and end must tell a consistent story (audit item 12)."""
+    pairs = (
+        ("temperature_c", "max_temperature_c", "end_temperature_c", "temperature"),
+        (
+            "relative_humidity_pct",
+            "max_relative_humidity_pct",
+            "end_relative_humidity_pct",
+            "relative humidity",
+        ),
+    )
+    for start_key, peak_key, end_key, label in pairs:
+        start, peak, end = data.get(start_key), data.get(peak_key), data.get(end_key)
+        if peak is None:
+            continue
+        for value, when in ((start, "start"), (end, "end")):
+            if value is not None and value > peak:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"The {when} {label} reading cannot exceed the maximum recorded "
+                        f"during the period ({peak})."
+                    ),
+                )
+    started, ended = data.get("started_at"), data.get("ended_at")
+    if started is not None and ended is not None and ended < started:
+        raise HTTPException(
+            status_code=422, detail="The condition period cannot end before it starts."
+        )
 
 
 # ------------------------------------------------------- test equipment (item 11)

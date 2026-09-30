@@ -66,3 +66,4 @@ class AttachmentLink(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     linked_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
 
     attachment: Mapped[Attachment] = relationship(back_populates="links")
+    test_instance = relationship("TestInstance", lazy="joined")

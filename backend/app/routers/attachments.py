@@ -6,15 +6,16 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_active_user
 from app.dependencies.permissions import require_any_permission
-from app.models import Attachment, AttachmentCategory, User
+from app.models import Attachment, AttachmentCategory, AttachmentLink, TestInstance, User
 from app.routers._helpers import get_case_or_404
 from app.security.permissions import P
 from app.security.scope import case_editable_by
+from app.schemas.evidence import AttachmentLinkIn
 from app.services import audit_service
 from app.services.attachment_service.service import evidence_requirements
 from app.services.attachment_service import (
@@ -30,6 +31,26 @@ router = APIRouter(tags=["Attachments"])
 
 
 def _serialise(attachment: Attachment) -> dict:
+    links = []
+    session = object_session(attachment)
+    for link in attachment.links or []:
+        test = (
+            session.get(TestInstance, link.test_instance_id)
+            if session is not None and link.test_instance_id
+            else None
+        )
+        links.append(
+            {
+                "id": link.id,
+                "test_instance_id": link.test_instance_id,
+                "test_code": test.definition.test_code
+                if test is not None and test.definition
+                else None,
+                "revision_no": test.revision_no if test is not None else None,
+                "entity_type": link.entity_type,
+                "entity_id": link.entity_id,
+            }
+        )
     return {
         "id": attachment.id,
         "case_id": attachment.case_id,
@@ -46,7 +67,11 @@ def _serialise(attachment: Attachment) -> dict:
         "created_at": attachment.created_at,
         "download_url": f"/api/v1/attachments/{attachment.id}/download?token={sign_key(attachment.storage_key)}",
         "advisory_category": attachment.category_source == "ai",
+        "links": links,
     }
+
+
+
 
 
 @router.post(
@@ -116,6 +141,122 @@ def list_attachments(
         select(Attachment).where(Attachment.case_id == case.id).order_by(Attachment.created_at.desc())
     ).scalars().all()
     return [_serialise(row) for row in rows]
+
+
+@router.post(
+    "/attachments/{attachment_id}/links",
+    status_code=status.HTTP_201_CREATED,
+    summary="Link a piece of evidence to a test",
+)
+def link_attachment(
+    attachment_id: uuid.UUID,
+    payload: AttachmentLinkIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN, P.CASES_EDIT)
+    ),
+) -> dict:
+    """Attach evidence to the test it supports (audit item 12).
+
+    The link is what the evidence gate reads: evidence a test procedure requires
+    is satisfied by a link to that test, not by an attachment somewhere on the
+    case. A superseded test cannot receive new evidence - its replacement is the
+    live record.
+    """
+    attachment = db.get(Attachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    if attachment.case_id is None:
+        raise HTTPException(status_code=409, detail="This attachment is not filed against a case.")
+    case = get_case_or_404(db, attachment.case_id, user)
+    if not case_editable_by(user, case):
+        raise HTTPException(
+            status_code=409, detail="Evidence cannot be linked in the current status."
+        )
+
+    test = db.get(TestInstance, payload.test_instance_id)
+    if test is None:
+        raise HTTPException(status_code=404, detail="Test instance not found")
+    if test.case_id != case.id:
+        raise HTTPException(
+            status_code=422, detail="That test belongs to a different evaluation case."
+        )
+    if test.superseded_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="That test record has been superseded; link the evidence to its live revision.",
+        )
+    duplicate = db.execute(
+        select(AttachmentLink).where(
+            AttachmentLink.attachment_id == attachment.id,
+            AttachmentLink.test_instance_id == test.id,
+        )
+    ).scalars().first()
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="That evidence is already linked to this test.")
+
+    link = AttachmentLink(
+        attachment_id=attachment.id,
+        case_id=case.id,
+        test_instance_id=test.id,
+        entity_type="test_instance",
+        linked_by=user.id,
+    )
+    db.add(link)
+    db.flush()
+    audit_service.record(
+        db,
+        event_type="CREATE",
+        entity_type="attachment_link",
+        entity_id=link.id,
+        actor=user,
+        case_id=case.id,
+        after={
+            "attachment_id": str(attachment.id),
+            "test_instance_id": str(test.id),
+            "test_code": test.definition.test_code if test.definition else None,
+        },
+    )
+    db.commit()
+    db.refresh(attachment)
+    return _serialise(attachment)
+
+
+@router.delete(
+    "/attachments/{attachment_id}/links/{link_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    summary="Remove a link between evidence and a test",
+)
+def unlink_attachment(
+    attachment_id: uuid.UUID,
+    link_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN, P.CASES_EDIT)
+    ),
+) -> None:
+    link = db.get(AttachmentLink, link_id)
+    if link is None or link.attachment_id != attachment_id:
+        raise HTTPException(status_code=404, detail="Link not found")
+    attachment = db.get(Attachment, attachment_id)
+    case = get_case_or_404(db, attachment.case_id, user)
+    if not case_editable_by(user, case):
+        raise HTTPException(
+            status_code=409, detail="Evidence cannot be unlinked in the current status."
+        )
+    db.delete(link)
+    db.flush()
+    audit_service.record(
+        db,
+        event_type="DELETE",
+        entity_type="attachment_link",
+        entity_id=link_id,
+        actor=user,
+        case_id=case.id,
+        before={"attachment_id": str(attachment_id), "test_instance_id": str(link.test_instance_id)},
+    )
+    db.commit()
 
 
 @router.get(

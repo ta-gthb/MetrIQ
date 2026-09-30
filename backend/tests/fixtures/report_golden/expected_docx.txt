@@ -47,8 +47,13 @@ Range | Min | Max | e | d | Unit
 3. Laboratory and test conditions
 Condition set 1
 label | Ambient
+test_code | -
 temperature_c | 21.5
+max_temperature_c | -
+end_temperature_c | -
 relative_humidity_pct | 48
+max_relative_humidity_pct | -
+end_relative_humidity_pct | -
 barometric_pressure_kpa | 100.8
 started_at | -
 ended_at | -

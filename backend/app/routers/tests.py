@@ -13,6 +13,7 @@ from app.database import get_db
 from app.dependencies.auth import get_current_active_user
 from app.dependencies.permissions import require_any_permission, require_permission
 from app.models import (
+    AttachmentLink,
     CaseStatus,
     ManualOverride,
     TestInstance,
@@ -166,6 +167,25 @@ def update_test(
         instance.remarks = changes["remarks"]
 
     if changes.get("mark_complete"):
+        # Evidence gate (audit item 12): a procedure that declares mandatory
+        # evidence is not complete until that evidence is linked to this test.
+        requirements = instance.definition.evidence_requirements or {}
+        if requirements.get("required"):
+            linked = db.execute(
+                select(AttachmentLink).where(
+                    AttachmentLink.test_instance_id == instance.id,
+                    AttachmentLink.case_id == case.id,
+                )
+            ).scalars().first()
+            if linked is None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        f"{instance.definition.test_code} cannot be completed: this procedure "
+                        "requires evidence, and no attachment is linked to it. Link the "
+                        "photograph or record to this test, then mark it complete."
+                    ),
+                )
         metrology_service.evaluate_test_instance(db, case=case, test_instance=instance, actor=user)
         if instance.result_status not in TERMINAL_TEST_STATUSES:
             raise HTTPException(

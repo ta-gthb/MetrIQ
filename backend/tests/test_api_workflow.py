@@ -294,6 +294,8 @@ def test_evidence_requirements_endpoint_reports_progress(client, tokens, case_fa
         "present": [],
         "missing": ["nameplate_photograph", "test_setup_photograph"],
         "satisfied": False,
+        "per_test": [],
+        "missing_per_test": [],
     }
 
     attach_evidence(case["id"], categories=("test_setup_photograph",))

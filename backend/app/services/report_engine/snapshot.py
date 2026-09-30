@@ -220,8 +220,15 @@ def build_report_snapshot(
         "conditions": [
             {
                 "label": item.label,
+                "test_code": item.test_instance.definition.test_code
+                if item.test_instance_id and item.test_instance and item.test_instance.definition
+                else None,
                 "temperature_c": _decimal(item.temperature_c),
+                "max_temperature_c": _decimal(item.max_temperature_c),
+                "end_temperature_c": _decimal(item.end_temperature_c),
                 "relative_humidity_pct": _decimal(item.relative_humidity_pct),
+                "max_relative_humidity_pct": _decimal(item.max_relative_humidity_pct),
+                "end_relative_humidity_pct": _decimal(item.end_relative_humidity_pct),
                 "barometric_pressure_kpa": _decimal(item.barometric_pressure_kpa),
                 "started_at": _fmt(item.started_at),
                 "ended_at": _fmt(item.ended_at),
@@ -263,6 +270,13 @@ def build_report_snapshot(
                 "caption": item.caption,
                 "size_bytes": item.size_bytes,
                 "sha256": item.sha256,
+                "tests": [
+                    link.test_instance.definition.test_code
+                    for link in item.links
+                    if link.test_instance_id
+                    and link.test_instance is not None
+                    and link.test_instance.definition is not None
+                ],
             }
             for item in attachments
         ],

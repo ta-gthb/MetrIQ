@@ -191,7 +191,7 @@ def case_readiness(db: Session, case: EvaluationCase) -> dict:
             warnings.append({"code": code, "kind": "result", "message": warning})
 
     evidence = evidence_requirements(db, case)
-    if not evidence["satisfied"]:
+    if evidence["missing"]:
         blocking.append(
             {
                 "code": None,
@@ -200,6 +200,17 @@ def case_readiness(db: Session, case: EvaluationCase) -> dict:
                     "Photographic evidence still outstanding: "
                     + ", ".join(item.replace("_", " ") for item in evidence["missing"])
                     + "."
+                ),
+            }
+        )
+    for item in evidence.get("missing_per_test") or []:
+        blocking.append(
+            {
+                "code": item["test_code"],
+                "kind": "evidence",
+                "message": (
+                    f"{item['test_code']} requires evidence and none is linked to it. "
+                    "Link the record to the test it supports, then complete the test."
                 ),
             }
         )

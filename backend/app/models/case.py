@@ -119,8 +119,15 @@ class EnvironmentalCondition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("test_instances.id", ondelete="CASCADE"), index=True
     )
     label: Mapped[str] = mapped_column(String(120), default="Ambient")
+    #: The reading taken when the observation period opened.
     temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     relative_humidity_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    #: The extreme seen during the period, and the reading taken when it closed
+    #: (audit item 12: start, maximum and end of every recorded condition).
+    max_temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    end_temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    max_relative_humidity_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    end_relative_humidity_pct: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     barometric_pressure_kpa: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     air_density_kg_m3: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -129,6 +136,7 @@ class EnvironmentalCondition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     recorded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
 
     case: Mapped[EvaluationCase] = relationship(back_populates="conditions")
+    test_instance = relationship("TestInstance", lazy="joined")
 
 
 class TestEquipmentUsage(Base, UUIDPrimaryKeyMixin, TimestampMixin):

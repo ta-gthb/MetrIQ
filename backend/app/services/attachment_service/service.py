@@ -160,6 +160,51 @@ def store_upload(
     return attachment
 
 
+def per_test_evidence(db: Session, case) -> list[dict]:
+    """Evidence a test procedure requires, and whether it is linked to the test.
+
+    A catalogue entry may declare ``evidence_requirements.required = true``;
+    that evidence has to be attached to the test it supports, not merely to the
+    case, so the report can show which photograph belongs to which procedure
+    (audit item 12).
+    """
+    from app.models import AttachmentLink, TestInstance  # local import avoids a cycle
+
+    rows = (
+        db.execute(
+            select(TestInstance).where(TestInstance.case_id == case.id)
+        )
+        .scalars()
+        .all()
+    )
+    linked = {
+        link.test_instance_id
+        for link in db.execute(
+            select(AttachmentLink).where(AttachmentLink.case_id == case.id)
+        ).scalars().all()
+        if link.test_instance_id is not None
+    }
+    out: list[dict] = []
+    for test in rows:
+        if test.superseded_at is not None or test.definition is None:
+            continue
+        requirements = test.definition.evidence_requirements or {}
+        if not requirements.get("required"):
+            continue
+        out.append(
+            {
+                "test_instance_id": str(test.id),
+                "test_code": test.definition.test_code,
+                "name": test.definition.name,
+                "required": True,
+                "recommended": list(requirements.get("recommended") or []),
+                "linked": test.id in linked,
+                "satisfied": test.id in linked,
+            }
+        )
+    return out
+
+
 def evidence_requirements(db: Session, case) -> dict:
     """Report whether the mandatory photographic evidence is present.
 
@@ -167,6 +212,9 @@ def evidence_requirements(db: Session, case) -> dict:
     ``settings.REQUIRED_EVIDENCE_CATEGORIES`` has at least one attachment whose
     content type is an image. The check is deliberately category-based rather
     than count-based so a duplicate upload cannot satisfy two requirements.
+
+    Evidence a test procedure requires is reported per test as well: it is
+    satisfied by an attachment linked to that test.
     """
     from app.models import AttachmentCategory  # local import avoids a cycle
 
@@ -181,9 +229,13 @@ def evidence_requirements(db: Session, case) -> dict:
         if category and (content_type or "").startswith("image/")
     }
     missing = [category for category in required if category not in images]
+    per_test = per_test_evidence(db, case)
+    outstanding_tests = [item for item in per_test if not item["satisfied"]]
     return {
         "required": required,
         "present": [category for category in required if category in images],
         "missing": missing,
-        "satisfied": not missing,
+        "satisfied": not missing and not outstanding_tests,
+        "per_test": per_test,
+        "missing_per_test": outstanding_tests,
     }
