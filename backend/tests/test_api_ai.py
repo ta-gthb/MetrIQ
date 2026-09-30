@@ -19,6 +19,7 @@ AI_FEATURES = (
     "anomaly_detection",
     "document_classification",
     "r76_assistant",
+    "report_consistency",
 )
 
 
@@ -31,7 +32,7 @@ def test_ai_features_report_the_advisory_contract(client, tokens):
     assert body["governance"]["no_ai_compliance_decision"] is True
     assert {feature["code"] for feature in body["features"]} == {
         "nameplate_ocr", "anomaly_detection", "document_classification",
-        "r76_assistant",
+        "r76_assistant", "report_consistency",
     }
 
 
@@ -172,6 +173,55 @@ def test_a_non_statistical_table_produces_no_findings(client, tokens, new_case):
     body = client.post(f"{API}/tests/{target['id']}/anomaly-check", headers=tokens[ENGINEER]).json()
     assert body["available"] is True
     assert body["findings"] == []
+
+
+def test_report_consistency_finds_gaps_and_stays_advisory(client, tokens, new_case):
+    case_id = new_case()["id"]
+    response = client.post(
+        f"{API}/ai/report-consistency", json={"case_id": case_id}, headers=tokens[ENGINEER]
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["available"] is True
+    assert body["provider"] == "stub"
+    assert body["checks_run"] > 0
+    assert body["advisory_only"] is True
+    assert body["alters_compliance"] is False
+    codes = {finding["code"] for finding in body["findings"]}
+    assert "required_row_missing" in codes, body["findings"]
+    assert all(finding["citation"] for finding in body["findings"])
+    assert all(finding["severity"] in {"info", "warning"} for finding in body["findings"])
+
+
+def test_report_consistency_is_traceable_and_toggleable(client, tokens, new_case):
+    case_id = new_case()["id"]
+    client.post(
+        f"{API}/ai/report-consistency", json={"case_id": case_id}, headers=tokens[ENGINEER]
+    )
+    queue = client.get(f"{API}/dashboard/ai-review", headers=tokens[ENGINEER]).json()
+    assert any(item["feature_code"] == "report_consistency" for item in queue["items"])
+
+    disabled = client.patch(
+        f"{API}/ai/features/report_consistency",
+        params={"enabled": False},
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert disabled.status_code == 200
+    try:
+        body = client.post(
+            f"{API}/ai/report-consistency",
+            json={"case_id": case_id},
+            headers=tokens[ENGINEER],
+        ).json()
+        assert body["available"] is False
+        assert body["findings"] == []
+        assert "disabled" in body["message"].lower()
+    finally:
+        client.patch(
+            f"{API}/ai/features/report_consistency",
+            params={"enabled": True},
+            headers=tokens[SUPER_ADMIN],
+        )
 
 
 def test_nameplate_extraction_declines_rather_than_inventing_values(client, tokens):

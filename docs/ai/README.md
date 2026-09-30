@@ -1,6 +1,6 @@
 # AI Documentation
 
-MetrIQ uses AI for four bounded, advisory tasks. The controlling rule is
+MetrIQ uses AI for five bounded, advisory tasks. The controlling rule is
 **AI never decides compliance**: it extracts, warns, classifies and explains;
 a human always confirms, and the deterministic engine alone produces
 `PASS`/`FAIL` (PRD 12.5, 27.2).
@@ -13,6 +13,7 @@ a human always confirms, and the deterministic engine alone produces
 | `anomaly_detection` | `ai.anomaly_detection` | Robust statistics over an observation table; flags implausible rows | Test execution, right-hand panel |
 | `document_classification` | `ai.document_classification` | Suggests an evidence category from filename/MIME/caption | Evidence upload |
 | `r76_assistant` | `ai.knowledge_assistant` | Retrieval-grounded answers with citations | `/assistant.html` |
+| `report_consistency` | `ai.report_consistency` | Compares the recorded case with the report content: required rows, units, loads above Max, condition sequences, evidence links and version references. Every finding cites the field it came from. | Step 22 (review), `POST /api/v1/ai/report-consistency` |
 
 Enable or disable each feature with `PATCH /api/v1/ai/features/{code}?enabled=true|false`
 (requires `ai.manage`). Toggles are stored as system settings and take effect per
@@ -36,6 +37,7 @@ class AIProvider(Protocol):
     def detect_anomaly(self, *, test_code, rows, instrument) -> AnomalyReport: ...
     def classify_document(self, *, filename, content_type, caption) -> ClassificationResult: ...
     def answer_r76(self, *, question, sources) -> AssistantAnswer: ...
+    def check_report_consistency(self, *, context) -> ConsistencyReport: ...
 ```
 
 `AI_PROVIDER=stub` is the default and requires no network access: anomaly
@@ -56,6 +58,7 @@ unchanged.
 | Anomaly detection | The observation rows (loads, indications, times, temperatures) and instrument characteristics | No applicant or personal data |
 | Classification | Filename, MIME type and caption | No file content |
 | R 76 assistant | The question and the retrieved configuration excerpts | Retrieval is local; excerpts come from rule data only |
+| Report consistency | Nothing leaves the deployment | The check runs locally over the case records; the context carries applicant data and is never sent to a hosted model |
 
 Privacy requirements (PRD 19.2): no applicant personal data or contact details
 are sent, uploads are never used for training, and the stub provider sends
@@ -69,6 +72,7 @@ nothing at all.
 | Anomaly detection | Findings are advisory; each open finding requires a disposition (`confirmed` / `dismissed`) recorded in the audit trail. Observations and compliance results are never modified by a disposition. |
 | Classification | The suggested category is applied as `category_source = "ai"` and is always correctable via `PATCH /attachments/{id}`. |
 | Assistant | Answers carry citations and a `grounded` flag; an ungrounded answer is labelled and explicitly states that the platform does not invent rules. |
+| Report consistency | Findings are advisory and cite the report field they came from. A human decides what to correct; the check never writes a value, changes a result or approves anything. |
 
 `GET /dashboard/ai-review` lists low-confidence extractions and open anomaly
 warnings awaiting a disposition.
@@ -102,6 +106,9 @@ same row plus an `AI_ACTION` audit-log entry. Nothing is deleted, so the full
   falls back to `other`.
 * The assistant answers only from versioned configuration data; it will refuse
   rather than invent a rule when nothing matches.
+* Report-consistency findings are structural and deterministic: they flag gaps
+  and contradictions in the records (for example a load above Max or a missing
+  zero-load row), not metrological errors, and a reviewer still decides.
 * No AI output is a substitute for the controlled copy of OIML R 76 or for the
   laboratory's approved procedures.
 

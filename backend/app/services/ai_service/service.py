@@ -15,8 +15,10 @@ from app.services.ai_service.base import (
     AnomalyReport,
     AssistantAnswer,
     ClassificationResult,
+    ConsistencyReport,
     ExtractionResult,
 )
+from app.services.ai_service.consistency import build_context as build_consistency_context
 from app.services.ai_service.openai_provider import OpenAICompatibleProvider
 from app.services.ai_service.stub_provider import StubAIProvider
 from app.utils.decimals import decimal_str
@@ -25,6 +27,7 @@ FEATURE_NAMEPLATE = "nameplate_ocr"
 FEATURE_ANOMALY = "anomaly_detection"
 FEATURE_CLASSIFY = "document_classification"
 FEATURE_ASSISTANT = "r76_assistant"
+FEATURE_CONSISTENCY = "report_consistency"
 
 
 def build_provider():
@@ -65,6 +68,7 @@ class AIService:
             FEATURE_ANOMALY: ("ai.anomaly_detection", settings.AI_ANOMALY_DETECTION),
             FEATURE_CLASSIFY: ("ai.document_classification", settings.AI_DOCUMENT_CLASSIFICATION),
             FEATURE_ASSISTANT: ("ai.knowledge_assistant", settings.AI_KNOWLEDGE_ASSISTANT),
+            FEATURE_CONSISTENCY: ("ai.report_consistency", settings.AI_REPORT_CONSISTENCY),
         }
         key, default = mapping.get(feature_code, ("ai.enabled", True))
         return self._setting_enabled(key, default)
@@ -207,6 +211,32 @@ class AIService:
                 None if result.confidence is None else str(result.confidence)
             )
         return result
+
+    def consistency_check(self, *, case) -> ConsistencyReport:
+        """Advisory review of the recorded case against the report content.
+
+        The check never writes a value and never changes a result: it compares
+        what the report will publish with what the case records.
+        """
+        if not self.feature_enabled(FEATURE_CONSISTENCY):
+            return ConsistencyReport(
+                available=False,
+                provider="disabled",
+                message="Report-consistency checking is disabled for this organisation.",
+            )
+        context = build_consistency_context(self.db, case)
+        started = time.perf_counter()
+        report = self.provider.check_report_consistency(context=context)
+        self._record(
+            feature_code=FEATURE_CONSISTENCY,
+            input_reference=f"case:{case.id}",
+            output_summary=report.as_dict(),
+            confidence=None,
+            degraded=report.degraded,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            case_id=case.id,
+        )
+        return report
 
     def answer_r76(self, *, question: str, sources: list[dict]) -> AssistantAnswer:
         if not self.feature_enabled(FEATURE_ASSISTANT):

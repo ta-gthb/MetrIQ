@@ -25,6 +25,10 @@ class AIClassifyRequest(BaseModel):
     attachment_id: uuid.UUID
 
 
+class AIReportConsistencyRequest(BaseModel):
+    case_id: uuid.UUID
+
+
 class AIKnowledgeRequest(BaseModel):
     question: str = Field(min_length=3, max_length=1000)
     standard_version_id: uuid.UUID | None = None

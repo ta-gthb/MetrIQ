@@ -148,12 +148,69 @@ class AssistantAnswer:
         }
 
 
+@dataclass(slots=True)
+class ConsistencyFinding:
+    """One advisory observation about the recorded case versus its report."""
+
+    code: str
+    message: str
+    severity: str = "warning"
+    scope: str = "case"
+    test_code: str | None = None
+    citation: str | None = None
+    expected: str | None = None
+    observed: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+            "scope": self.scope,
+            "test_code": self.test_code,
+            "citation": self.citation,
+            "expected": self.expected,
+            "observed": self.observed,
+        }
+
+
+@dataclass(slots=True)
+class ConsistencyReport:
+    """Advisory result of a report-consistency review; never a decision."""
+
+    available: bool
+    provider: str
+    findings: list[ConsistencyFinding] = field(default_factory=list)
+    checks_run: int = 0
+    degraded: bool = False
+    message: str = ""
+
+    @property
+    def has_findings(self) -> bool:
+        return bool(self.findings)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "available": self.available,
+            "provider": self.provider,
+            "findings": [item.as_dict() for item in self.findings],
+            "checks_run": self.checks_run,
+            "has_findings": self.has_findings,
+            "degraded": self.degraded,
+            "message": self.message,
+            "advisory_only": True,
+            "alters_compliance": False,
+        }
+
+
 class AIProvider(Protocol):
     name: str
 
     def extract_nameplate(self, *, image_bytes: bytes | None, filename: str, context: dict) -> ExtractionResult: ...
 
     def detect_anomaly(self, *, test_code: str, rows: list[dict], instrument: dict) -> AnomalyReport: ...
+
+    def check_report_consistency(self, *, context: dict) -> ConsistencyReport: ...
 
     def classify_document(self, *, filename: str, content_type: str | None, caption: str | None) -> ClassificationResult: ...
 

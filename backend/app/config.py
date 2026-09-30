@@ -150,6 +150,7 @@ class Settings(BaseSettings):
     AI_ANOMALY_DETECTION: bool = True
     AI_DOCUMENT_CLASSIFICATION: bool = True
     AI_KNOWLEDGE_ASSISTANT: bool = True
+    AI_REPORT_CONSISTENCY: bool = True
     AI_MIN_CONFIDENCE: float = 0.75
 
     # --- Reporting --------------------------------------------------------

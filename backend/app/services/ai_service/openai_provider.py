@@ -25,6 +25,7 @@ from app.services.ai_service.base import (
     AnomalyReport,
     AssistantAnswer,
     ClassificationResult,
+    ConsistencyReport,
     ExtractionField,
     ExtractionResult,
 )
@@ -146,6 +147,17 @@ class OpenAICompatibleProvider:
         """Anomaly detection stays local and statistical, even with a model configured."""
         report = self._fallback.detect_anomaly(test_code=test_code, rows=rows, instrument=instrument)
         report.provider = f"{self.name}:local-statistics"
+        return report
+
+    # ------------------------------------------------------- consistency
+    def check_report_consistency(self, *, context: dict) -> ConsistencyReport:
+        """Consistency checks stay local: they compare authoritative records.
+
+        The context carries applicant and manufacturer data, so it is never
+        shipped to a third party.
+        """
+        report = self._fallback.check_report_consistency(context=context)
+        report.provider = f"{self.name}:local-consistency"
         return report
 
     # ------------------------------------------------------ classification

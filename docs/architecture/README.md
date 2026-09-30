@@ -286,7 +286,7 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
   degrade to "AI unavailable" and never block calculation, workflow or
   reporting.
 * Feature codes: `nameplate_ocr`, `anomaly_detection`,
-  `document_classification`, `r76_assistant`.
+  `document_classification`, `r76_assistant`, `report_consistency`.
 * See `docs/ai/` for the full contract.
 
 ## 9. Request lifecycle

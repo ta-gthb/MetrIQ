@@ -120,8 +120,9 @@ async function load() {
       <div class="card mt-4">
         <div class="card-title"><h3>AI review queue</h3>
           <span class="pill pill-accent">advisory only</span></div>
-        <div class="faint small" style="margin-bottom:8px">Low-confidence extractions and anomaly
-          warnings that still need a human disposition. These never change a compliance result.</div>
+        <div class="faint small" style="margin-bottom:8px">AI outputs that still need a human
+          disposition: low-confidence extractions, anomaly warnings and report-consistency findings.
+          These never change a compliance result.</div>
         ${(aiReview.items || []).length ? `
           <div class="table-wrap"><table>
             <thead><tr><th>Feature</th><th>Summary</th><th>Confidence</th><th>Case</th><th>Raised</th></tr></thead>

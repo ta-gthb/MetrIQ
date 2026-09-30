@@ -63,6 +63,7 @@ const state = {
   step: initialStep,
   validation: {},
   aiExtraction: null,
+  consistency: null,
   draftRows: {},
   labUsers: null,
 };
@@ -1806,10 +1807,62 @@ function stepReview() {
       '<td class="small faint">Verified</td><td>' + fmtDate(c.verified_at) + '</td></tr>' +
       '<tr><td class="small faint">Approved</td><td>' + fmtDate(c.approved_at) + '</td>' +
       '<td class="small faint">Finalized</td><td>' + fmtDate(c.finalized_at) + '</td></tr>' +
-    '</tbody></table></div>' + actions + '<div class="mt-4">' + timelineHtml() + '</div></div>';
+    '</tbody></table></div>' + actions +
+    consistencyCard() + '<div class="mt-4">' + timelineHtml() + '</div></div>';
+}
+
+function consistencyCard() {
+  const report = state.consistency;
+  const canRun = canAny('ai.use', 'ai.view');
+  let body = '<div class="hint mt-2">Not run yet for this case. The check compares the recorded case ' +
+    'with the content the report will publish: required rows, units, load limits, environmental ' +
+    'conditions, evidence and version references.</div>';
+  if (report && !report.available) {
+    body = '<div class="banner warn mt-2"><div>' + escapeHtml(report.message || 'AI is unavailable.') + '</div></div>';
+  } else if (report) {
+    const findings = report.findings || [];
+    body = findings.length
+      ? '<div class="table-wrap mt-2"><table><thead><tr><th>Severity</th><th>Finding</th><th>Citation</th></tr></thead><tbody>' +
+        findings.map((finding) => '<tr>' +
+          '<td>' + (finding.severity === 'warning'
+            ? '<span class="pill pill-warn">warning</span>'
+            : '<span class="pill pill-info">info</span>') + '</td>' +
+          '<td class="small">' + escapeHtml(finding.message) +
+            (finding.test_code ? ' <span class="mono faint">' + escapeHtml(finding.test_code) + '</span>' : '') + '</td>' +
+          '<td class="mono small faint">' + escapeHtml(finding.citation || '\u2014') + '</td></tr>').join('') +
+        '</tbody></table></div>' +
+        '<div class="faint small mt-2">Advisory only. Every finding needs a human decision; nothing here ' +
+        'changes a result or an approval.</div>'
+      : '<div class="banner pass mt-2"><div>No consistency findings across ' + report.checks_run +
+        ' check(s).</div></div>';
+  }
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Report-consistency review</h3>' +
+    '<span class="pill pill-accent">advisory only</span></div>' +
+    (canRun ? '<div class="inline mt-2"><button class="btn-sm" id="btn-consistency">Run consistency check</button></div>' : '') +
+    body + '</div>';
+}
+
+async function runConsistencyCheck() {
+  const button = document.getElementById('btn-consistency');
+  if (button) button.disabled = true;
+  try {
+    const report = await api.post('/ai/report-consistency', { case_id: caseId });
+    state.consistency = report;
+    const count = (report.findings || []).length;
+    toast(report.available
+      ? (count ? count + ' consistency finding(s) to review.' : 'No consistency findings.')
+      : (report.message || 'AI is unavailable.'), count ? 'warn' : 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  } finally {
+    const fresh = document.getElementById('btn-consistency');
+    if (fresh) fresh.disabled = false;
+  }
 }
 
 function bindReview() {
+  document.getElementById('btn-consistency')?.addEventListener('click', runConsistencyCheck);
   document.getElementById('btn-verify')?.addEventListener('click', async () => {
     try {
       state.case = await api.post('/cases/' + caseId + '/verify', {});

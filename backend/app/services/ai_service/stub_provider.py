@@ -24,9 +24,11 @@ from app.services.ai_service.base import (
     AnomalyReport,
     AssistantAnswer,
     ClassificationResult,
+    ConsistencyReport,
     ExtractionField,
     ExtractionResult,
 )
+from app.services.ai_service.consistency import run_checks
 from app.utils.decimals import decimal_str, to_decimal
 
 MAD_THRESHOLD = 3.5          # modified z-score above which a point is an outlier
@@ -252,6 +254,15 @@ class StubAIProvider:
                     )
                     break
         return findings
+
+    # ------------------------------------------------------- consistency
+    def check_report_consistency(self, *, context: dict) -> ConsistencyReport:
+        """Advisory structural review of the recorded case versus its report.
+
+        Every check is deterministic and local; the context is never sent to a
+        hosted model. Nothing here can change a compliance outcome.
+        """
+        return run_checks(context, provider=self.name)
 
     # ------------------------------------------------------ classification
     def classify_document(

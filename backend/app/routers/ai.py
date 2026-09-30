@@ -30,6 +30,7 @@ from app.schemas.ai import (
     AIClassifyRequest,
     AIDispositionRequest,
     AIKnowledgeRequest,
+    AIReportConsistencyRequest,
 )
 from app.security.permissions import P
 from app.services import audit_service
@@ -37,6 +38,7 @@ from app.services.ai_service import (
     FEATURE_ANOMALY,
     FEATURE_ASSISTANT,
     FEATURE_CLASSIFY,
+    FEATURE_CONSISTENCY,
     FEATURE_NAMEPLATE,
     get_ai_service,
 )
@@ -51,6 +53,7 @@ FEATURE_TOGGLES = [
     (FEATURE_ANOMALY, "ai.anomaly_detection", "Observation anomaly detection"),
     (FEATURE_CLASSIFY, "ai.document_classification", "Document classification"),
     (FEATURE_ASSISTANT, "ai.knowledge_assistant", "Retrieval-grounded R 76 assistant"),
+    (FEATURE_CONSISTENCY, "ai.report_consistency", "Report-consistency review"),
 ]
 
 
@@ -182,6 +185,27 @@ def anomaly_check(
     report = service.anomaly_check(case=case, test_instance=instance)
     db.commit()
     return report.as_dict()
+
+
+@router.post(
+    "/ai/report-consistency",
+    summary="Advisory consistency review of a case and the report it will publish",
+)
+def report_consistency(
+    payload: AIReportConsistencyRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_any_permission(P.AI_USE, P.AI_VIEW)),
+) -> dict:
+    case = get_case_or_404(db, payload.case_id, user)
+    service = get_ai_service(db, actor=user)
+    report = service.consistency_check(case=case)
+    db.commit()
+    body = report.as_dict()
+    body["notice"] = (
+        "Findings are advisory and need human review. They never change a compliance "
+        "result, a test status or an approval."
+    )
+    return body
 
 
 @router.post("/ai/classify", summary="Classify an uploaded document")
