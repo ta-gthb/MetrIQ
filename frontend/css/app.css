@@ -383,6 +383,12 @@ tr.row-invalid td { background: var(--fail-wash-row); }
 .calc-panel dt { color: var(--text-muted); }
 .calc-panel dd { margin: 0; font-family: var(--mono); text-align: right; }
 
+/* Readiness: completion against the plan, read before a case is submitted. */
+.progress { height: 8px; border-radius: 999px; background: var(--bg-inset); border: 1px solid var(--border); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--accent); }
+.progress.done > span { background: var(--pass); }
+details > summary { cursor: pointer; }
+
 .test-item {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
   background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--radius-sm);

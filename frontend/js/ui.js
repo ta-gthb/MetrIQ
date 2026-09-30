@@ -95,6 +95,7 @@ export function loading(message = 'Loading\u2026') {
 /* --------------------------------------------------------------- modal --- */
 
 export function openModal({ title, bodyHtml, submitLabel = 'Save', cancelLabel = 'Cancel', onSubmit, destructive = false }) {
+  /* submitLabel = null renders a read-only panel: close is the only action. */
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
@@ -105,7 +106,7 @@ export function openModal({ title, bodyHtml, submitLabel = 'Save', cancelLabel =
         <div class="modal-body">${bodyHtml}</div>
         <footer>
           <button data-close>${escapeHtml(cancelLabel)}</button>
-          <button class="${destructive ? 'btn-danger' : 'btn-primary'}" data-submit>${escapeHtml(submitLabel)}</button>
+          ${submitLabel ? `<button class="${destructive ? 'btn-danger' : 'btn-primary'}" data-submit>${escapeHtml(submitLabel)}</button>` : ''}
         </footer>
       </div>`;
     document.body.appendChild(backdrop);
@@ -122,7 +123,7 @@ export function openModal({ title, bodyHtml, submitLabel = 'Save', cancelLabel =
     document.addEventListener('keydown', function onKey(event) {
       if (event.key === 'Escape') { document.removeEventListener('keydown', onKey); close(null); }
     });
-    submit.addEventListener('click', async () => {
+    submit?.addEventListener('click', async () => {
       const value = readModalValue(backdrop);
       if (onSubmit) {
         submit.disabled = true;

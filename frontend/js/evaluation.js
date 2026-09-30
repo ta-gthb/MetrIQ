@@ -58,6 +58,7 @@ const state = {
   attachments: [],
   evidenceReq: null,
   reports: [],
+  readiness: null,
   step: initialStep,
   validation: {},
   aiExtraction: null,
@@ -119,7 +120,7 @@ function caseStepStatus(stepKey) {
 /* ---------------------------------------------------------------- loading */
 
 async function loadAll() {
-  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports] = await Promise.all([
+  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports, readiness] = await Promise.all([
     api.get('/cases/' + caseId),
     api.get('/cases/' + caseId + '/tests'),
     api.get('/cases/' + caseId + '/test-plan'),
@@ -129,8 +130,10 @@ async function loadAll() {
     api.get('/cases/' + caseId + '/attachments'),
     api.get('/cases/' + caseId + '/evidence-requirements').catch(() => null),
     api.get('/cases/' + caseId + '/reports').catch(() => []),
+    api.get('/cases/' + caseId + '/readiness').catch(() => null),
   ]);
   state.case = kase;
+  state.readiness = readiness;
   state.tests = tests;
   state.plan = plan;
   state.conditions = conditions;
@@ -154,7 +157,144 @@ async function refreshTest(testId) {
 async function refreshCase() {
   state.case = await api.get('/cases/' + caseId);
   state.tests = await api.get('/cases/' + caseId + '/tests');
+  state.readiness = await api.get('/cases/' + caseId + '/readiness').catch(() => state.readiness);
   render();
+}
+
+/* ----------------------------------------- readiness, explanation, re-tests */
+
+/* Item 16: what still stands between this case and review, why a test has the
+   result it has, and how a measurement is corrected without losing it. */
+
+function percentBar(percent) {
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  return '<div class="progress' + (value >= 100 ? ' done' : '') + '"><span style="width:' + value + '%"></span></div>';
+}
+
+function readinessCardHtml() {
+  const r = state.readiness;
+  if (!r) return '';
+  const completion = r.completion || {};
+  const blocking = r.blocking || [];
+  const warnings = r.warnings || [];
+  const missing = r.missing_data || [];
+  const scope = r.plan_scope || {};
+  const outside = scope.outside_plan || [];
+  const evidence = r.evidence || {};
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Readiness</h3>' +
+    (r.ready_for_review ? '<span class="pill pill-pass">ready for review</span>'
+      : '<span class="pill pill-warn">not ready</span>') + '</div>' +
+    percentBar(completion.percent) +
+    '<div class="inline mt-2" style="justify-content:space-between">' +
+      '<span class="faint small">' + (completion.completed || 0) + ' of ' + (completion.applicable || 0) +
+      ' applicable tests complete</span><span class="mono">' + (completion.percent || 0) + '%</span></div>' +
+    '<div class="hint">' + (completion.pending || 0) + ' pending \u00b7 ' + (completion.superseded || 0) +
+      ' superseded \u00b7 ' + (completion.tests_total || 0) + ' in the plan</div>' +
+    (blocking.length
+      ? '<div class="mt-3"><div class="small faint">Blocking</div>' + blocking.map((item) =>
+          '<div class="small mt-1">\u2022 ' + escapeHtml(item.message) + '</div>').join('') + '</div>'
+      : '') +
+    (missing.length
+      ? '<div class="mt-3"><div class="small faint">Missing data</div>' + missing.map((item) =>
+          '<div class="small mt-1"><span class="mono">' + escapeHtml(item.code || '') + '</span> ' +
+          escapeHtml((item.missing && item.missing.length ? item.missing.join('; ') : item.hint) || '') + '</div>').join('') + '</div>'
+      : '') +
+    (warnings.length
+      ? '<div class="mt-3"><div class="small faint">Warnings</div>' + warnings.map((item) =>
+          '<div class="small mt-1">\u2022 ' + escapeHtml(item.message) + '</div>').join('') + '</div>'
+      : '') +
+    (evidence && (evidence.required || []).length
+      ? '<div class="hint mt-3">Photographic evidence: ' + (evidence.satisfied
+          ? 'complete'
+          : 'missing ' + (evidence.missing || []).map((code) => statusLabel(code)).join(', ')) + '</div>'
+      : '') +
+    (outside.length
+      ? '<details class="mt-3"><summary class="small faint">Procedures outside this plan (' + outside.length + ')</summary>' +
+        outside.map((item) => '<div class="small mt-2"><span class="mono">' + escapeHtml(item.code) + '</span> \u2014 ' +
+          escapeHtml(item.reason) +
+          ((item.proposed_limits || []).length
+            ? '<div class="hint">Limit still a proposal, pending metrology review: ' +
+              item.proposed_limits.map((limit) => escapeHtml(limit.key + ' \u2014 ' + (limit.clause_reference || 'no clause reference'))).join('; ') +
+              '</div>'
+            : '') + '</div>').join('') + '</details>'
+      : '') +
+    '</div>';
+}
+
+function supersededPanelHtml() {
+  const rows = (state.case && state.case.superseded_tests) || [];
+  if (!rows.length) return '';
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Superseded records</h3>' +
+    '<span class="pill pill-na">' + rows.length + '</span></div>' +
+    '<div class="hint">Kept for traceability. The live revision of each test decides the result.</div>' +
+    rows.map((row) => '<div class="small mt-2"><span class="mono">' + escapeHtml(row.test_code) + '</span>' +
+      ' \u00b7 revision ' + row.revision_no + ' \u00b7 ' + escapeHtml(statusLabel(row.result_status)) +
+      ' \u00b7 replaced ' + escapeHtml(fmtDate(row.superseded_at)) +
+      '<div class="hint">' + escapeHtml(row.retest_reason || '') + '</div></div>').join('') + '</div>';
+}
+
+async function showExplanation(test) {
+  try {
+    const body = await api.get('/tests/' + test.id + '/explanation');
+    const decision = body.decision || {};
+    const rows = (body.rows || []).map((row) => '<tr' + (row.within === false ? ' class="row-invalid"' : '') + '>' +
+      '<td class="mono">' + row.observation_no + '</td><td>' + escapeHtml(row.label || '\u2014') + '</td>' +
+      '<td class="num">' + fmt(row.load) + '</td><td class="num">' + fmt(row.indication) + '</td>' +
+      '<td class="num">' + fmt(row.error) + '</td><td class="num">' + fmt(row.mpe) + '</td>' +
+      '<td class="num">' + fmt(row.margin) + '</td>' +
+      '<td>' + (row.within === false ? '<span class="pill pill-fail">outside</span>' : '<span class="pill pill-pass">within</span>') + '</td></tr>').join('');
+    const steps = (body.steps || []).map((step) => '<dt>' + escapeHtml(step.label) + '</dt>' +
+      '<dd>' + escapeHtml(String(step.value)) + '</dd>').join('');
+    const outstanding = body.outstanding
+      ? [...(body.outstanding.errors || []), body.outstanding.explanation].filter(Boolean).join(' ')
+      : '';
+    await openModal({
+      title: (body.test_code || 'this test') + ' \u00b7 why this result',
+      cancelLabel: 'Close',
+      submitLabel: null,
+      bodyHtml: '<div class="inline">' + resultPill(body.result_status) +
+        '<span class="mono small">' + escapeHtml(decision.rule_id || '\u2014') + '</span>' +
+        '<span class="faint small">' + escapeHtml(decision.clause_reference || '') + '</span>' +
+        (body.revision_no > 1 ? '<span class="pill pill-info">revision ' + body.revision_no + '</span>' : '') + '</div>' +
+        '<ul class="mt-2">' + (body.why || []).map((line) => '<li class="small">' + escapeHtml(line) + '</li>').join('') + '</ul>' +
+        (outstanding ? '<div class="banner warn"><div><strong>Still missing</strong>' + escapeHtml(outstanding) + '</div></div>' : '') +
+        (steps ? '<div class="calc-panel mt-3"><dl>' + steps + '</dl></div>' : '') +
+        (rows ? '<div class="table-wrap mt-3"><table><thead><tr><th>#</th><th>Row</th><th class="num">L</th>' +
+          '<th class="num">I</th><th class="num">Error</th><th class="num">Limit</th><th class="num">Margin</th>' +
+          '<th>Verdict</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '') +
+        ((body.pending_review_limits || []).length
+          ? '<div class="banner warn mt-3"><div><strong>Limit still a proposal</strong>' +
+            body.pending_review_limits.map((limit) => escapeHtml(limit.key + ' \u2014 ' + (limit.clause_reference || ''))).join('<br/>') +
+            '</div></div>'
+          : '') +
+        '<div class="mt-3"><div class="small faint">Investigation</div><ul>' +
+          (body.investigation || []).map((line) => '<li class="small">' + escapeHtml(line) + '</li>').join('') + '</ul></div>' +
+        '<div class="hint">Method: <span class="mono">' +
+          escapeHtml(((body.method || {}).calculation_rules || {}).method || '\u2014') + '</span> \u00b7 engine ' +
+          escapeHtml((body.method || {}).engine_version || '') + '</div>',
+    });
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+async function runRetest(test) {
+  const code = definitionFor(test).test_code || 'this test';
+  const reason = await promptReason('Re-test ' + code, {
+    label: 'Reason for the re-test', minLength: 5, submitLabel: 'Start re-test',
+    hint: 'Revision ' + (test.revision_no || 1) + ' is kept and marked superseded, with this reason. ' +
+      'The new revision replaces it in the plan, the readiness view and the report.',
+  });
+  if (!reason) return;
+  try {
+    const replacement = await api.post('/tests/' + test.id + '/retest', { reason });
+    selectedTestId = replacement.id;
+    toast('Re-test started as revision ' + replacement.revision_no + '.', 'success');
+    await loadAll();
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
 }
 
 /* --------------------------------------------------------------- shell bits */
@@ -685,7 +825,9 @@ function testListHtml() {
       return '<button class="test-item ' + (test.id === selectedTestId ? 'active' : '') + '" data-test="' + test.id + '" title="' + escapeHtml(label) + '"' + (na || unsupported ? ' disabled' : '') + '>' +
         '<span class="code">' + escapeHtml(definition.test_code || '') + '</span>' +
         '<span class="name">' + escapeHtml(definition.name || '') + '</span>' +
-        '<span style="flex:0 0 6px"></span>' + (unsupported ? '<span class="pill pill-warn">unsupported</span>' : '') + resultPill(test.result_status) + '</button>';
+        '<span style="flex:0 0 6px"></span>' + (unsupported ? '<span class="pill pill-warn">unsupported</span>' : '') +
+        (test.revision_no > 1 ? '<span class="pill pill-info">rev ' + test.revision_no + '</span>' : '') +
+        resultPill(test.result_status) + '</button>';
     }).join('') + '</div>';
 }
 
@@ -800,6 +942,8 @@ function stepExecution() {
         '<button class="btn-sm" id="btn-validate">Validate (no save)</button>' +
         '<button class="btn-primary btn-sm" id="btn-calculate">Calculate &amp; store</button>' +
         '<button class="btn-sm" id="btn-complete">Mark complete</button>' +
+        '<button class="btn-sm" id="btn-why">Why this result?</button>' +
+        '<button class="btn-sm" id="btn-retest">Re-test\u2026</button>' +
         '<span class="right"></span>' +
         (can('ai.use') ? '<button class="btn-sm" id="btn-anomaly">AI anomaly check</button>' : '') +
         (can('override.request') ? '<button class="btn-sm" id="btn-na">Not applicable\u2026</button>' +
@@ -808,7 +952,8 @@ function stepExecution() {
     : '<div class="banner mt-3" style="margin-bottom:0"><div>' +
         (test.applicability_status === 'NOT_APPLICABLE'
           ? 'This test is marked not applicable: ' + escapeHtml(test.applicability_reason || '')
-          : 'Read-only for your role or for the current case status.') + '</div></div>';
+          : 'Read-only for your role or for the current case status.') + '</div></div>' +
+      '<div class="inline mt-3"><button class="btn-sm" id="btn-why">Why this result?</button></div>';
   return '<div class="exec-grid">' +
     '<div>' + list + '</div>' +
     '<div><div class="card">' +
@@ -819,8 +964,11 @@ function stepExecution() {
         '<div>' + resultPill(test.result_status) + '</div></div>' +
       '<div class="inline" style="margin-bottom:10px">' +
         '<span class="pill pill-na">' + escapeHtml(statusLabel(test.status)) + '</span>' +
+        (test.revision_no > 1 ? '<span class="pill pill-info">revision ' + test.revision_no + '</span>' : '') +
         (test.applicability_reason ? '<span class="faint small">' + escapeHtml(test.applicability_reason) + '</span>' : '') +
         '<span class="right"></span><span class="save-state" id="test-save-state"></span></div>' +
+      (test.retest_reason ? '<div class="hint" style="margin-bottom:8px">Re-test reason: ' +
+        escapeHtml(test.retest_reason) + '</div>' : '') +
       form + actions +
       '<div class="table-wrap mt-3"><table><tbody>' +
         '<tr><td class="faint small">Measured value</td><td class="mono">' + fmt(compliance && compliance.measured_value) + '</td>' +
@@ -834,6 +982,8 @@ function stepExecution() {
         '<span class="pill pill-accent">deterministic</span></div>' +
         '<div id="calc-panel">' + calcPanelHtml(test) + '</div></div>' +
       (editable ? evidencePanel() : '') +
+      readinessCardHtml() +
+      supersededPanelHtml() +
     '</div>' +
     '</div>';
 }
@@ -1231,6 +1381,8 @@ function bindExecution() {
   document.getElementById('btn-validate')?.addEventListener('click', () => runValidate(test));
   document.getElementById('btn-calculate')?.addEventListener('click', () => runCalculate(test));
   document.getElementById('btn-complete')?.addEventListener('click', () => runComplete(test));
+  document.getElementById('btn-why')?.addEventListener('click', () => showExplanation(test));
+  document.getElementById('btn-retest')?.addEventListener('click', () => runRetest(test));
   document.getElementById('btn-anomaly')?.addEventListener('click', () => runAnomalyCheck(test));
   document.getElementById('btn-na')?.addEventListener('click', () => runNotApplicable(test));
   document.getElementById('btn-override')?.addEventListener('click', () => runOverride(test));
@@ -1293,6 +1445,7 @@ function stepSummary() {
     '<div class="table-wrap mt-3"><table><thead><tr><th>Code</th><th>Test</th><th>Applicability</th><th>Status</th>' +
       '<th>Result</th><th class="num">Measured</th><th class="num">Limit</th><th>Rule</th><th>Clause</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>' +
+    readinessCardHtml() +
     (canSubmit ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-submit"' +
       (evidenceReady ? '' : ' disabled title="Attach the mandatory photographs first"') + '>Submit for technical review</button>' +
       '<span class="faint small">' + (evidenceReady
