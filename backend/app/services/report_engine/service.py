@@ -193,6 +193,7 @@ def generate_report(
                 case_revision_no=case.revision_no,
                 change_summary=f"Generated from case revision {case.revision_no}",
                 generated_by=getattr(actor, "id", None),
+                data_snapshot=snapshot,
             )
         )
 

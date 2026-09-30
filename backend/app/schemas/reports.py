@@ -155,3 +155,6 @@ class ReportListItemOut(BaseModel):
     verification_code: str | None = None
     generated_at: datetime | None = None
     overall_result: str | None = None
+    instrument_id: uuid.UUID | None = None
+    instrument_model: str | None = None
+    instrument_serial_number: str | None = None

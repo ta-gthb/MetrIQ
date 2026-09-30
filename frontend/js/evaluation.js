@@ -281,6 +281,36 @@ async function showExplanation(test) {
   }
 }
 
+async function showTestHistory(test) {
+  try {
+    const history = await api.get('/cases/' + caseId + '/tests/' + test.id + '/history');
+    const rows = history.revisions.map((revision) => '<tr>' +
+      '<td class="mono">' + revision.revision_no + '</td>' +
+      '<td>' + (revision.live
+        ? '<span class="pill pill-pass">live</span>'
+        : '<span class="pill pill-na">superseded</span>') + '</td>' +
+      '<td class="small">' + escapeHtml(statusLabel(revision.status)) + '</td>' +
+      '<td>' + resultPill(revision.result_status) + '</td>' +
+      '<td class="num">' + fmt(revision.measured_value) + '</td>' +
+      '<td class="num">' + fmt(revision.limit_value) + '</td>' +
+      '<td class="small faint nowrap">' + fmtDate(revision.completed_at) + '</td>' +
+      '<td class="small faint">' + escapeHtml(revision.retest_reason || '\u2014') + '</td></tr>').join('');
+    await openModal({
+      title: 'Test history \u00b7 ' + (history.test_code || ''),
+      submitLabel: null, cancelLabel: 'Close',
+      bodyHtml: '<div class="small faint" style="margin-bottom:8px">' + history.revision_count +
+        ' revision(s). The live revision decides the result; a superseded revision keeps the ' +
+        'observations and the result it had, with the reason it was replaced.</div>' +
+        '<div class="table-wrap" style="max-height:55vh;overflow:auto"><table><thead><tr>' +
+        '<th>Rev</th><th>State</th><th>Status</th><th>Result</th><th class="num">Measured</th>' +
+        '<th class="num">Limit</th><th>Completed</th><th>Reason for re-test</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>',
+    });
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
 async function runRetest(test) {
   const code = definitionFor(test).test_code || 'this test';
   const reason = await promptReason('Re-test ' + code, {
@@ -1102,6 +1132,7 @@ function stepExecution() {
         '<button class="btn-primary btn-sm" id="btn-calculate">Calculate &amp; store</button>' +
         '<button class="btn-sm" id="btn-complete">Mark complete</button>' +
         '<button class="btn-sm" id="btn-why">Why this result?</button>' +
+        '<button class="btn-sm" id="btn-history">History\u2026</button>' +
         '<button class="btn-sm" id="btn-retest">Re-test\u2026</button>' +
         '<span class="right"></span>' +
         (can('ai.use') ? '<button class="btn-sm" id="btn-anomaly">AI anomaly check</button>' : '') +
@@ -1112,7 +1143,8 @@ function stepExecution() {
         (test.applicability_status === 'NOT_APPLICABLE'
           ? 'This test is marked not applicable: ' + escapeHtml(test.applicability_reason || '')
           : 'Read-only for your role or for the current case status.') + '</div></div>' +
-      '<div class="inline mt-3"><button class="btn-sm" id="btn-why">Why this result?</button></div>';
+      '<div class="inline mt-3"><button class="btn-sm" id="btn-why">Why this result?</button>' +
+        '<button class="btn-sm" id="btn-history">History\u2026</button></div>';
   return '<div class="exec-grid">' +
     '<div>' + list + '</div>' +
     '<div><div class="card">' +
@@ -1641,6 +1673,7 @@ function bindExecution() {
   document.getElementById('btn-calculate')?.addEventListener('click', () => runCalculate(test));
   document.getElementById('btn-complete')?.addEventListener('click', () => runComplete(test));
   document.getElementById('btn-why')?.addEventListener('click', () => showExplanation(test));
+  document.getElementById('btn-history')?.addEventListener('click', () => showTestHistory(test));
   document.getElementById('btn-retest')?.addEventListener('click', () => runRetest(test));
   document.getElementById('btn-anomaly')?.addEventListener('click', () => runAnomalyCheck(test));
   document.getElementById('btn-na')?.addEventListener('click', () => runNotApplicable(test));

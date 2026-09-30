@@ -64,6 +64,11 @@ class ReportRevision(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     case_revision_no: Mapped[int | None] = mapped_column(Integer)
     change_summary: Mapped[str | None] = mapped_column(Text)
     generated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    # The structured snapshot this revision printed. Kept per revision so an
+    # earlier revision can still be read and compared (audit item 13), and so a
+    # historical report keeps the ruleset, template and records it was
+    # generated under (audit item 15).
+    data_snapshot: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
 
     report: Mapped[GeneratedReport] = relationship(back_populates="revisions")
 

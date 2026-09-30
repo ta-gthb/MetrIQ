@@ -387,6 +387,80 @@ def retest(
     return _serialise_test(replacement)
 
 
+def _revision_summary(instance: TestInstance) -> dict:
+    result = instance.compliance_result
+    return {
+        "id": instance.id,
+        "revision_no": instance.revision_no,
+        "status": instance.status,
+        "result_status": instance.result_status,
+        "applicability_status": instance.applicability_status,
+        "is_waived": instance.is_waived,
+        "observations": len(instance.observations),
+        "measured_value": decimal_str(result.measured_value) if result else None,
+        "limit_value": decimal_str(result.limit_value) if result else None,
+        "margin": decimal_str(result.margin) if result else None,
+        "rule_id": result.rule_id if result else None,
+        "completed_at": instance.completed_at,
+        "superseded_at": instance.superseded_at,
+        "retest_reason": instance.retest_reason,
+        "live": instance.superseded_at is None,
+    }
+
+
+@router.get("/cases/{case_id}/tests/{test_id}/history", summary="Every revision of one test")
+def test_history(
+    case_id: uuid.UUID,
+    test_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    """The revision chain of one test, oldest first (audit item 13).
+
+    A controlled re-test keeps the record it replaces, so the chain answers
+    what was measured before the correction and why it was repeated.
+    """
+    case = get_case_or_404(db, case_id, user)
+    instance = db.get(TestInstance, test_id)
+    if instance is None or instance.case_id != case.id:
+        raise HTTPException(status_code=404, detail="Test instance not found")
+
+    seen: set[uuid.UUID] = set()
+
+    def load(identifier: uuid.UUID) -> TestInstance | None:
+        if identifier is None or identifier in seen:
+            return None
+        seen.add(identifier)
+        row = db.get(TestInstance, identifier)
+        return row if row is not None and row.case_id == case.id else None
+
+    chain = [instance]
+    seen.add(instance.id)
+    current = instance
+    while current.supersedes_test_instance_id:
+        parent = load(current.supersedes_test_instance_id)
+        if parent is None:
+            break
+        chain.insert(0, parent)
+        current = parent
+    current = chain[-1]
+    while current.superseded_by_test_instance_id:
+        child = load(current.superseded_by_test_instance_id)
+        if child is None:
+            break
+        chain.append(child)
+        current = child
+
+    return {
+        "case_id": case.id,
+        "test_id": chain[-1].id,
+        "test_code": chain[-1].definition.test_code if chain[-1].definition else None,
+        "name": chain[-1].definition.name if chain[-1].definition else None,
+        "revision_count": len(chain),
+        "revisions": [_revision_summary(item) for item in chain],
+    }
+
+
 @router.post("/tests/{test_id}/anomaly-check", summary="AI statistical review of observations")
 def anomaly_check(
     test_id: uuid.UUID,
