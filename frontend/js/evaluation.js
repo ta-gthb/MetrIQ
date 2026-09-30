@@ -59,6 +59,7 @@ const state = {
   evidenceReq: null,
   reports: [],
   readiness: null,
+  equipment: null,
   step: initialStep,
   validation: {},
   aiExtraction: null,
@@ -120,7 +121,7 @@ function caseStepStatus(stepKey) {
 /* ---------------------------------------------------------------- loading */
 
 async function loadAll() {
-  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports, readiness] = await Promise.all([
+  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports, readiness, equipment] = await Promise.all([
     api.get('/cases/' + caseId),
     api.get('/cases/' + caseId + '/tests'),
     api.get('/cases/' + caseId + '/test-plan'),
@@ -131,9 +132,11 @@ async function loadAll() {
     api.get('/cases/' + caseId + '/evidence-requirements').catch(() => null),
     api.get('/cases/' + caseId + '/reports').catch(() => []),
     api.get('/cases/' + caseId + '/readiness').catch(() => null),
+    api.get('/cases/' + caseId + '/equipment').catch(() => null),
   ]);
   state.case = kase;
   state.readiness = readiness;
+  state.equipment = equipment;
   state.tests = tests;
   state.plan = plan;
   state.conditions = conditions;
@@ -669,6 +672,108 @@ function bindMetrology() {
   });
 }
 
+/* ---------------------------------------------- item 11: equipment in use --- */
+
+function equipmentPanel() {
+  const data = state.equipment;
+  if (!data) return '';
+  const editable = isEditable() && canAny('tests.edit', 'tests.edit.own', 'cases.edit');
+  const blockers = data.blocking || [];
+  const rows = data.items.length ? data.items.map((item) => {
+    const calibration = item.calibration || {};
+    const pill = calibration.blocking
+      ? '<span class="pill pill-fail">' + escapeHtml(statusLabel(calibration.status)) + '</span>'
+      : calibration.status === 'expiring'
+        ? '<span class="pill pill-warn">expiring</span>'
+        : '<span class="pill pill-pass">' + escapeHtml(statusLabel(calibration.status || 'valid')) + '</span>';
+    return '<tr>' +
+      '<td class="mono">' + escapeHtml(calibration.code || '') + '</td>' +
+      '<td>' + escapeHtml(calibration.name || '') +
+        (calibration.certificate_no ? '<div class="faint small">certificate ' + escapeHtml(calibration.certificate_no) +
+          (calibration.issued_by ? ' \u00b7 ' + escapeHtml(calibration.issued_by) : '') + '</div>' : '') + '</td>' +
+      '<td>' + (item.test_code
+        ? '<span class="mono">' + escapeHtml(item.test_code) + '</span>' +
+          (item.revision_no > 1 ? ' <span class="pill pill-info">rev ' + item.revision_no + '</span>' : '')
+        : '<span class="faint small">whole case</span>') + '</td>' +
+      '<td class="small">' + escapeHtml(item.role || '\u2014') + '</td>' +
+      '<td class="small">' + (calibration.valid_until ? escapeHtml(calibration.valid_until) : '<span class="faint">none recorded</span>') +
+        (calibration.days_remaining !== null && calibration.days_remaining !== undefined
+          ? '<div class="faint small">' + calibration.days_remaining + ' day(s) left</div>' : '') + '</td>' +
+      '<td>' + pill + '<div class="faint small">' + escapeHtml(calibration.detail || '') + '</div></td>' +
+      (editable ? '<td><button class="btn-ghost btn-sm" data-withdraw-equipment="' + item.id + '" title="Withdraw">\u2715</button></td>' : '') +
+      '</tr>';
+  }).join('') : '<tr><td colspan="6" class="faint small">No test equipment recorded against this case.</td></tr>';
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Test equipment used</h3>' +
+    '<span class="faint small">' + data.recorded + ' record(s)</span></div>' +
+    '<div class="hint">Reference standards are traceable only while their calibration is valid. ' +
+      'A standard that has expired, has no certificate on file, or is withdrawn from the register cannot be used, ' +
+      'and a test that names it cannot be calculated.</div>' +
+    (blockers.length ? '<div class="banner fail mt-2"><div>' + blockers.map((item) => escapeHtml(item.message)).join('<br/>') + '</div></div>' : '') +
+    '<div class="table-wrap mt-2"><table><thead><tr><th>Code</th><th>Standard</th><th>Used for</th>' +
+      '<th>Role</th><th>Calibration valid to</th><th>State</th>' + (editable ? '<th></th>' : '') + '</tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>' +
+    (editable ? '<button class="btn-sm mt-2" id="add-equipment">Record equipment used</button>' : '') +
+    '</div>';
+}
+
+async function openEquipmentDialog() {
+  let catalogue;
+  try {
+    catalogue = await api.get('/equipment', { query: { page_size: 200 } });
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+    return;
+  }
+  if (!catalogue.items.length) {
+    toast('No test equipment is registered yet. Register it under Administration, then record it here.', 'warn');
+    return;
+  }
+  const options = catalogue.items.map((item) =>
+    '<option value="' + item.id + '">' + escapeHtml('[' + item.code + '] ' + item.name) + '</option>').join('');
+  const tests = state.tests.filter((test) => test.applicability_status !== 'NOT_APPLICABLE');
+  const testOptions = '<option value="">The whole case</option>' + tests.map((test) =>
+    '<option value="' + test.id + '">' + escapeHtml(test.definition.test_code + ' \u00b7 ' + test.definition.name) +
+    (test.revision_no > 1 ? ' (rev ' + test.revision_no + ')' : '') + '</option>').join('');
+  await openModal({
+    title: 'Record test equipment used',
+    submitLabel: 'Record equipment',
+    bodyHtml: '<div class="field"><label class="req">Reference standard</label>' +
+        '<select id="equipment-pick">' + options + '</select></div>' +
+      '<div class="field"><label>Used for</label><select id="equipment-test">' + testOptions + '</select>' +
+        '<div class="hint">Attach it to the test it supported so the calibration gate applies where it matters; ' +
+        'leave it on the case for equipment that supported the evaluation as a whole.</div></div>' +
+      '<div class="field"><label>Role</label><input id="equipment-role" placeholder="e.g. reference weights, thermometer" /></div>',
+    onSubmit: async (value, backdrop) => {
+      await api.post('/cases/' + caseId + '/equipment', {
+        equipment_id: backdrop.querySelector('#equipment-pick').value,
+        test_instance_id: backdrop.querySelector('#equipment-test').value || null,
+        role: backdrop.querySelector('#equipment-role').value.trim() || null,
+      });
+      state.equipment = await api.get('/cases/' + caseId + '/equipment');
+      toast('Equipment recorded.', 'success');
+      render();
+    },
+  });
+}
+
+async function withdrawEquipment(usageId) {
+  try {
+    await api.delete('/cases/' + caseId + '/equipment/' + usageId);
+    state.equipment = await api.get('/cases/' + caseId + '/equipment');
+    toast('Equipment withdrawn from the case.', 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+function bindEquipmentPanel() {
+  document.getElementById('add-equipment')?.addEventListener('click', openEquipmentDialog);
+  document.querySelectorAll('[data-withdraw-equipment]').forEach((button) => {
+    button.addEventListener('click', () => withdrawEquipment(button.dataset.withdrawEquipment));
+  });
+}
+
 /* --------------------------------------------------------- step 18: conditions */
 
 function stepConditions() {
@@ -698,10 +803,11 @@ function stepConditions() {
     '<div class="faint small">Conditions under which the observations were taken; they form part of the evidence.</div></div></div>' +
     '<div class="table-wrap"><table><thead><tr><th>Label</th><th class="num">Temp</th><th class="num">RH</th>' +
       '<th class="num">Pressure</th><th>Started</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    form + '</div>';
+    form + equipmentPanel() + '</div>';
 }
 
 function bindConditions() {
+  bindEquipmentPanel();
   const button = document.getElementById('save-condition');
   if (!button) return;
   button.addEventListener('click', async () => {

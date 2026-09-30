@@ -150,6 +150,15 @@ class TestEquipmentCreate(TestEquipmentBase):
     pass
 
 
+class EquipmentUsageCreate(BaseModel):
+    """Equipment recorded against a case, optionally against one test."""
+
+    equipment_id: uuid.UUID
+    test_instance_id: uuid.UUID | None = None
+    role: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+
+
 class EquipmentCalibrationCreate(BaseModel):
     certificate_no: str | None = None
     issued_by: str | None = None

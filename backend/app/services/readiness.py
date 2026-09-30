@@ -28,12 +28,11 @@ from app.models import (
     CaseStatus,
     EvaluationCase,
     TestDefinition,
-    TestEquipmentUsage,
     TestImplementationStatus,
     TestInstance,
     TestResultStatus,
 )
-from app.services import audit_service
+from app.services import audit_service, equipment_service
 from app.services.attachment_service.service import evidence_requirements
 from app.services.metrology_service import (
     evaluate_test_instance,
@@ -117,23 +116,6 @@ def outstanding_inputs(db: Session, case: EvaluationCase, test: TestInstance) ->
     }
 
 
-def _calibration_state(db: Session, case: EvaluationCase) -> dict:
-    rows = db.execute(
-        select(TestEquipmentUsage).where(TestEquipmentUsage.case_id == case.id)
-    ).scalars().all()
-    return {
-        "recorded": len(rows),
-        "items": [
-            {
-                "code": row.equipment.code if row.equipment else None,
-                "name": row.equipment.name if row.equipment else None,
-                "role": row.role,
-            }
-            for row in rows
-        ],
-    }
-
-
 def _environment_state(case: EvaluationCase) -> dict:
     return {
         "recorded": len(case.conditions),
@@ -206,7 +188,7 @@ def case_readiness(db: Session, case: EvaluationCase) -> dict:
             )
         details = (test.compliance_result.details if test.compliance_result else None) or {}
         for warning in details.get("warnings") or []:
-            warnings.append({"code": code, "message": warning})
+            warnings.append({"code": code, "kind": "result", "message": warning})
 
     evidence = evidence_requirements(db, case)
     if not evidence["satisfied"]:
@@ -231,7 +213,7 @@ def case_readiness(db: Session, case: EvaluationCase) -> dict:
                 "message": "No environmental conditions have been recorded for this case.",
             }
         )
-    equipment = _calibration_state(db, case)
+    equipment = equipment_service.case_equipment(db, case)
     if not equipment["recorded"]:
         warnings.append(
             {
@@ -243,6 +225,11 @@ def case_readiness(db: Session, case: EvaluationCase) -> dict:
                 ),
             }
         )
+    else:
+        # A standard that is out of calibration, withdrawn or uncalibrated is not
+        # a warning: the case cannot be submitted on measurements it supports.
+        blocking.extend(equipment["blocking"])
+        warnings.extend(equipment["warnings"])
 
     summary = summarise_case(case)
     applicable_count = len(applicable)

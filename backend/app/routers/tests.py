@@ -32,7 +32,7 @@ from app.schemas.tests import (
 )
 from app.security.permissions import P
 from app.security.scope import case_editable_by
-from app.services import audit_service, metrology_service, readiness
+from app.services import audit_service, equipment_service, metrology_service, readiness
 from app.services.ai_service import get_ai_service
 from app.utils.decimals import decimal_str
 
@@ -276,6 +276,19 @@ def calculate_test(
     instance, case = _load_test(db, test_id, user)
     if not case_editable_by(user, case) and case.status != CaseStatus.UNDER_REVIEW:
         raise HTTPException(status_code=409, detail="This case is not editable in its current status.")
+    # Calibration gate (audit item 11): a measurement supported by a standard
+    # whose calibration has expired is not calculated at all, rather than
+    # calculated and then questioned.
+    unusable = equipment_service.blocking_equipment_for_test(db, instance)
+    if unusable:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This test cannot be calculated while the equipment recorded against it "
+                "may not be used: "
+                + "; ".join(equipment_service.equipment_state_line(state) for state in unusable)
+            ),
+        )
     evaluation = metrology_service.evaluate_test_instance(db, case=case, test_instance=instance, actor=user)
     db.commit()
     db.refresh(instance)
@@ -312,7 +325,16 @@ def explain_test(
     names what is missing instead of saying "no result" (audit item 16).
     """
     instance, case = _load_test(db, test_id, user)
-    return readiness.test_explanation(db, case, instance)
+    payload = readiness.test_explanation(db, case, instance)
+    payload["equipment"] = [
+        item
+        for item in equipment_service.case_equipment(db, case)["items"]
+        if item["test_instance_id"] == str(instance.id)
+    ]
+    payload["calibration_blocking"] = [
+        state for state in equipment_service.blocking_equipment_for_test(db, instance)
+    ]
+    return payload
 
 
 @router.post(

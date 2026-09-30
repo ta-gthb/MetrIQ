@@ -18,7 +18,7 @@ const content = renderShell({
 });
 
 const ROLES = ['SUPER_ADMIN', 'LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER', 'AUDITOR'];
-const state = { tab: null, users: [], labs: [], roles: [], permissions: [], settings: [] };
+const state = { tab: null, users: [], labs: [], roles: [], permissions: [], settings: [], equipment: [] };
 
 function tabs() {
   return [
@@ -27,6 +27,7 @@ function tabs() {
     ['roles', 'Roles & permissions', canAny('users.manage', 'users.manage.scoped')],
     ['standards', 'Standards & rules', can('rules.view')],
     ['catalogue', 'Test catalogue', can('rules.view')],
+    ['equipment', 'Test equipment', can('equipment.manage')],
     ['templates', 'Report templates', can('rules.view')],
     ['ai', 'AI features', canAny('ai.manage', 'ai.view')],
     ['settings', 'System settings', can('settings.manage')],
@@ -652,6 +653,110 @@ async function renderCatalogue() {
       '<th>Clause</th><th class="num">Seq</th><th>Status</th><th>Input</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 
+function calibrationPill(state_) {
+  if (!state_) return '<span class="pill pill-na">unknown</span>';
+  if (state_.blocking) {
+    return '<span class="pill pill-fail">' + escapeHtml(String(state_.status).toUpperCase()) + '</span>';
+  }
+  if (state_.status === 'expiring') return '<span class="pill pill-warn">EXPIRING</span>';
+  return '<span class="pill pill-pass">' + escapeHtml(String(state_.status).toUpperCase()) + '</span>';
+}
+
+async function renderEquipment() {
+  const [register, statuses] = await Promise.all([
+    api.get('/equipment', { query: { page_size: 200 } }),
+    api.get('/equipment/status'),
+  ]);
+  const byId = Object.fromEntries(statuses.map((row) => [row.equipment_id, row]));
+  const rows = register.items.map((item) => {
+    const state_ = byId[item.id];
+    const latest = (item.calibrations || []).slice().sort((a, b) =>
+      String(b.valid_until || '').localeCompare(String(a.valid_until || '')))[0];
+    return '<tr>' +
+      '<td class="mono">' + escapeHtml(item.code) + '</td>' +
+      '<td>' + escapeHtml(item.name) +
+        '<div class="faint small">' + escapeHtml([item.equipment_type, item.accuracy_class, item.unit].filter(Boolean).join(' \u00b7 ')) + '</div></td>' +
+      '<td class="small">' + escapeHtml([item.manufacturer, item.model, item.serial_no].filter(Boolean).join(' / ') || '\u2014') + '</td>' +
+      '<td class="small">' + (latest
+        ? escapeHtml(latest.certificate_no || 'no number') + '<div class="faint small">' +
+          escapeHtml(latest.issued_by || '') + '</div>'
+        : '<span class="faint">none filed</span>') + '</td>' +
+      '<td class="small">' + (state_ && state_.valid_until ? escapeHtml(state_.valid_until) : '<span class="faint">\u2014</span>') + '</td>' +
+      '<td>' + calibrationPill(state_) + '<div class="faint small">' + escapeHtml((state_ && state_.detail) || '') + '</div></td>' +
+      '<td><button class="btn-sm" data-calibrate="' + item.id + '">File calibration\u2026</button></td>' +
+      '</tr>';
+  }).join('');
+  return '<div class="card"><div class="card-title"><h3>Test equipment register</h3>' +
+    '<button class="btn-primary btn-sm" id="add-equipment">Register equipment</button></div>' +
+    '<div class="hint">The calibration state is computed when the page is read: a certificate that expires ' +
+      'stops the equipment being recorded against a case, and stops a test that names it being calculated.</div>' +
+    '<div class="table-wrap mt-2"><table><thead><tr><th>Code</th><th>Equipment</th><th>Make / model / serial</th>' +
+      '<th>Latest certificate</th><th>Valid to</th><th>State</th><th></th></tr></thead><tbody>' +
+    (rows || '<tr><td colspan="7" class="faint small">No equipment registered.</td></tr>') +
+    '</tbody></table></div></div>';
+}
+
+function bindEquipment() {
+  document.getElementById('add-equipment')?.addEventListener('click', () =>
+    openModal({
+      title: 'Register test equipment',
+      submitLabel: 'Register',
+      bodyHtml: '<div class="field"><label class="req">Code</label><input data-value name="code" placeholder="EQ-0001" /></div>' +
+        '<div class="field"><label class="req">Name</label><input data-input name="name" placeholder="Reference weight set 1 mg ... 20 kg" /></div>' +
+        '<div class="field"><label>Type</label><input data-input name="equipment_type" value="weights" /></div>' +
+        '<div class="field"><label>Accuracy class</label><input data-input name="accuracy_class" placeholder="M1" /></div>' +
+        '<div class="field"><label>Unit</label><input data-input name="unit" value="g" /></div>' +
+        '<div class="field"><label>Serial number</label><input data-input name="serial_no" /></div>',
+      onSubmit: async (value, backdrop) => {
+        const read = (name) => (backdrop.querySelector('[name="' + name + '"]') || {}).value;
+        const payload = { code: read('code').trim(), name: read('name').trim() };
+        ['equipment_type', 'accuracy_class', 'unit', 'serial_no'].forEach((key) => {
+          const entry = read(key);
+          if (entry && entry.trim()) payload[key] = entry.trim();
+        });
+        if (!payload.code || !payload.name) {
+          toast('A code and a name are required.', 'warn');
+          return false;
+        }
+        await api.post('/equipment', payload);
+        toast('Equipment registered.', 'success');
+        await reloadTab();
+      },
+    }));
+
+  document.querySelectorAll('[data-calibrate]').forEach((button) => {
+    button.addEventListener('click', () =>
+      openModal({
+        title: 'File a calibration certificate',
+        submitLabel: 'File calibration',
+        bodyHtml: '<div class="field"><label class="req">Certificate number</label><input data-value name="certificate_no" /></div>' +
+          '<div class="field"><label>Issued by</label><input data-input name="issued_by" placeholder="National Metrology Institute" /></div>' +
+          '<div class="field-row">' +
+            '<div class="field"><label>Issue date</label><input data-input type="date" name="issue_date" /></div>' +
+            '<div class="field"><label class="req">Valid until</label><input data-input type="date" name="valid_until" /></div>' +
+          '</div>' +
+          '<div class="field"><label>Uncertainty</label><input data-input name="uncertainty" placeholder="e.g. 0.5 mg (k = 2)" /></div>' +
+          '<div class="hint">The state of the equipment is recomputed from this date whenever it is read.</div>',
+        onSubmit: async (value, backdrop) => {
+          const read = (name) => (backdrop.querySelector('[name="' + name + '"]') || {}).value;
+          const payload = { certificate_no: read('certificate_no').trim() || null, valid_until: read('valid_until') || null };
+          if (!payload.valid_until) {
+            toast('A validity date is required so the calibration can be gated.', 'warn');
+            return false;
+          }
+          ['issued_by', 'uncertainty'].forEach((key) => {
+            const entry = read(key);
+            if (entry && entry.trim()) payload[key] = entry.trim();
+          });
+          if (read('issue_date')) payload.issue_date = read('issue_date');
+          await api.post('/equipment/' + button.dataset.calibrate + '/calibrations', payload);
+          toast('Calibration filed.', 'success');
+          await reloadTab();
+        },
+      }));
+  });
+}
+
 async function renderTemplates() {
   const templates = await api.get('/report-templates');
   const cards = templates.map((template) => {
@@ -823,6 +928,9 @@ async function reloadTab() {
       bindStandards();
     } else if (state.tab === 'catalogue') {
       panel.innerHTML = await renderCatalogue();
+    } else if (state.tab === 'equipment') {
+      panel.innerHTML = await renderEquipment();
+      bindEquipment();
     } else if (state.tab === 'templates') {
       panel.innerHTML = await renderTemplates();
     } else if (state.tab === 'ai') {

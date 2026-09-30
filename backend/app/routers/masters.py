@@ -36,7 +36,7 @@ from app.schemas.masters import (
 )
 from app.security.permissions import P
 from app.security.scope import laboratory_filter
-from app.services import audit_service
+from app.services import audit_service, equipment_service
 
 router = APIRouter(tags=["Masters"])
 
@@ -224,6 +224,33 @@ def list_equipment(
         )
     rows, meta = paginate(db, statement, page=page, page_size=page_size)
     return Paginated[TestEquipmentOut](items=rows, meta=meta)
+
+
+@router.get(
+    "/equipment/status",
+    summary="Calibration state of the equipment in the register",
+)
+def equipment_status(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+    search: str | None = None,
+) -> list[dict]:
+    """Every piece of equipment with its calibration state as of today.
+
+    The state is computed on read, so a certificate that expired since the last
+    visit is reported as expired without anyone re-entering the record.
+    """
+    statement = select(TestEquipment).order_by(TestEquipment.code)
+    laboratory_id = laboratory_filter(user)
+    if laboratory_id is not None:
+        statement = statement.where(
+            (TestEquipment.laboratory_id == laboratory_id) | (TestEquipment.laboratory_id.is_(None))
+        )
+    if search:
+        statement = statement.where(
+            TestEquipment.name.ilike(f"%{search}%") | TestEquipment.code.ilike(f"%{search}%")
+        )
+    return [equipment_service.calibration_state(row) for row in db.execute(statement).scalars().all()]
 
 
 @router.post(

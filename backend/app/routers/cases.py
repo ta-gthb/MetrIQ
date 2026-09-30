@@ -24,6 +24,8 @@ from app.models import (
     Standard,
     StandardVersion,
     TestDefinition,
+    TestEquipment,
+    TestEquipmentUsage,
     TestInstance,
     User,
     utcnow,
@@ -39,10 +41,10 @@ from app.schemas.cases import (
     EnvironmentalConditionOut,
 )
 from app.schemas.common import Paginated
-from app.schemas.masters import InstrumentCreate
+from app.schemas.masters import EquipmentUsageCreate, InstrumentCreate
 from app.security.permissions import P, SUPER_ADMIN
 from app.security.scope import case_editable_by, laboratory_filter
-from app.services import audit_service, readiness
+from app.services import audit_service, equipment_service, readiness
 from app.services.test_engine import generate_and_persist_plan
 
 router = APIRouter(tags=["Evaluation cases"])
@@ -426,3 +428,91 @@ def list_conditions(
 ) -> list[EnvironmentalCondition]:
     case = get_case_or_404(db, case_id, user)
     return case.conditions
+
+
+# ------------------------------------------------------- test equipment (item 11)
+@router.get(
+    "/cases/{case_id}/equipment",
+    summary="Test equipment recorded against this case",
+)
+def list_case_equipment(
+    case_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    """What was used, against which test, and whether it may be used today.
+
+    The calibration state is computed on every read, so a certificate that
+    expired since the case was recorded shows up before the case is submitted.
+    """
+    case = get_case_or_404(db, case_id, user)
+    return equipment_service.case_equipment(db, case)
+
+
+@router.post(
+    "/cases/{case_id}/equipment",
+    status_code=status.HTTP_201_CREATED,
+    summary="Record test equipment used on this case",
+)
+def add_case_equipment(
+    case_id: uuid.UUID,
+    payload: EquipmentUsageCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_any_permission(P.EQUIPMENT_MANAGE, P.TESTS_EDIT, P.TESTS_EDIT_OWN)
+    ),
+) -> dict:
+    case = get_case_or_404(db, case_id, user)
+    if not case_editable_by(user, case):
+        raise HTTPException(
+            status_code=409, detail="Equipment cannot be recorded in the current status."
+        )
+    equipment = db.get(TestEquipment, payload.equipment_id)
+    if equipment is None:
+        raise HTTPException(status_code=404, detail="Test equipment not found")
+    test_instance = None
+    if payload.test_instance_id is not None:
+        test_instance = db.get(TestInstance, payload.test_instance_id)
+        if test_instance is None:
+            raise HTTPException(status_code=404, detail="Test instance not found")
+    try:
+        usage = equipment_service.attach_usage(
+            db,
+            case=case,
+            equipment=equipment,
+            actor=user,
+            test_instance=test_instance,
+            role=payload.role,
+            notes=payload.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(usage)
+    return equipment_service.usage_item(db, usage)
+
+
+@router.delete(
+    "/cases/{case_id}/equipment/{usage_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    summary="Withdraw a piece of test equipment from this case",
+)
+def remove_case_equipment(
+    case_id: uuid.UUID,
+    usage_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_any_permission(P.EQUIPMENT_MANAGE, P.TESTS_EDIT, P.TESTS_EDIT_OWN)
+    ),
+) -> None:
+    case = get_case_or_404(db, case_id, user)
+    if not case_editable_by(user, case):
+        raise HTTPException(
+            status_code=409, detail="Equipment cannot be withdrawn in the current status."
+        )
+    usage = db.get(TestEquipmentUsage, usage_id)
+    if usage is None or usage.case_id != case.id:
+        raise HTTPException(status_code=404, detail="Equipment record not found")
+    equipment_service.detach_usage(db, usage=usage, actor=user)
+    db.commit()
