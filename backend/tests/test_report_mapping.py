@@ -298,18 +298,46 @@ def test_the_docx_and_the_pdf_agree_on_the_result(golden_case, rendered):
 def test_a_missing_limit_is_reported_not_guessed():
     """The engine refuses to invent a compliance decision."""
     from app.services.calculation_engine.engine import evaluate
+    from app.services.calculation_engine.types import ObservationRow
     from app.services.compliance_engine import evaluate as evaluate_compliance
 
-    ctx = CalcContext(
-        test_code="T-TILT",
+    # A procedure the platform does not implement produces INVALID, never a
+    # silent PASS.
+    unknown = CalcContext(
+        test_code="T-UNKNOWN",
         instrument={"e": Decimal("10"), "unit": "g", "instrument_class": "III"},
         observations=[],
         ruleset={"tolerances": {}},
         test_definition={"calculation_rules": {}, "compliance_rules": {}},
     )
-    outcome = evaluate(ctx)
+    outcome = evaluate(unknown)
     decision = evaluate_compliance(outcome, compliance_rules={}, applicability_status="APPLICABLE")
 
     assert outcome.status == "INVALID"
     assert decision.status == "INVALID"
     assert "no deterministic calculator" in " ".join(outcome.errors)
+
+    # A procedure whose limit is absent from the versioned ruleset produces
+    # INVALID too: the reading is recorded, the verdict is not invented.
+    rows = [
+        ObservationRow(observation_no=1, label="level", load=Decimal("15000"),
+                       indication=Decimal("15000")),
+        ObservationRow(observation_no=2, label="tilted", load=Decimal("15000"),
+                       indication=Decimal("15010")),
+    ]
+    without_limit = CalcContext(
+        test_code="T-TILT",
+        instrument={"e": Decimal("10"), "unit": "g", "instrument_class": "III"},
+        observations=rows,
+        ruleset={"tolerances": {}},
+        test_definition={
+            "calculation_rules": {"reference_row": "level", "tolerance_key": "tilt"},
+            "compliance_rules": {"limit_source": "tolerance:tilt"},
+        },
+    )
+    outcome = evaluate(without_limit)
+    decision = evaluate_compliance(outcome, compliance_rules={}, applicability_status="APPLICABLE")
+
+    assert outcome.status == "INVALID"
+    assert decision.status == "INVALID"
+    assert "missing tolerance 'tilt'" in " ".join(outcome.errors)

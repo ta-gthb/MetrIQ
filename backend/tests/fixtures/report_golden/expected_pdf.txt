@@ -279,8 +279,8 @@ R76-MPE-III-02 (r76-1-2006-v1)
 Rounding policy
 EXACT-NO-ROUNDING
 Explanation
-Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g. FAIL:
-measured 40 against limit 20 (abs_lte), margin -20.
+Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g (margin
+-20.000000000 g). FAIL: measured 40 against limit 20 (abs_lte), margin -20.
 Remarks
 -
 #
@@ -336,7 +336,8 @@ Rounding policy
 EXACT-NO-ROUNDING
 Explanation
 Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000
-g. PASS: measured 2 against limit 10 (abs_lte), margin 8.
+g; every repetition was also checked against the MPE for its load. PASS: measured 2
+against limit 10 (abs_lte), margin 8.
 Remarks
 -
 #
@@ -450,8 +451,8 @@ R76-ZR-01 (r76-1-2006-v1)
 Rounding policy
 EXACT-NO-ROUNDING
 Explanation
-Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.4 /
-T.3.2.1 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies
+to it. PASS: measured 2 against limit 5 (abs_lte), margin 3.
 Remarks
 -
 #
@@ -501,8 +502,8 @@ R76-CREEP-01 (r76-1-2006-v1)
 Rounding policy
 EXACT-NO-ROUNDING
 Explanation
-Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.5 /
-T.3.3 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies
+to it. PASS: measured 2 against limit 5 (abs_lte), margin 3.
 Remarks
 -
 #
@@ -549,8 +550,8 @@ R76-TEMP-NL-01 (r76-1-2006-v1)
 Rounding policy
 EXACT-NO-ROUNDING
 Explanation
-Maximum deviation 3.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.2
-/ T.3.4.2 - REVIEW REQUIRED). PASS: measured 3 against limit 10 (abs_lte), margin 7.
+Governing deviation 3.00000000 g at row 2 against the limit 10.000000000 g that applies
+to it. PASS: measured 3 against limit 10 (abs_lte), margin 7.
 Remarks
 -
 #
@@ -692,8 +693,8 @@ R76-STAB-01 (r76-1-2006-v1)
 Rounding policy
 EXACT-NO-ROUNDING
 Explanation
-Maximum deviation 4.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.3
-/ T.3.7 - REVIEW REQUIRED). PASS: measured 4 against limit 10 (abs_lte), margin 6.
+Governing deviation 4.00000000 g at row 2 against the limit 10.000000000 g that applies
+to it. PASS: measured 4 against limit 10 (abs_lte), margin 6.
 Remarks
 -
 #
@@ -756,6 +757,9 @@ CON-03
 Yes
 -
 CON-04
+Yes
+-
+CON-05
 Yes
 -
 CON-06

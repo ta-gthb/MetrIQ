@@ -45,6 +45,12 @@ BOUNDARY_CASES: dict[str, str] = {
     "T-STAB": "test_stability_tolerance_is_inclusive",
     "T-CHK-CON": "test_construction_checklist_requires_every_mandatory_item",
     "T-CHK-ID": "test_identification_checklist_requires_every_mandatory_item",
+    "T-TILT": "test_tilt_tolerance_is_inclusive",
+    "T-TARE": "test_tare_tolerance_is_inclusive",
+    "T-WARMUP": "test_warmup_tolerance_is_inclusive",
+    "T-VOLT": "test_voltage_variation_tolerance_is_inclusive",
+    "T-EMC": "test_immunity_tolerance_is_inclusive",
+    "T-DAMP": "test_damp_heat_tolerance_is_inclusive",
     "MPE-BANDS": "test_verification_band_edges",
     "MPE-IN-SERVICE": "test_in_service_band_edges",
     "MPE-ZERO": "test_mpe_at_zero_load",
@@ -55,6 +61,18 @@ BOUNDARY_CASES: dict[str, str] = {
     "R76-DISC-01": "test_discrimination_requires_at_least_one_scale_interval",
     "R76-STAB-01": "test_stability_tolerance_is_inclusive",
     "R76-ECC-01": "test_eccentricity_difference_is_inclusive_at_the_mpe",
+    "R76-TILT-01": "test_tilt_tolerance_is_inclusive",
+    "R76-TARE-01": "test_tare_tolerance_is_inclusive",
+    "R76-WARMUP-01": "test_warmup_tolerance_is_inclusive",
+    "R76-VOLT-01": "test_voltage_variation_tolerance_is_inclusive",
+    "R76-EMC-01": "test_immunity_tolerance_is_inclusive",
+    "R76-DAMP-01": "test_damp_heat_tolerance_is_inclusive",
+    "R76-TILT": "test_tilt_tolerance_is_inclusive",
+    "R76-TARE": "test_tare_tolerance_is_inclusive",
+    "R76-WARMUP": "test_warmup_tolerance_is_inclusive",
+    "R76-VOLTAGE-VARIATION": "test_voltage_variation_tolerance_is_inclusive",
+    "R76-EMC-IMMUNITY": "test_immunity_tolerance_is_inclusive",
+    "R76-DAMP-HEAT": "test_damp_heat_tolerance_is_inclusive",
     "R76-ZR": "test_zero_return_tolerance_is_inclusive",
     "R76-CREEP": "test_creep_tolerance_is_inclusive",
     "R76-TEMP-NL": "test_temperature_no_load_tolerance_is_inclusive",
@@ -249,8 +267,9 @@ def test_zero_return_tolerance_is_inclusive(client, tokens):
 
 def test_creep_tolerance_is_inclusive(client, tokens):
     rows = [
-        {"observation_no": 1, "position_label": "start", "value": "0"},
-        {"observation_no": 2, "position_label": "end", "value": "5"},
+        {"observation_no": 1, "position_label": "t = 0", "value": "0", "elapsed_seconds": "0"},
+        {"observation_no": 2, "position_label": "t = 15 min", "value": "5",
+         "elapsed_seconds": "900"},
     ]
     assert _preview(client, tokens, "T-CREEP", {}, rows)["compliance"]["status"] == "PASS"
     rows[1]["value"] = "6"
@@ -260,12 +279,89 @@ def test_creep_tolerance_is_inclusive(client, tokens):
 def test_temperature_no_load_tolerance_is_inclusive(client, tokens):
     """R76-TEMP-NL-01: 1.0 e = 10 g."""
     rows = [
-        {"observation_no": 1, "position_label": "reference", "value": "0"},
-        {"observation_no": 2, "position_label": "after temperature change", "value": "10"},
+        {"observation_no": 1, "position_label": "reference", "value": "0", "temperature_c": "20"},
+        {"observation_no": 2, "position_label": "after temperature change", "value": "10",
+         "temperature_c": "40"},
     ]
     assert _preview(client, tokens, "T-TEMP-NL", {}, rows)["compliance"]["status"] == "PASS"
     rows[1]["value"] = "11"
     assert _preview(client, tokens, "T-TEMP-NL", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_tilt_tolerance_is_inclusive(client, tokens):
+    """R76-TILT-01: the tilt limit is the MPE for the applied load."""
+    rows = [
+        {"observation_no": 1, "position_label": "level", "load": "15000", "indication": "15000"},
+        {"observation_no": 2, "position_label": "tilted 1", "load": "15000", "indication": "15010"},
+    ]
+    assert _preview(client, tokens, "T-TILT", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "15011"
+    assert _preview(client, tokens, "T-TILT", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_tare_tolerance_is_inclusive(client, tokens):
+    """R76-TARE-01: the error of the tared reading may be 0.5 e = 5 g, no more."""
+    rows = [
+        {"observation_no": 1, "position_label": "tared zero", "load": "0",
+         "indication": "0", "additional_load": "5"},
+        {"observation_no": 2, "position_label": "load applied", "load": "10000",
+         "indication": "10005", "additional_load": "5"},
+    ]
+    assert _preview(client, tokens, "T-TARE", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "10006"
+    assert _preview(client, tokens, "T-TARE", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_warmup_tolerance_is_inclusive(client, tokens):
+    """R76-WARMUP-01: the drift over the warm-up period may be 1.0 e = 10 g."""
+    rows = [
+        {"observation_no": 1, "position_label": "power-on", "elapsed_seconds": "0",
+         "load": "10000", "indication": "10000"},
+        {"observation_no": 2, "position_label": "after 30 min", "elapsed_seconds": "1800",
+         "load": "10000", "indication": "10010"},
+    ]
+    assert _preview(client, tokens, "T-WARMUP", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "10011"
+    assert _preview(client, tokens, "T-WARMUP", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_voltage_variation_tolerance_is_inclusive(client, tokens):
+    """R76-VOLT-01: the change between supply conditions may be 1.0 e = 10 g."""
+    rows = [
+        {"observation_no": 1, "position_label": "nominal supply",
+         "load": "15000", "indication": "15000", "voltage_v": "230"},
+        {"observation_no": 2, "position_label": "lower limit",
+         "load": "15000", "indication": "15010", "voltage_v": "207"},
+    ]
+    assert _preview(client, tokens, "T-VOLT", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "15011"
+    assert _preview(client, tokens, "T-VOLT", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_immunity_tolerance_is_inclusive(client, tokens):
+    """R76-EMC-01: the disturbance may move the indication by 1.0 e = 10 g."""
+    rows = [
+        {"observation_no": 1, "position_label": "before disturbance",
+         "load": "15000", "indication": "15000"},
+        {"observation_no": 2, "position_label": "during burst",
+         "load": "15000", "indication": "15010"},
+    ]
+    assert _preview(client, tokens, "T-EMC", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "15011"
+    assert _preview(client, tokens, "T-EMC", {}, rows)["compliance"]["status"] == "FAIL"
+
+
+def test_damp_heat_tolerance_is_inclusive(client, tokens):
+    """R76-DAMP-01: after conditioning the instrument must meet its MPE again."""
+    rows = [
+        {"observation_no": 1, "position_label": "before conditioning",
+         "load": "15000", "indication": "15000", "temperature_c": "20"},
+        {"observation_no": 2, "position_label": "after conditioning",
+         "load": "15000", "indication": "15010", "temperature_c": "40", "humidity_percent": "93"},
+    ]
+    assert _preview(client, tokens, "T-DAMP", {}, rows)["compliance"]["status"] == "PASS"
+    rows[1]["indication"] = "15011"
+    assert _preview(client, tokens, "T-DAMP", {}, rows)["compliance"]["status"] == "FAIL"
 
 
 def test_sensitivity_tolerance_is_inclusive(client, tokens):

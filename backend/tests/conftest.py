@@ -145,9 +145,11 @@ OBSERVATIONS: dict[str, list[dict]] = {
         {"observation_no": 2, "position_label": "end", "value": "4"},
     ],
     "T-CHK-CON": [
+        # CON-05 (tare device) is mandatory only when the instrument has one; it
+        # is recorded here so the same reference set serves both instruments.
         {"observation_no": index, "item_code": code, "conforms": True}
         for index, code in enumerate(
-            ["CON-01", "CON-02", "CON-03", "CON-04", "CON-06", "CON-07"], start=1
+            ["CON-01", "CON-02", "CON-03", "CON-04", "CON-05", "CON-06", "CON-07"], start=1
         )
     ],
     "T-CHK-ID": [

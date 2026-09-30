@@ -18,7 +18,14 @@ from app.services.calculation_engine.errors import (
     error_from_indication,
 )
 from app.services.calculation_engine.mpe import MpeResolution, resolve_mpe
-from app.services.calculation_engine.types import CalcContext, CalcOutcome, ObservationRow, RowResult
+from app.rules.expressions import evaluate as evaluate_expression
+from app.services.calculation_engine.types import (
+    CalcContext,
+    CalcOutcome,
+    ObservationRow,
+    RowResult,
+    find_stage,
+)
 from app.utils.decimals import ROUNDING_POLICY_EXACT, ROUNDING_POLICY_R76, quantize, to_decimal
 from app.utils.units import convert_mass, is_mass_unit, normalise_unit
 
@@ -84,6 +91,11 @@ def _tolerance(
     elif unit == "d":
         resolution = ctx.d if ctx.d and ctx.d > 0 else (ctx.e_for(load) or _require_e(ctx))
         limit = factor * resolution
+    elif unit == "mpe":
+        # Some procedures are judged against the MPE that applies to the load
+        # rather than against a fixed multiple of e (the eccentricity test is
+        # the one already in the baseline). `load` selects the interval.
+        limit = factor * _mpe_for(ctx, load if load is not None else Decimal(0)).mpe_value
     else:
         limit = factor
     return limit, tol
@@ -100,7 +112,14 @@ def _finalise(
     rule_version: str | None = None,
     clause: str | None = None,
     unit: str | None = None,
+    require_all_rows: bool = False,
 ) -> CalcOutcome:
+    """Resolve the outcome of a calculation from its governing row.
+
+    ``require_all_rows`` makes the test FAIL when any reported row is outside
+    its own limit, even if the governing row alone would have passed. A test
+    result is only as good as its worst required observation (audit item 3).
+    """
     outcome.measured_value = _maybe_round(ctx, measured)
     outcome.limit_value = limit
     outcome.comparator = comparator
@@ -116,6 +135,12 @@ def _finalise(
     else:
         passed = abs(measured) <= limit
         outcome.margin = limit - abs(measured)
+    if require_all_rows:
+        failed = [row.observation_no for row in outcome.rows if row.within is False]
+        if failed:
+            passed = False
+        outcome.intermediates["required_rows"] = len(outcome.rows)
+        outcome.intermediates["failed_rows"] = failed
     outcome.status = "PASS" if passed else "FAIL"
     outcome.unit = unit if unit is not None else ctx.unit
     outcome.rule_id = rule_id or outcome.rule_id
@@ -168,10 +193,14 @@ def calc_weighing_performance(ctx: CalcContext) -> CalcOutcome:
 
     outcome = CalcOutcome()
     worst: RowResult | None = None
+    zero_reference_rows: set[int] = set()
     assumed_any = False
     for obs, load, comp in computations:
         resolution = _mpe_for(ctx, load)
         reference = zero_error if (apply_zero and load != 0) else None
+        is_zero_reference = apply_zero and zero_error is not None and load == 0
+        if is_zero_reference:
+            zero_reference_rows.add(obs.observation_no)
         rounded_error = _maybe_round(ctx, corrected_error(comp.E, reference))
         margin = resolution.mpe_value - abs(rounded_error)
         row = RowResult(
@@ -193,11 +222,28 @@ def calc_weighing_performance(ctx: CalcContext) -> CalcOutcome:
                 "band": resolution.band_label,
                 "m_over_e": resolution.m,
                 "clause_reference": resolution.clause_reference,
+                "is_zero_reference": is_zero_reference,
             },
         )
         outcome.rows.append(row)
         assumed_any = assumed_any or comp.assumed_additional_load
-        if worst is None or abs(rounded_error) > abs(worst.error or Decimal(0)):
+        # The governing row is the one with the least margin against its own
+        # MPE, not the largest absolute error. Across MPE bands a 16 g error at
+        # a 15 g limit is a worse non-conformity than a 25 g error at a 45 g
+        # limit, so the margin decides; the largest absolute error is still
+        # reported for the record. The zero reading that establishes E0 is not a
+        # test load: it is still checked by the all-rows gate, but it does not
+        # set the reported value because its own error is subtracted from every
+        # other row.
+        if is_zero_reference:
+            continue
+        if worst is None or (
+            row.margin if row.margin is not None else Decimal(0),
+            -abs(rounded_error),
+        ) < (
+            worst.margin if worst.margin is not None else Decimal(0),
+            -abs(worst.error or Decimal(0)),
+        ):
             worst = row
 
     if assumed_any:
@@ -205,18 +251,26 @@ def calc_weighing_performance(ctx: CalcContext) -> CalcOutcome:
             "Additional load to the next changeover point was not supplied for at least one row; "
             "delta_L was taken as zero. For type evaluation R 76-2 normally requires it."
         )
-    assert worst is not None
+    if worst is None:
+        # Only a zero reading was recorded; it is the result in its own right.
+        worst = next(
+            (row for row in outcome.rows if row.observation_no in zero_reference_rows),
+            outcome.rows[0],
+        )
     outcome.intermediates = {
         "method": "P = I + 0.5e - delta_L ; E = P - L ; E_c = E - E_0",
         "zero_error": zero_error,
         "error_at_zero_applied": zero_error is not None,
+        "zero_reference_rows": sorted(zero_reference_rows),
         "governing_row": worst.observation_no,
-        "max_abs_error": abs(worst.error or Decimal(0)),
+        "governing_margin": worst.margin,
+        "max_abs_error": max(abs(row.error or Decimal(0)) for row in outcome.rows),
+        "rows_outside_mpe": [row.observation_no for row in outcome.rows if row.within is False],
         "row_count": len(outcome.rows),
     }
     outcome.explanation = (
         f"Governing error {worst.error} {ctx.unit} at row {worst.observation_no} "
-        f"against MPE +/-{worst.mpe} {ctx.unit}."
+        f"against MPE +/-{worst.mpe} {ctx.unit} (margin {worst.margin} {ctx.unit})."
     )
     return _finalise(
         ctx, outcome,
@@ -226,6 +280,7 @@ def calc_weighing_performance(ctx: CalcContext) -> CalcOutcome:
         rule_id=worst.detail.get("rule_id"),
         clause=worst.detail.get("clause_reference"),
         unit=ctx.unit,
+        require_all_rows=True,
     )
 
 
@@ -250,10 +305,19 @@ def calc_repeatability(ctx: CalcContext) -> CalcOutcome:
         )
         groups.setdefault(str(load), []).append((obs, load, comp.E))
 
+    minimum_repetitions = int(ctx.calc_rule("min_repetitions", 2) or 2)
+    for load_key, entries in groups.items():
+        if len(entries) < minimum_repetitions:
+            raise MissingInputError(
+                f"load {load_key} {ctx.unit} was weighed {len(entries)} time(s);"
+                f" repeatability requires at least {minimum_repetitions} repetitions of every load"
+            )
+
     outcome = CalcOutcome()
     worst_spread: Decimal | None = None
     worst_load: Decimal | None = None
     worst_limit: Decimal | None = None
+    worst_margin: Decimal | None = None
     worst_rule_id: str | None = None
     worst_clause: str | None = None
 
@@ -261,6 +325,7 @@ def calc_repeatability(ctx: CalcContext) -> CalcOutcome:
         errors = [error for _obs, _load, error in entries]
         spread = max(errors) - min(errors)
         resolution = _mpe_for(ctx, Decimal(load_key))
+        spread_margin = resolution.mpe_value - spread
         for obs, load, error in entries:
             rounded = _maybe_round(ctx, error)
             outcome.rows.append(
@@ -280,12 +345,16 @@ def calc_repeatability(ctx: CalcContext) -> CalcOutcome:
                         "group_min_error": min(errors),
                         "group_max_error": max(errors),
                         "group_spread": spread,
+                        "group_margin": spread_margin,
                         "rule_id": resolution.rule_id,
                     },
                 )
             )
-        if worst_spread is None or spread > worst_spread:
+        # The governing group is the one whose spread has the least margin
+        # against the MPE; every repetition and every spread must pass.
+        if worst_margin is None or spread_margin < worst_margin:
             worst_spread, worst_load = spread, Decimal(load_key)
+            worst_margin = spread_margin
             worst_limit, worst_rule_id = resolution.mpe_value, resolution.rule_id
             worst_clause = resolution.clause_reference
 
@@ -302,11 +371,15 @@ def calc_repeatability(ctx: CalcContext) -> CalcOutcome:
         },
         "governing_load": worst_load,
         "governing_spread": worst_spread,
+        "governing_margin": worst_margin,
         "runs": len(ctx.observations),
+        "minimum_repetitions": minimum_repetitions,
+        "rule": "every repetition must lie within its MPE and the spread of every group must not exceed it",
     }
     outcome.explanation = (
         f"Largest spread {worst_spread} {ctx.unit} at load {worst_load} {ctx.unit} "
-        f"against MPE +/-{worst_limit} {ctx.unit}."
+        f"against MPE +/-{worst_limit} {ctx.unit}; every repetition was also checked"
+        f" against the MPE for its load."
     )
     return _finalise(
         ctx, outcome,
@@ -316,6 +389,7 @@ def calc_repeatability(ctx: CalcContext) -> CalcOutcome:
         rule_id=worst_rule_id,
         clause=worst_clause,
         unit=ctx.unit,
+        require_all_rows=True,
     )
 
 
@@ -420,78 +494,546 @@ def calc_eccentricity(ctx: CalcContext) -> CalcOutcome:
 
 
 # ---------------------------------------------------------------------------
-# Generic deviation calculators (zero return, creep, temperature, stability)
+# Procedure helpers shared by the sequence tests
+#
+# The procedures below differ only in which reading is the reference of the
+# method and in what else must have been recorded; the comparison itself (every
+# reading against the reading the procedure designates, limited by the
+# tolerance that applies to the load) is written once. Every one of them
+# requires all of its rows to pass, not just the governing row.
 # ---------------------------------------------------------------------------
-def _deviation_calculator(tolerance_key: str, method: str, minimum_rows: int = 2):
-    def calculator(ctx: CalcContext) -> CalcOutcome:
-        reference_load = next((obs.load for obs in ctx.observations if obs.load is not None), None)
-        limit, tol = _tolerance(ctx, tolerance_key, reference_load)
-        if limit is None:
-            raise ValidationError(
-                f"ruleset is missing tolerance '{tolerance_key}'; cannot evaluate this test"
-            )
-        values: list[tuple[ObservationRow, Decimal]] = []
-        for obs in ctx.observations:
-            raw = obs.value if obs.value is not None else obs.indication
-            number = to_decimal(raw, field=f"value (row {obs.observation_no})")
-            if number is None:
-                raise MissingInputError(
-                    f"indication value is required on observation row {obs.observation_no}"
-                )
-            values.append((obs, number))
-        if len(values) < minimum_rows:
+TEMPERATURE_REFERENCE_C = Decimal(20)
+ZERO_REFERENCE_PHRASES = ("initial", "zero", "start", "no load", "unloaded", "empty")
+
+
+def _value_entries(ctx: CalcContext) -> list[tuple[ObservationRow, Decimal]]:
+    """Every observation row as (row, reading), refusing a row without a reading."""
+    entries: list[tuple[ObservationRow, Decimal]] = []
+    for obs in ctx.observations:
+        raw = obs.value if obs.value is not None else obs.indication
+        number = to_decimal(raw, field=f"value (row {obs.observation_no})")
+        if number is None:
             raise MissingInputError(
-                f"{tolerance_key} requires at least {minimum_rows} observation rows"
+                f"indication value is required on observation row {obs.observation_no}"
             )
+        entries.append((obs, number))
+    return entries
 
-        outcome = CalcOutcome()
-        reference_obs, reference_value = values[0]
-        for obs, value in values:
-            deviation = value - reference_value
-            outcome.rows.append(
-                RowResult(
-                    observation_no=obs.observation_no,
-                    label=obs.label,
-                    value=value,
-                    error=deviation,
-                    mpe=limit,
-                    margin=limit - abs(deviation),
-                    within=abs(deviation) <= limit,
-                    detail={
-                        "reference_value": reference_value,
-                        "deviation": deviation,
-                        "range_no": obs.range_no,
-                        "elapsed_seconds": obs.elapsed_seconds,
-                        "temperature_c": obs.temperature_c,
-                        "clause_reference": tol.get("clause_reference"),
-                    },
-                )
+
+def _stage_label(obs: ObservationRow) -> str:
+    return (obs.label or obs.item_code or "").strip().lower()
+
+
+def _match_stage(observations: list[ObservationRow], phrases: tuple[str, ...]) -> int | None:
+    """Index of the first row whose stage label names one of ``phrases``."""
+    return find_stage(observations, phrases)
+
+
+def _resolve_reference(
+    ctx: CalcContext,
+    entries: list[tuple[ObservationRow, Decimal]],
+    *,
+    phrases: tuple[str, ...],
+) -> tuple[int, list[str]]:
+    """The reference row of a procedure, plus any assumption that was made."""
+    hint = ctx.calc_rule("reference_row")
+    if isinstance(hint, str) and hint.strip():
+        hint = hint.strip().lower()
+        if hint == "first":
+            return 0, []
+        # The catalogue names the reference stage as an identifier
+        # ("before_disturbance"); the operator records it as a label
+        # ("before disturbance"). Both spellings have to find the row.
+        alternatives = (hint, hint.replace("_", " "), hint.replace("_", ""))
+        index = _match_stage([obs for obs, _ in entries], alternatives)
+        if index is not None:
+            return index, []
+    index = _match_stage([obs for obs, _ in entries], phrases)
+    if index is not None:
+        return index, []
+    return 0, [
+        "No reference reading could be identified by its stage label;"
+        " the first observation was used as the reference."
+    ]
+
+
+def _procedure_tolerance_key(ctx: CalcContext, default: str) -> str:
+    """The tolerance a procedure is judged against, as configured in the catalogue."""
+    configured = ctx.calc_rule("tolerance_key")
+    if isinstance(configured, str) and configured.strip():
+        return configured.strip()
+    source = ctx.compliance_rule("limit_source")
+    if isinstance(source, str) and source.startswith("tolerance:"):
+        return source.split(":", 1)[1].strip()
+    return default
+
+
+def _tolerance_limit(ctx: CalcContext, key: str, load: Decimal | None):
+    limit, tol = _tolerance(ctx, key, load)
+    if limit is None:
+        raise ValidationError(f"ruleset is missing tolerance '{key}'; cannot evaluate this test")
+    return limit, tol
+
+
+def _worst_row(rows: list[RowResult]) -> RowResult:
+    """The row with the least margin against its own limit."""
+    return min(
+        rows,
+        key=lambda row: (
+            row.margin if row.margin is not None else Decimal(0),
+            -(abs(row.error) if row.error is not None else Decimal(0)),
+        ),
+    )
+
+
+def _pending_review_warning(tolerance_key: str, tol: dict[str, Any]) -> str | None:
+    if tol.get("review_status") == "pending_domain_review":
+        return (
+            f"The limit for '{tolerance_key}' is awaiting metrology review"
+            f" ({tol.get('clause_reference') or 'no clause reference recorded'});"
+            " the verdict depends on that limit."
+        )
+    return None
+
+
+def _sequence_outcome(
+    ctx: CalcContext,
+    *,
+    tolerance_key: str,
+    method: str,
+    entries: list[tuple[ObservationRow, Decimal]],
+    reference_index: int,
+    reference_basis: str,
+    extra_intermediates: dict[str, Any] | None = None,
+    warnings: list[str] | None = None,
+) -> CalcOutcome:
+    """Compare every reading of a sequence with the reading that governs them."""
+    if len(entries) < 2:
+        raise MissingInputError(f"{tolerance_key} requires at least two observation rows")
+    if reference_index >= len(entries) - 1:
+        raise MissingInputError(
+            "no observation after the reference reading of this procedure was recorded"
+        )
+
+    reference_obs, reference_value = entries[reference_index]
+    outcome = CalcOutcome()
+    outcome.warnings.extend(warnings or [])
+    tol: dict[str, Any] = {}
+    for obs, value in entries:
+        limit, tol = _tolerance_limit(ctx, tolerance_key, obs.load)
+        deviation = value - reference_value
+        outcome.rows.append(
+            RowResult(
+                observation_no=obs.observation_no,
+                label=obs.label,
+                load=obs.load,
+                value=value,
+                error=deviation,
+                reference_error=reference_value,
+                corrected_error=deviation,
+                mpe=limit,
+                margin=limit - abs(deviation),
+                within=abs(deviation) <= limit,
+                detail={
+                    "reference_value": reference_value,
+                    "deviation": deviation,
+                    "reference_basis": reference_basis,
+                    "range_no": obs.range_no,
+                    "elapsed_seconds": obs.elapsed_seconds,
+                    "temperature_c": obs.temperature_c,
+                    "rule_id": tol.get("rule_id"),
+                    "clause_reference": tol.get("clause_reference"),
+                },
             )
-        worst = max(outcome.rows, key=lambda row: abs(row.error or Decimal(0)))
-        outcome.intermediates = {
-            "method": method,
-            "reference_row": reference_obs.observation_no,
-            "reference_value": reference_value,
-            "governing_row": worst.observation_no,
-            "max_abs_deviation": worst.error,
-            "tolerance": tol,
-            "comparator": tol.get("comparator", "abs_lte"),
-        }
-        outcome.explanation = (
-            f"Maximum deviation {worst.error} {ctx.unit} against limit {limit} {ctx.unit} "
-            f"({tol.get('clause_reference', '')})."
-        )
-        return _finalise(
-            ctx, outcome,
-            measured=abs(worst.error or Decimal(0)),
-            limit=limit,
-            comparator=tol.get("comparator", "abs_lte"),
-            rule_id=tol.get("rule_id", f"R76-{tolerance_key.upper()}"),
-            clause=tol.get("clause_reference"),
-            unit=ctx.unit,
         )
 
-    return calculator
+    worst = _worst_row(outcome.rows)
+    outcome.intermediates = {
+        "method": method,
+        "reference_row": reference_obs.observation_no,
+        "reference_basis": reference_basis,
+        "reference_value": reference_value,
+        "governing_row": worst.observation_no,
+        "governing_deviation": worst.error,
+        "max_abs_deviation": max(abs(row.error or Decimal(0)) for row in outcome.rows),
+        "rows_outside_limit": [row.observation_no for row in outcome.rows if row.within is False],
+        "tolerance": tol,
+        "comparator": tol.get("comparator", "abs_lte"),
+        **(extra_intermediates or {}),
+    }
+    pending = _pending_review_warning(tolerance_key, tol)
+    if pending:
+        outcome.warnings.append(pending)
+    outcome.explanation = (
+        f"Governing deviation {worst.error} {ctx.unit} at row {worst.observation_no}"
+        f" against the limit {worst.mpe} {ctx.unit} that applies to it."
+    )
+    return _finalise(
+        ctx,
+        outcome,
+        measured=abs(worst.error or Decimal(0)),
+        limit=worst.mpe or Decimal(0),
+        comparator=tol.get("comparator", "abs_lte"),
+        rule_id=tol.get("rule_id", f"R76-{tolerance_key.upper()}"),
+        clause=tol.get("clause_reference"),
+        unit=ctx.unit,
+        require_all_rows=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Zero return (OIML R 76-1:2006 4.5.4 / T.3.2.1)
+# ---------------------------------------------------------------------------
+def calc_zero_return(ctx: CalcContext) -> CalcOutcome:
+    """Deviation of the zero indication after the load has been removed.
+
+    The reference is the zero reading taken before the load was applied, never
+    simply the first row of the table: a table recorded in another order must
+    not change the metrological result.
+    """
+    entries = _value_entries(ctx)
+    if len(entries) < 2:
+        raise MissingInputError(
+            "zero return requires the initial zero reading and the reading taken after unloading"
+        )
+    index, warnings = _resolve_reference(ctx, entries, phrases=ZERO_REFERENCE_PHRASES)
+    return _sequence_outcome(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "zero_return"),
+        method="E_zr = reading(after unloading) - reading(initial zero)",
+        entries=entries,
+        reference_index=index,
+        reference_basis="initial zero reading taken before the load was applied",
+        extra_intermediates={"return_readings": len(entries) - index - 1},
+        warnings=warnings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Creep, warm-up and stability: procedures defined by the course of time
+# ---------------------------------------------------------------------------
+def _time_ordered_sequence(
+    ctx: CalcContext,
+    *,
+    tolerance_key: str,
+    method: str,
+    reference_basis: str,
+    minimum_duration: Decimal | None,
+) -> CalcOutcome:
+    entries = _value_entries(ctx)
+    if len(entries) < 2:
+        raise MissingInputError(
+            f"{tolerance_key} requires the reading at the start of the period and at least one later reading"
+        )
+    missing = [obs.observation_no for obs, _ in entries if obs.elapsed_seconds is None]
+    if missing:
+        raise MissingInputError(
+            "every reading of this procedure must record the elapsed time;"
+            " no time was recorded for row(s) "
+            + ", ".join(str(number) for number in missing)
+        )
+    ordered = sorted(entries, key=lambda item: (item[0].elapsed_seconds, item[0].observation_no))
+    duration = ordered[-1][0].elapsed_seconds - ordered[0][0].elapsed_seconds
+    minimum = to_decimal(
+        ctx.calc_rule("minimum_duration_seconds", minimum_duration),
+        field="minimum_duration_seconds",
+    )
+    if minimum is not None and duration < minimum:
+        raise MissingInputError(
+            f"the observation period must last at least {minimum} s;"
+            f" the recorded readings cover {duration} s"
+        )
+    warnings: list[str] = []
+    if not any(obs.temperature_c is not None for obs, _ in ordered):
+        warnings.append("No ambient temperature was recorded during the observation period.")
+    return _sequence_outcome(
+        ctx,
+        tolerance_key=tolerance_key,
+        method=method,
+        entries=ordered,
+        reference_index=0,
+        reference_basis=reference_basis,
+        extra_intermediates={
+            "observation_seconds": str(duration),
+            "minimum_duration_seconds": str(minimum) if minimum is not None else None,
+        },
+        warnings=warnings,
+    )
+
+
+def calc_creep(ctx: CalcContext) -> CalcOutcome:
+    """Creep: change of indication under a constant load (4.5.5 / T.3.3).
+
+    The reading at the start of the constant-load period is the reference; the
+    load must be held for the configured minimum period, and every reading must
+    carry its elapsed time so the period can be proven from the record.
+    """
+    return _time_ordered_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "creep"),
+        method="E_i = reading(t_i) - reading(t_0) under a constant load",
+        reference_basis="reading at the start of the constant-load period",
+        minimum_duration=Decimal(900),
+    )
+
+
+def calc_warmup(ctx: CalcContext) -> CalcOutcome:
+    """Warm-up time: drift between power-on and the end of the warm-up period."""
+    return _time_ordered_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "warmup"),
+        method="E_i = reading(t_i) - reading(t_0) after power-on",
+        reference_basis="reading taken at power-on (t = 0)",
+        minimum_duration=Decimal(1800),
+    )
+
+
+def calc_stability(ctx: CalcContext) -> CalcOutcome:
+    """Stability of equilibrium: variation of the indication while loaded."""
+    entries = _value_entries(ctx)
+    if len(entries) < 2:
+        raise MissingInputError(
+            "stability requires at least two readings of the loaded instrument"
+        )
+    times = [obs.elapsed_seconds for obs, _ in entries]
+    warnings: list[str] = []
+    intermediates: dict[str, Any] = {}
+    if any(value is None for value in times):
+        ordered = entries
+        warnings.append(
+            "The elapsed time was not recorded against every reading, so the length of the"
+            " observation period could not be confirmed from the record."
+        )
+    else:
+        ordered = sorted(entries, key=lambda item: (item[0].elapsed_seconds, item[0].observation_no))
+        duration = ordered[-1][0].elapsed_seconds - ordered[0][0].elapsed_seconds
+        intermediates["observation_seconds"] = str(duration)
+        minimum = to_decimal(
+            ctx.calc_rule("minimum_duration_seconds"), field="minimum_duration_seconds"
+        )
+        if minimum is not None and duration < minimum:
+            raise MissingInputError(
+                f"the stability observation period must last at least {minimum} s;"
+                f" the recorded readings cover {duration} s"
+            )
+    return _sequence_outcome(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "stability"),
+        method="E_i = reading(t_i) - reading(t_0) over the observation period",
+        entries=ordered,
+        reference_index=0,
+        reference_basis="first reading of the observation period",
+        extra_intermediates=intermediates,
+        warnings=warnings,
+    )
+
+
+def calc_temperature_no_load(ctx: CalcContext) -> CalcOutcome:
+    """Temperature effect on the no-load indication (4.5.2 / T.3.4.2).
+
+    The reference is the reading taken nearest the reference temperature, the
+    recorded temperatures must cover the span the procedure requires, and every
+    row must state the temperature at which it was read.
+    """
+    entries = _value_entries(ctx)
+    if len(entries) < 2:
+        raise MissingInputError(
+            "the temperature effect on the no-load indication requires readings at two or more temperatures"
+        )
+    missing = [obs.observation_no for obs, _ in entries if obs.temperature_c is None]
+    if missing:
+        raise MissingInputError(
+            "the temperature must be recorded against every reading;"
+            " no temperature was recorded for row(s) "
+            + ", ".join(str(number) for number in missing)
+        )
+    temperatures = [obs.temperature_c for obs, _ in entries]
+    span = max(temperatures) - min(temperatures)
+    required_span = to_decimal(
+        ctx.calc_rule("required_temperature_span_c"), field="required_temperature_span_c"
+    )
+    if required_span is not None and span < required_span:
+        raise MissingInputError(
+            f"the recorded temperatures span {span} C, which is less than the"
+            f" {required_span} C this procedure requires"
+        )
+    reference_c = to_decimal(
+        ctx.calc_rule("reference_temperature_c", TEMPERATURE_REFERENCE_C),
+        field="reference_temperature_c",
+    )
+    index = min(
+        range(len(entries)),
+        key=lambda position: (
+            abs(entries[position][0].temperature_c - reference_c),
+            entries[position][0].observation_no,
+        ),
+    )
+    warnings: list[str] = []
+    if entries[index][0].temperature_c != reference_c:
+        warnings.append(
+            f"No reading was taken exactly at the reference temperature {reference_c} C;"
+            " the nearest reading was used as the reference."
+        )
+    return _sequence_outcome(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "temperature_no_load"),
+        method="E_i = reading(T_i) - reading(T_ref), instrument unloaded",
+        entries=entries,
+        reference_index=index,
+        reference_basis=f"reading nearest the reference temperature {reference_c} C",
+        extra_intermediates={
+            "temperature_span": str(span),
+            "required_temperature_span_c": str(required_span) if required_span is not None else None,
+            "reference_temperature_c": str(reference_c),
+        },
+        warnings=warnings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Procedures whose reference is a stage of the record
+# (tilting, voltage variation, immunity, damp heat)
+# ---------------------------------------------------------------------------
+def _positional_sequence(
+    ctx: CalcContext,
+    *,
+    tolerance_key: str,
+    method: str,
+    reference_phrases: tuple[str, ...],
+    reference_basis: str,
+) -> CalcOutcome:
+    entries = _value_entries(ctx)
+    if len(entries) < 2:
+        raise MissingInputError(f"{tolerance_key} requires at least two observation rows")
+    index, warnings = _resolve_reference(ctx, entries, phrases=reference_phrases)
+    return _sequence_outcome(
+        ctx,
+        tolerance_key=tolerance_key,
+        method=method,
+        entries=entries,
+        reference_index=index,
+        reference_basis=reference_basis,
+        warnings=warnings,
+    )
+
+
+def calc_tilt(ctx: CalcContext) -> CalcOutcome:
+    """Tilting: effect of leaving the reference position (T.3.6)."""
+    return _positional_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "tilt"),
+        method="E_tilt = reading(tilted position) - reading(reference position)",
+        reference_phrases=("level", "horizontal", "reference position", "not tilted", "0 tilt"),
+        reference_basis="reading with the instrument in its reference position",
+    )
+
+
+def calc_voltage_variation(ctx: CalcContext) -> CalcOutcome:
+    """Mains voltage variation, dips and short interruptions (T.3.9)."""
+    return _positional_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "voltage_variation"),
+        method="E_v = reading(supply condition) - reading(nominal supply)",
+        reference_phrases=("nominal", "rated supply", "reference supply", "rated"),
+        reference_basis="reading at the nominal supply voltage",
+    )
+
+
+def calc_emc_immunity(ctx: CalcContext) -> CalcOutcome:
+    """Electrical bursts, surges, ESD and RF immunity (T.3.10)."""
+    return _positional_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "emc_immunity"),
+        method="E_emc = reading(after the disturbance) - reading(before the disturbance)",
+        reference_phrases=("before", "no disturbance", "baseline", "reference"),
+        reference_basis="reading taken before the disturbance was applied",
+    )
+
+
+def calc_damp_heat(ctx: CalcContext) -> CalcOutcome:
+    """Damp heat, span stability and endurance (T.3.11)."""
+    return _positional_sequence(
+        ctx,
+        tolerance_key=_procedure_tolerance_key(ctx, "damp_heat"),
+        method="E_dh = reading(after conditioning) - reading(before conditioning)",
+        reference_phrases=("before", "pre-conditioning", "baseline", "reference"),
+        reference_basis="reading taken before the conditioning stage",
+    )
+
+
+def calc_tare(ctx: CalcContext) -> CalcOutcome:
+    """Tare device in subtractive mode (4.6.4 / T.3.13).
+
+    Once the tare device is engaged the instrument must indicate zero, and the
+    net indication of a load applied afterwards must agree with that load. Both
+    are the same quantity: the error of indication of the tared reading.
+    """
+    _require_e(ctx)
+    if len(ctx.observations) < 2:
+        raise MissingInputError(
+            "the tare procedure requires the tared zero reading and at least one loaded reading"
+        )
+    require_dl = bool(ctx.calc_rule("require_additional_load", False))
+    tolerance_key = _procedure_tolerance_key(ctx, "tare")
+    outcome = CalcOutcome()
+    tol: dict[str, Any] = {}
+    for obs in ctx.observations:
+        load = _load_in_instrument_unit(ctx, obs)
+        computation = error_from_indication(
+            indication=obs.indication,
+            load=load,
+            e=ctx.e,
+            additional_load=obs.additional_load,
+            require_additional_load=require_dl,
+        )
+        limit, tol = _tolerance_limit(ctx, tolerance_key, load)
+        error = _maybe_round(ctx, computation.E)
+        outcome.rows.append(
+            RowResult(
+                observation_no=obs.observation_no,
+                label=obs.label,
+                load=load,
+                indication=computation.indication,
+                additional_load=computation.additional_load,
+                error=error,
+                mpe=limit,
+                margin=limit - abs(error),
+                within=abs(error) <= limit,
+                detail={
+                    **computation.as_dict(),
+                    "tare_mode": ctx.calc_rule("tare_mode", "subtractive"),
+                    "rule_id": tol.get("rule_id"),
+                    "clause_reference": tol.get("clause_reference"),
+                },
+            )
+        )
+    worst = _worst_row(outcome.rows)
+    outcome.intermediates = {
+        "method": "E = I + 0.5e - dL - L with the tare device engaged",
+        "tare_mode": ctx.calc_rule("tare_mode", "subtractive"),
+        "governing_row": worst.observation_no,
+        "max_abs_error": max(abs(row.error or Decimal(0)) for row in outcome.rows),
+        "rows_outside_limit": [row.observation_no for row in outcome.rows if row.within is False],
+        "tolerance": tol,
+    }
+    pending = _pending_review_warning(tolerance_key, tol)
+    if pending:
+        outcome.warnings.append(pending)
+    outcome.explanation = (
+        f"Governing tare error {worst.error} {ctx.unit} at row {worst.observation_no}"
+        f" against the limit {worst.mpe} {ctx.unit} that applies to it."
+    )
+    return _finalise(
+        ctx,
+        outcome,
+        measured=abs(worst.error or Decimal(0)),
+        limit=worst.mpe or Decimal(0),
+        comparator="abs_lte",
+        rule_id=tol.get("rule_id", "R76-TARE"),
+        clause=tol.get("clause_reference"),
+        unit=ctx.unit,
+        require_all_rows=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -620,9 +1162,45 @@ def calc_discrimination(ctx: CalcContext) -> CalcOutcome:
 # ---------------------------------------------------------------------------
 # Checklist tests (construction, identification / markings)
 # ---------------------------------------------------------------------------
+def _conditional_checklist_items(ctx: CalcContext) -> dict[str, str]:
+    """Checklist items that are mandatory only on some instruments.
+
+    A tare device, embedded software or a battery only has to be examined when
+    the instrument actually has one, so each condition is evaluated against the
+    same configuration attributes the applicability expressions use (audit item
+    6). The returned mapping is the item and the reason it applies here, which is
+    shown when the item is missing.
+    """
+    requirements = ctx.calc_rule("conditional_items", []) or []
+    if not requirements:
+        return {}
+    context = {"instrument": ctx.instrument, "environment": ctx.environment, "case": {}}
+    applied: dict[str, str] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            continue
+        item = requirement.get("item_code")
+        if not item:
+            continue
+        condition = requirement.get("when") or {}
+        try:
+            applies = evaluate_expression(condition, context).passed
+        except Exception as exc:
+            raise ValidationError(
+                f"the applicability condition of checklist item '{item}' could not be"
+                f" evaluated: {exc}"
+            ) from exc
+        if applies:
+            applied[item] = requirement.get("description") or "the condition applies to this instrument"
+    return applied
+
 def _checklist_calculator():
     def calculator(ctx: CalcContext) -> CalcOutcome:
         mandatory = list(ctx.calc_rule("mandatory_items", []) or [])
+        conditional = _conditional_checklist_items(ctx)
+        for item in conditional:
+            if item not in mandatory:
+                mandatory.append(item)
         if not ctx.observations:
             raise MissingInputError("at least one checklist row is required")
 
@@ -652,8 +1230,12 @@ def _checklist_calculator():
 
         missing = [item for item in mandatory if item not in seen]
         if missing:
+            described = ", ".join(
+                f"{item} ({conditional[item]})" if item in conditional else item
+                for item in missing
+            )
             raise MissingInputError(
-                "checklist is incomplete; missing mandatory item(s): " + ", ".join(missing)
+                "checklist is incomplete; missing mandatory item(s): " + described
             )
 
         outcome.intermediates = {
@@ -661,6 +1243,7 @@ def _checklist_calculator():
             "items_checked": len(outcome.rows),
             "non_conforming": non_conforming,
             "mandatory_items": mandatory,
+            "conditional_items_applied": conditional,
         }
         outcome.explanation = (
             "All checklist items conform."
@@ -687,21 +1270,18 @@ CALCULATORS: dict[str, Callable[[CalcContext], CalcOutcome]] = {
     "T-WP": calc_weighing_performance,
     "T-REP": calc_repeatability,
     "T-ECC": calc_eccentricity,
-    "T-ZR": _deviation_calculator(
-        "zero_return",
-        "deviation of the zero indication after unloading relative to the initial zero reading",
-    ),
-    "T-CREEP": _deviation_calculator(
-        "creep", "change in indication over the observation period under constant load"
-    ),
-    "T-TEMP-NL": _deviation_calculator(
-        "temperature_no_load", "variation of the no-load indication over the temperature range"
-    ),
+    "T-ZR": calc_zero_return,
+    "T-CREEP": calc_creep,
+    "T-TEMP-NL": calc_temperature_no_load,
     "T-SENS": calc_sensitivity,
     "T-DISC": calc_discrimination,
-    "T-STAB": _deviation_calculator(
-        "stability", "variation of the indication during the stability observation period"
-    ),
+    "T-STAB": calc_stability,
+    "T-TILT": calc_tilt,
+    "T-TARE": calc_tare,
+    "T-WARMUP": calc_warmup,
+    "T-VOLT": calc_voltage_variation,
+    "T-EMC": calc_emc_immunity,
+    "T-DAMP": calc_damp_heat,
     "T-CHK-CON": _checklist_calculator(),
     "T-CHK-ID": _checklist_calculator(),
 }

@@ -80,14 +80,54 @@ def test_every_implemented_test_names_its_calculator(rows):
         assert "no calculator registered" not in formula
 
 
-def test_unimplemented_tests_stay_visible_with_their_reason(rows):
+def test_every_entry_reports_the_implementation_status_the_code_has(rows):
+    """A row must never claim more, or less, than the engine can execute."""
+    by_code = {rule_ids(row[0])[0]: row for row in rows["1. Test coverage"]}
+    catalogue = load_test_catalogue()
+    registered = set(supported_test_codes())
+
+    for entry in catalogue["tests"] + list(catalogue.get("phase2_tests", [])):
+        row = by_code[entry["test_code"]]
+        executable = entry["test_code"] in registered
+        if entry["implementation_status"] == "implemented":
+            assert row[10].startswith("implemented"), row[10]
+            assert executable, "the matrix claims a calculator the registry does not have"
+            assert "calculators.py::" in row[6]
+        else:
+            assert row[10].startswith("not_implemented"), row[10]
+            assert not executable, "an unimplemented test must not have a calculator"
+            assert "no calculator registered" in row[6]
+
+
+def test_a_limit_that_is_still_a_proposal_is_marked_as_one(rows):
+    """Provisional limits must be visible as proposals, not as validated rules.
+
+    The phase-2 procedures are executable, but the factors they are judged
+    against are project proposals (audit item 8 in the coverage report, item 6
+    of the review checklist). A reader of the matrix must be able to tell which
+    limits still need a metrology reviewer's confirmation.
+    """
+    ruleset = load_ruleset()
+    table = {rule_ids(row[0])[0]: row for row in rows["2. Rule coverage"]}
     by_code = {rule_ids(row[0])[0]: row for row in rows["1. Test coverage"]}
     catalogue = load_test_catalogue()
 
-    for entry in catalogue["phase2_tests"]:
-        row = by_code[entry["test_code"]]
-        assert row[10].startswith("not_implemented"), row[10]
-        assert "no calculator registered" in row[6], "an unimplemented test must not claim a formula"
+    provisional = {
+        key: tol for key, tol in (ruleset.get("tolerances") or {}).items()
+        if tol.get("review_status") == "pending_domain_review"
+    }
+    assert provisional, "the phase-2 limits must stay marked until a reviewer signs them off"
+
+    for key in provisional:
+        canonical = "R76-%s" % key.upper().replace("_", "-")
+        assert table[canonical][9] == "pending_domain_review", table[canonical]
+
+    for entry in catalogue["tests"] + list(catalogue.get("phase2_tests", [])):
+        source = (entry.get("compliance_rules") or {}).get("limit_source", "")
+        if not isinstance(source, str) or not source.startswith("tolerance:"):
+            continue
+        if source.split(":", 1)[1] in provisional:
+            assert "PROVISIONAL" in by_code[entry["test_code"]][7], by_code[entry["test_code"]][7]
 
 
 def test_every_rule_in_the_ruleset_has_a_mapping(rows):

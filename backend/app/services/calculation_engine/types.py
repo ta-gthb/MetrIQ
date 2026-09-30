@@ -46,6 +46,20 @@ class ObservationRow:
         }
 
 
+def find_stage(observations: list["ObservationRow"], phrases: tuple[str, ...]) -> int | None:
+    """Index of the first row whose stage label names one of ``phrases``.
+
+    Whole phrases are matched against the lower-cased label, so "after
+    unloading" is not mistaken for an initial zero reading merely because it
+    mentions unloading.
+    """
+    for index, obs in enumerate(observations):
+        label = (obs.label or obs.item_code or "").strip().lower()
+        if label and any(phrase in label for phrase in phrases):
+            return index
+    return None
+
+
 @dataclass(slots=True)
 class RowResult:
     """Per-row calculation output, retained for the "How calculated" panel."""

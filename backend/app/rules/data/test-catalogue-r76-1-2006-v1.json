@@ -13,8 +13,8 @@
       "implemented": "A deterministic calculator is registered for the test code: the engine computes the result and the compliance engine decides PASS or FAIL from the versioned ruleset.",
       "not_implemented": "The catalogue entry, input schema, validation, report mapping and evidence requirements are complete, but no deterministic calculator exists yet, so the test cannot produce a result. The entry stays visible in the test plan and in the coverage matrix instead of being hidden."
     },
-    "totals": {"entries": 17, "implemented": 11, "not_implemented": 6},
-    "unsupported_tests": ["T-TILT", "T-TARE", "T-WARMUP", "T-VOLT", "T-EMC", "T-DAMP"],
+    "totals": {"entries": 17, "implemented": 17, "not_implemented": 0},
+    "unsupported_tests": [],
     "clause_references_provisional": [
       "T-WP",
       "T-REP",
@@ -37,7 +37,8 @@
     "notes": [
       "Implementation status is per entry and is surfaced by the test plan, the standards API and the coverage matrix (docs/architecture/oiml-coverage-matrix.md).",
       "Clause references are collected from the project baseline and are marked provisional until a competent metrology reviewer validates them against the controlled OIML R 76-1 text (audit item 6).",
-      "A test that is not implemented is reported as unsupported; it is never silently dropped from the plan."
+      "A test that is not implemented is reported as unsupported; it is never silently dropped from the plan.",
+      "The influence-factor procedures (T-TILT, T-TARE, T-WARMUP, T-VOLT, T-EMC, T-DAMP) are executable, but the limits they are judged against are project proposals marked review_status = pending_domain_review in the ruleset. They are seeded inactive for that reason and must not be enabled until a competent metrology reviewer confirms every limit against the controlled standard text."
     ]
   },
   "tests": [
@@ -72,7 +73,11 @@
       "validation_rules": {
         "min_rows": 1,
         "non_negative_fields": ["load", "indication", "additional_load"],
-        "required_fields": ["load", "indication"]
+        "required_fields": ["load", "indication"],
+        "required_rows": [
+          {"load_equals": "0",
+           "description": "zero-load reading that establishes E0 for the zero correction"}
+        ]
       },
       "calculation_rules": {
         "method": "digital_indication_error",
@@ -157,7 +162,11 @@
       "validation_rules": {
         "min_rows": 2,
         "non_negative_fields": ["load", "indication", "additional_load"],
-        "required_fields": ["load", "indication"]
+        "required_fields": ["load", "indication"],
+        "required_rows": [
+          {"match": ["centre", "center", "middle", "central"],
+           "description": "reading with the load applied at the centre position"}
+        ]
       },
       "calculation_rules": {
         "method": "eccentricity_difference",
@@ -195,8 +204,23 @@
         ],
         "row_label": "Stage"
       },
-      "validation_rules": {"min_rows": 2, "required_fields": ["value"], "non_negative_fields": []},
-      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "validation_rules": {
+        "min_rows": 2,
+        "required_fields": ["value"],
+        "non_negative_fields": [],
+        "required_rows": [
+          {"match": ["initial", "zero", "start", "no load", "unloaded", "empty"],
+           "description": "initial zero reading taken before the load is applied"},
+          {"match": ["after", "return", "end"],
+           "description": "zero indication after the load has been removed"}
+        ],
+        "stage_order": "strict"
+      },
+      "calculation_rules": {
+        "method": "zero_return_from_initial_reading",
+        "reference_row": "initial",
+        "round_to_resolution": false
+      },
       "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:zero_return"},
       "report_section_mapping": {"section": "tests", "number": "6.4", "title": "Zero return"},
       "evidence_requirements": {"required": false, "recommended": []}
@@ -228,8 +252,17 @@
         ],
         "row_label": "Reading"
       },
-      "validation_rules": {"min_rows": 2, "required_fields": ["value"], "non_negative_fields": ["elapsed_seconds"]},
-      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "validation_rules": {
+        "min_rows": 2,
+        "required_fields": ["value", "elapsed_seconds"],
+        "non_negative_fields": ["elapsed_seconds"]
+      },
+      "calculation_rules": {
+        "method": "creep_over_constant_load",
+        "reference_row": "first",
+        "minimum_duration_seconds": 900,
+        "round_to_resolution": false
+      },
       "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:creep"},
       "report_section_mapping": {"section": "tests", "number": "6.5", "title": "Creep"},
       "evidence_requirements": {"required": false, "recommended": []}
@@ -266,7 +299,12 @@
         "row_label": "Temperature point"
       },
       "validation_rules": {"min_rows": 2, "required_fields": ["value", "temperature_c"]},
-      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "calculation_rules": {
+        "method": "temperature_no_load_deviation",
+        "reference_temperature_c": 20,
+        "required_temperature_span_c": 10,
+        "round_to_resolution": false
+      },
       "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:temperature_no_load"},
       "report_section_mapping": {"section": "tests", "number": "6.6", "title": "Temperature effect on no-load indication"},
       "evidence_requirements": {"required": false, "recommended": []}
@@ -368,7 +406,11 @@
         "row_label": "Reading"
       },
       "validation_rules": {"min_rows": 2, "required_fields": ["value"]},
-      "calculation_rules": {"method": "deviation_from_reference", "round_to_resolution": false},
+      "calculation_rules": {
+        "method": "stability_over_observation_period",
+        "reference_row": "first",
+        "round_to_resolution": false
+      },
       "compliance_rules": {"comparator": "abs_lte", "limit_source": "tolerance:stability"},
       "report_section_mapping": {"section": "tests", "number": "6.9", "title": "Stability of equilibrium"},
       "evidence_requirements": {"required": false, "recommended": []}
@@ -406,6 +448,17 @@
         "clause_reference": "OIML R 76-1:2006 6",
         "mandatory_items": [
           "CON-01", "CON-02", "CON-03", "CON-04", "CON-06", "CON-07"
+        ],
+        "conditional_items": [
+          {"item_code": "CON-05",
+           "when": {"field": "instrument.has_tare_device", "op": "eq", "value": true},
+           "description": "a tare device is fitted"},
+          {"item_code": "CON-08",
+           "when": {"field": "instrument.has_software", "op": "eq", "value": true},
+           "description": "embedded software is present"},
+          {"item_code": "CON-10",
+           "when": {"field": "instrument.has_battery", "op": "eq", "value": true},
+           "description": "the instrument is battery powered"}
         ]
       },
       "compliance_rules": {"comparator": "lte"},
@@ -461,8 +514,8 @@
       "phase": "2",
       "sequence_no": 100,
       "description": "Effect of tilting the instrument away from its reference position on the indication.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "The permitted tilt error is not expressed in the versioned ruleset (there is no 'tilt' tolerance), so no deterministic calculator can judge the readings. The entry, input schema and report mapping are complete and become executable once a metrology reviewer adds the reviewed limit.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": true,
@@ -494,7 +547,7 @@
         "required_fields": ["load", "indication"]
       },
       "calculation_rules": {
-        "method": "deviation_from_reference",
+        "method": "tilt_deviation_from_reference",
         "reference_row": "level",
         "tolerance_key": "tilt",
         "require_additional_load": false,
@@ -512,8 +565,8 @@
       "phase": "2",
       "sequence_no": 110,
       "description": "Deviation introduced by the tare device, measured against the MPE applicable at the tare load.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "Tare deviation is judged against the MPE at the tare load, but the taring mode (subtractive, additive, preset) changes which rule applies and that rule is not yet in the versioned ruleset.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": true,
@@ -554,7 +607,7 @@
         "required_fields": ["load", "indication"]
       },
       "calculation_rules": {
-        "method": "tare_deviation",
+        "method": "tare_error_of_indication",
         "tare_mode": "subtractive",
         "tolerance_key": "tare",
         "require_additional_load": false,
@@ -572,8 +625,8 @@
       "phase": "2",
       "sequence_no": 120,
       "description": "Drift of the indication between power-on and the end of the warm-up period.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "The warm-up drift limit and the permitted settling time are not yet in the versioned ruleset; elapsed time is recorded so the rule can be reviewed and added without a schema change.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": false,
@@ -608,8 +661,9 @@
         "non_negative_fields": ["load", "indication", "elapsed_seconds"]
       },
       "calculation_rules": {
-        "method": "deviation_from_reference",
+        "method": "warmup_drift_from_power_on",
         "reference_row": "first",
+        "minimum_duration_seconds": 1800,
         "tolerance_key": "warmup",
         "round_to_resolution": false
       },
@@ -625,14 +679,14 @@
       "phase": "2",
       "sequence_no": 130,
       "description": "Error introduced by mains voltage variation, voltage dips and short interruptions.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "The disturbance error limit and the nominal-supply reference are not yet in the versioned ruleset. Supply readings can be recorded against this schema but cannot be judged until the reviewed limit exists.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": false,
       "range_scope": "instrument",
       "min_observations": 2,
-      "required_capabilities": ["is_electronic"],
+      "required_capabilities": ["is_electronic", "is_mains_powered"],
       "applicability_expression": {
         "all": [
           {
@@ -640,6 +694,12 @@
             "op": "eq",
             "value": true,
             "description": "Mains-supply test applies to electronic instruments"
+          },
+          {
+            "field": "instrument.is_mains_powered",
+            "op": "eq",
+            "value": true,
+            "description": "the supply test applies to instruments operated from a mains supply"
           }
         ]
       },
@@ -667,7 +727,7 @@
         "required_fields": ["load", "indication"]
       },
       "calculation_rules": {
-        "method": "deviation_from_reference",
+        "method": "voltage_variation_deviation",
         "reference_row": "nominal",
         "tolerance_key": "voltage_variation",
         "round_to_resolution": false
@@ -688,8 +748,8 @@
       "phase": "2",
       "sequence_no": 140,
       "description": "Immunity of the instrument to electrical disturbances and radio-frequency fields.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "The immunity error limit is not yet in the versioned ruleset, and the disturbances are generated by accredited EMC test equipment outside this application. Recorded observations are stored; the verdict stays with the EMC laboratory until the reviewed limit is added.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": false,
@@ -730,7 +790,7 @@
         "required_fields": ["load", "indication"]
       },
       "calculation_rules": {
-        "method": "deviation_from_reference",
+        "method": "immunity_deviation_from_baseline",
         "reference_row": "before_disturbance",
         "tolerance_key": "emc_immunity",
         "round_to_resolution": false
@@ -751,8 +811,8 @@
       "phase": "2",
       "sequence_no": 150,
       "description": "Effect of damp heat and of repeated loading on the span and on the indication stability.",
-      "implementation_status": "not_implemented",
-      "unsupported_reason": "Damp-heat and span-stability limits are not yet in the versioned ruleset. Temperature and humidity readings are recorded against this schema so the reviewed limits can be applied without a schema change.",
+      "implementation_status": "implemented",
+      "unsupported_reason": null,
       "clause_reference_status": "provisional",
       "supports_repeated_observations": true,
       "supports_ranges": false,
@@ -778,7 +838,7 @@
         "required_fields": ["load", "indication"]
       },
       "calculation_rules": {
-        "method": "deviation_from_reference",
+        "method": "damp_heat_deviation_from_baseline",
         "reference_row": "before_conditioning",
         "tolerance_key": "damp_heat",
         "round_to_resolution": false

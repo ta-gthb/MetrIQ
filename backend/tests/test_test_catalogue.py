@@ -221,11 +221,22 @@ def test_entries_that_need_a_capability_declare_it():
 
 
 def test_the_catalogue_is_explicit_about_what_it_does_not_support():
+    """The coverage block must agree with the entries it describes.
+
+    Every procedure that is not executable is named in coverage.unsupported_tests
+    and counted, so the block cannot claim coverage the catalogue does not have -
+    and cannot hide a procedure it does have.
+    """
     body = catalogue()
-    unsupported = {entry["test_code"] for entry in body["phase2_tests"]}
+    unsupported = {
+        entry["test_code"]
+        for entry in all_entries()
+        if entry["implementation_status"] != models.TestImplementationStatus.IMPLEMENTED
+    }
 
     assert set(body["coverage"]["unsupported_tests"]) == unsupported
     assert body["coverage"]["totals"]["not_implemented"] == len(unsupported)
+    assert body["coverage"]["totals"]["implemented"] == len(all_entries()) - len(unsupported)
     legend = body["coverage"]["status_legend"]
     assert models.TestImplementationStatus.IMPLEMENTED in legend
     assert models.TestImplementationStatus.NOT_IMPLEMENTED in legend
@@ -305,9 +316,11 @@ def test_a_multi_range_instrument_resolves_the_scale_interval_per_range(
     test = next(item for item in detail["tests"] if item["test_code"] == "T-WP")
 
     rows = [
-        {"observation_no": 1, "range_no": 1, "load": "10000", "indication": "10000",
+        {"observation_no": 1, "range_no": 1, "load": "0", "indication": "0",
+         "additional_load": "0", "unit": "g", "position_label": "zero"},
+        {"observation_no": 2, "range_no": 1, "load": "10000", "indication": "10000",
          "additional_load": "0", "unit": "g"},
-        {"observation_no": 2, "range_no": 2, "load": "30000", "indication": "30000",
+        {"observation_no": 3, "range_no": 2, "load": "30000", "indication": "30000",
          "additional_load": "0", "unit": "g"},
     ]
     response = client.put(

@@ -262,7 +262,8 @@
             "rule_id": "R76-MPE-III-01",
             "band": "0 < m <= 500 e",
             "m_over_e": "0",
-            "clause_reference": "OIML R 76-1:2006 Table 1"
+            "clause_reference": "OIML R 76-1:2006 Table 1",
+            "is_zero_reference": true
           }
         },
         {
@@ -291,7 +292,8 @@
             "rule_id": "R76-MPE-III-02",
             "band": "500 < m <= 2000 e",
             "m_over_e": "1000",
-            "clause_reference": "OIML R 76-1:2006 Table 1"
+            "clause_reference": "OIML R 76-1:2006 Table 1",
+            "is_zero_reference": false
           }
         },
         {
@@ -320,7 +322,8 @@
             "rule_id": "R76-MPE-III-02",
             "band": "500 < m <= 2000 e",
             "m_over_e": "1500",
-            "clause_reference": "OIML R 76-1:2006 Table 1"
+            "clause_reference": "OIML R 76-1:2006 Table 1",
+            "is_zero_reference": false
           }
         }
       ],
@@ -333,7 +336,7 @@
         "rule_id": "R76-MPE-III-02",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 Table 1",
-        "explanation": "Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g. FAIL: measured 40 against limit 20 (abs_lte), margin -20."
+        "explanation": "Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g (margin -20.000000000 g). FAIL: measured 40 against limit 20 (abs_lte), margin -20."
       },
       "calculation": {
         "engine_version": "2.0.0",
@@ -342,9 +345,20 @@
           "method": "P = I + 0.5e - delta_L ; E = P - L ; E_c = E - E_0",
           "zero_error": "5",
           "error_at_zero_applied": true,
+          "zero_reference_rows": [
+            1
+          ],
           "governing_row": 3,
+          "governing_margin": "-20",
           "max_abs_error": "40",
+          "rows_outside_mpe": [
+            3
+          ],
           "row_count": 3,
+          "required_rows": 3,
+          "failed_rows": [
+            3
+          ],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -364,6 +378,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -447,6 +472,12 @@
               "required_fields": [
                 "load",
                 "indication"
+              ],
+              "required_rows": [
+                {
+                  "load_equals": "0",
+                  "description": "zero-load reading that establishes E0 for the zero correction"
+                }
               ]
             },
             "compliance_rules": {
@@ -542,6 +573,7 @@
             "group_min_error": "0",
             "group_max_error": "2",
             "group_spread": "2",
+            "group_margin": "8",
             "rule_id": "R76-MPE-III-02"
           }
         },
@@ -564,6 +596,7 @@
             "group_min_error": "0",
             "group_max_error": "2",
             "group_spread": "2",
+            "group_margin": "8",
             "rule_id": "R76-MPE-III-02"
           }
         },
@@ -586,6 +619,7 @@
             "group_min_error": "0",
             "group_max_error": "2",
             "group_spread": "2",
+            "group_margin": "8",
             "rule_id": "R76-MPE-III-02"
           }
         }
@@ -599,7 +633,7 @@
         "rule_id": "R76-MPE-III-02",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 Table 1",
-        "explanation": "Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8."
+        "explanation": "Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g; every repetition was also checked against the MPE for its load. PASS: measured 2 against limit 10 (abs_lte), margin 8."
       },
       "calculation": {
         "engine_version": "2.0.0",
@@ -615,7 +649,12 @@
           },
           "governing_load": "15000",
           "governing_spread": "2",
+          "governing_margin": "8",
           "runs": 3,
+          "minimum_repetitions": 2,
+          "rule": "every repetition must lie within its MPE and the spread of every group must not exceed it",
+          "required_rows": 3,
+          "failed_rows": [],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -635,6 +674,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -901,6 +951,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -984,6 +1045,17 @@
               "required_fields": [
                 "load",
                 "indication"
+              ],
+              "required_rows": [
+                {
+                  "match": [
+                    "centre",
+                    "center",
+                    "middle",
+                    "central"
+                  ],
+                  "description": "reading with the load applied at the centre position"
+                }
               ]
             },
             "compliance_rules": {
@@ -1054,17 +1126,19 @@
           "additional_load": null,
           "value": "0",
           "error": "0",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "0",
           "mpe": "5",
           "margin": "5",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "0",
+            "reference_basis": "initial zero reading taken before the load was applied",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": null,
+            "rule_id": "R76-ZR-01",
             "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
           }
         },
@@ -1076,17 +1150,19 @@
           "additional_load": null,
           "value": "2",
           "error": "2",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "2",
           "mpe": "5",
           "margin": "3",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "2",
+            "reference_basis": "initial zero reading taken before the load was applied",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": null,
+            "rule_id": "R76-ZR-01",
             "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
           }
         }
@@ -1100,17 +1176,20 @@
         "rule_id": "R76-ZR-01",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
-        "explanation": "Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3."
+        "explanation": "Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3."
       },
       "calculation": {
         "engine_version": "2.0.0",
         "rounding_policy": "EXACT-NO-ROUNDING",
         "intermediates": {
-          "method": "deviation of the zero indication after unloading relative to the initial zero reading",
+          "method": "E_zr = reading(after unloading) - reading(initial zero)",
           "reference_row": 1,
+          "reference_basis": "initial zero reading taken before the load was applied",
           "reference_value": "0",
           "governing_row": 2,
+          "governing_deviation": "2",
           "max_abs_deviation": "2",
+          "rows_outside_limit": [],
           "tolerance": {
             "factor": "0.5",
             "unit": "e",
@@ -1120,6 +1199,9 @@
             "description": "Deviation of the zero indication after unloading shall not exceed 0.5 e."
           },
           "comparator": "abs_lte",
+          "return_readings": 1,
+          "required_rows": 2,
+          "failed_rows": [],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -1139,6 +1221,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -1192,7 +1285,8 @@
           ],
           "test_definition_rules": {
             "calculation_rules": {
-              "method": "deviation_from_reference",
+              "method": "zero_return_from_initial_reading",
+              "reference_row": "initial",
               "round_to_resolution": false
             },
             "validation_rules": {
@@ -1200,7 +1294,29 @@
               "required_fields": [
                 "value"
               ],
-              "non_negative_fields": []
+              "non_negative_fields": [],
+              "required_rows": [
+                {
+                  "match": [
+                    "initial",
+                    "zero",
+                    "start",
+                    "no load",
+                    "unloaded",
+                    "empty"
+                  ],
+                  "description": "initial zero reading taken before the load is applied"
+                },
+                {
+                  "match": [
+                    "after",
+                    "return",
+                    "end"
+                  ],
+                  "description": "zero indication after the load has been removed"
+                }
+              ],
+              "stage_order": "strict"
             },
             "compliance_rules": {
               "comparator": "abs_lte",
@@ -1276,17 +1392,19 @@
           "additional_load": null,
           "value": "0",
           "error": "0",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "0",
           "mpe": "5",
           "margin": "5",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "0",
+            "reference_basis": "reading at the start of the constant-load period",
             "range_no": null,
             "elapsed_seconds": "0",
             "temperature_c": null,
+            "rule_id": "R76-CREEP-01",
             "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
           }
         },
@@ -1298,17 +1416,19 @@
           "additional_load": null,
           "value": "2",
           "error": "2",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "2",
           "mpe": "5",
           "margin": "3",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "2",
+            "reference_basis": "reading at the start of the constant-load period",
             "range_no": null,
             "elapsed_seconds": "1800",
             "temperature_c": null,
+            "rule_id": "R76-CREEP-01",
             "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
           }
         }
@@ -1322,17 +1442,20 @@
         "rule_id": "R76-CREEP-01",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
-        "explanation": "Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3."
+        "explanation": "Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3."
       },
       "calculation": {
         "engine_version": "2.0.0",
         "rounding_policy": "EXACT-NO-ROUNDING",
         "intermediates": {
-          "method": "change in indication over the observation period under constant load",
+          "method": "E_i = reading(t_i) - reading(t_0) under a constant load",
           "reference_row": 1,
+          "reference_basis": "reading at the start of the constant-load period",
           "reference_value": "0",
           "governing_row": 2,
+          "governing_deviation": "2",
           "max_abs_deviation": "2",
+          "rows_outside_limit": [],
           "tolerance": {
             "factor": "0.5",
             "unit": "e",
@@ -1342,6 +1465,10 @@
             "description": "Change in indication under constant load over the observation period."
           },
           "comparator": "abs_lte",
+          "observation_seconds": "1800.000",
+          "minimum_duration_seconds": "900",
+          "required_rows": 2,
+          "failed_rows": [],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -1361,6 +1488,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -1414,13 +1552,16 @@
           ],
           "test_definition_rules": {
             "calculation_rules": {
-              "method": "deviation_from_reference",
+              "method": "creep_over_constant_load",
+              "reference_row": "first",
+              "minimum_duration_seconds": 900,
               "round_to_resolution": false
             },
             "validation_rules": {
               "min_rows": 2,
               "required_fields": [
-                "value"
+                "value",
+                "elapsed_seconds"
               ],
               "non_negative_fields": [
                 "elapsed_seconds"
@@ -1500,17 +1641,19 @@
           "additional_load": null,
           "value": "0",
           "error": "0",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "0",
           "mpe": "10",
           "margin": "10",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "0",
+            "reference_basis": "reading nearest the reference temperature 20 C",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": "20",
+            "rule_id": "R76-TEMP-NL-01",
             "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
           }
         },
@@ -1522,17 +1665,19 @@
           "additional_load": null,
           "value": "3",
           "error": "3",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "3",
           "mpe": "10",
           "margin": "7",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "3",
+            "reference_basis": "reading nearest the reference temperature 20 C",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": "40",
+            "rule_id": "R76-TEMP-NL-01",
             "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
           }
         }
@@ -1546,17 +1691,20 @@
         "rule_id": "R76-TEMP-NL-01",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
-        "explanation": "Maximum deviation 3.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED). PASS: measured 3 against limit 10 (abs_lte), margin 7."
+        "explanation": "Governing deviation 3.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 3 against limit 10 (abs_lte), margin 7."
       },
       "calculation": {
         "engine_version": "2.0.0",
         "rounding_policy": "EXACT-NO-ROUNDING",
         "intermediates": {
-          "method": "variation of the no-load indication over the temperature range",
+          "method": "E_i = reading(T_i) - reading(T_ref), instrument unloaded",
           "reference_row": 1,
+          "reference_basis": "reading nearest the reference temperature 20 C",
           "reference_value": "0",
           "governing_row": 2,
+          "governing_deviation": "3",
           "max_abs_deviation": "3",
+          "rows_outside_limit": [],
           "tolerance": {
             "factor": "1.0",
             "unit": "e",
@@ -1566,6 +1714,11 @@
             "description": "Effect of temperature on the no-load indication."
           },
           "comparator": "abs_lte",
+          "temperature_span": "20.000",
+          "required_temperature_span_c": "10",
+          "reference_temperature_c": "20",
+          "required_rows": 2,
+          "failed_rows": [],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -1585,6 +1738,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -1638,7 +1802,9 @@
           ],
           "test_definition_rules": {
             "calculation_rules": {
-              "method": "deviation_from_reference",
+              "method": "temperature_no_load_deviation",
+              "reference_temperature_c": 20,
+              "required_temperature_span_c": 10,
               "round_to_resolution": false
             },
             "validation_rules": {
@@ -1798,6 +1964,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -1996,6 +2173,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -2117,17 +2305,19 @@
           "additional_load": null,
           "value": "0",
           "error": "0",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "0",
           "mpe": "10",
           "margin": "10",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "0",
+            "reference_basis": "first reading of the observation period",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": null,
+            "rule_id": "R76-STAB-01",
             "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
           }
         },
@@ -2139,17 +2329,19 @@
           "additional_load": null,
           "value": "4",
           "error": "4",
-          "reference_error": null,
-          "corrected_error": null,
+          "reference_error": "0",
+          "corrected_error": "4",
           "mpe": "10",
           "margin": "6",
           "within": true,
           "detail": {
             "reference_value": "0",
             "deviation": "4",
+            "reference_basis": "first reading of the observation period",
             "range_no": null,
             "elapsed_seconds": null,
             "temperature_c": null,
+            "rule_id": "R76-STAB-01",
             "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
           }
         }
@@ -2163,17 +2355,20 @@
         "rule_id": "R76-STAB-01",
         "rule_version": "r76-1-2006-v1",
         "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
-        "explanation": "Maximum deviation 4.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED). PASS: measured 4 against limit 10 (abs_lte), margin 6."
+        "explanation": "Governing deviation 4.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 4 against limit 10 (abs_lte), margin 6."
       },
       "calculation": {
         "engine_version": "2.0.0",
         "rounding_policy": "EXACT-NO-ROUNDING",
         "intermediates": {
-          "method": "variation of the indication during the stability observation period",
+          "method": "E_i = reading(t_i) - reading(t_0) over the observation period",
           "reference_row": 1,
+          "reference_basis": "first reading of the observation period",
           "reference_value": "0",
           "governing_row": 2,
+          "governing_deviation": "4",
           "max_abs_deviation": "4",
+          "rows_outside_limit": [],
           "tolerance": {
             "factor": "1.0",
             "unit": "e",
@@ -2183,6 +2378,8 @@
             "description": "Variation of the indication during the stability observation period."
           },
           "comparator": "abs_lte",
+          "required_rows": 2,
+          "failed_rows": [],
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -2202,6 +2399,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -2255,7 +2463,8 @@
           ],
           "test_definition_rules": {
             "calculation_rules": {
-              "method": "deviation_from_reference",
+              "method": "stability_over_observation_period",
+              "reference_row": "first",
               "round_to_resolution": false
             },
             "validation_rules": {
@@ -2405,6 +2614,26 @@
         },
         {
           "observation_no": 5,
+          "label": "CON-05",
+          "load": null,
+          "indication": null,
+          "additional_load": null,
+          "value": null,
+          "error": null,
+          "reference_error": null,
+          "corrected_error": null,
+          "mpe": null,
+          "margin": null,
+          "within": true,
+          "detail": {
+            "item_code": "CON-05",
+            "conforms": true,
+            "remarks": null,
+            "mandatory": true
+          }
+        },
+        {
+          "observation_no": 6,
           "label": "CON-06",
           "load": null,
           "indication": null,
@@ -2424,7 +2653,7 @@
           }
         },
         {
-          "observation_no": 6,
+          "observation_no": 7,
           "label": "CON-07",
           "load": null,
           "indication": null,
@@ -2460,7 +2689,7 @@
         "rounding_policy": "EXACT-NO-ROUNDING",
         "intermediates": {
           "method": "every mandatory checklist item must conform",
-          "items_checked": 6,
+          "items_checked": 7,
           "non_conforming": [],
           "mandatory_items": [
             "CON-01",
@@ -2468,8 +2697,12 @@
             "CON-03",
             "CON-04",
             "CON-06",
-            "CON-07"
+            "CON-07",
+            "CON-05"
           ],
+          "conditional_items_applied": {
+            "CON-05": "a tare device is fitted"
+          },
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -2489,6 +2722,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,
@@ -2581,11 +2825,26 @@
               "unit": null,
               "range_no": null,
               "conforms": true,
-              "item_code": "CON-06",
+              "item_code": "CON-05",
               "remarks": null
             },
             {
               "observation_no": 6,
+              "label": null,
+              "load": null,
+              "indication": null,
+              "additional_load": null,
+              "elapsed_seconds": null,
+              "temperature_c": null,
+              "value": null,
+              "unit": null,
+              "range_no": null,
+              "conforms": true,
+              "item_code": "CON-06",
+              "remarks": null
+            },
+            {
+              "observation_no": 7,
               "label": null,
               "load": null,
               "indication": null,
@@ -2612,6 +2871,35 @@
                 "CON-04",
                 "CON-06",
                 "CON-07"
+              ],
+              "conditional_items": [
+                {
+                  "item_code": "CON-05",
+                  "when": {
+                    "field": "instrument.has_tare_device",
+                    "op": "eq",
+                    "value": true
+                  },
+                  "description": "a tare device is fitted"
+                },
+                {
+                  "item_code": "CON-08",
+                  "when": {
+                    "field": "instrument.has_software",
+                    "op": "eq",
+                    "value": true
+                  },
+                  "description": "embedded software is present"
+                },
+                {
+                  "item_code": "CON-10",
+                  "when": {
+                    "field": "instrument.has_battery",
+                    "op": "eq",
+                    "value": true
+                  },
+                  "description": "the instrument is battery powered"
+                }
               ]
             },
             "validation_rules": {
@@ -2843,6 +3131,7 @@
             "ID-06",
             "ID-09"
           ],
+          "conditional_items_applied": {},
           "engine_version": "2.0.0"
         },
         "inputs": {
@@ -2862,6 +3151,17 @@
             "has_tare_device": true,
             "has_zero_device": true,
             "model": "GOLDEN-BENCH-30K",
+            "has_level_indicator": true,
+            "is_self_indicating": null,
+            "has_battery": false,
+            "is_mains_powered": true,
+            "interfaces": [],
+            "has_interfaces": false,
+            "has_printer": false,
+            "has_software": false,
+            "power_supply": "230 V AC, 50 Hz",
+            "temperature_range": "-10 C to +40 C",
+            "configuration": {},
             "ranges": [
               {
                 "range_no": 1,

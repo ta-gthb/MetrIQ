@@ -30,6 +30,18 @@ def row(number: int, **values) -> ObservationRow:
     return ObservationRow(observation_no=number, **values)
 
 
+#: The zero-load reading R 76-2 requires before the error of indication is
+#: measured. It establishes E0 and is not one of the test loads, so it is
+#: numbered below them and does not govern the reported result.
+ZERO_ROW = ObservationRow(
+    observation_no=0,
+    label="zero",
+    load=Decimal("0"),
+    indication=Decimal("0"),
+    additional_load=Decimal("5"),
+)
+
+
 def context(test_code: str, observations: list[ObservationRow], **instrument) -> CalcContext:
     base_instrument = {
         "instrument_class": "III",
@@ -129,32 +141,36 @@ def test_mpe_rejects_an_unknown_or_missing_class(klass):
 # Weighing performance: P = I + 0.5e - delta_L, E = P - L
 # ---------------------------------------------------------------------------
 def test_weighing_performance_passes_well_inside_the_mpe():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("10000"), indication=Decimal("10002"),
-                                           additional_load=Decimal("5"))]))
-    assert outcome.rows[0].error == Decimal("2")
-    assert outcome.rows[0].mpe == Decimal("10")
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("10000"), indication=Decimal("10002"),
+                                            additional_load=Decimal("5"))]))
+    assert outcome.rows[-1].error == Decimal("2")
+    assert outcome.rows[-1].mpe == Decimal("10")
     assert outcome.status == "PASS"
     assert outcome.margin == Decimal("8")
 
 
 def test_weighing_performance_at_the_exact_limit_passes():
     """A boundary value equal to the MPE conforms (<=, not <)."""
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("10000"), indication=Decimal("10005"))]))
-    assert outcome.rows[0].error == Decimal("10")
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("10000"), indication=Decimal("10005"))]))
+    assert outcome.rows[-1].error == Decimal("10")
     assert outcome.margin == Decimal("0")
     assert outcome.status == "PASS"
 
 
 def test_weighing_performance_one_resolution_over_the_limit_fails():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("10000"), indication=Decimal("10006"))]))
-    assert outcome.rows[0].error == Decimal("11")
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("10000"), indication=Decimal("10006"))]))
+    assert outcome.rows[-1].error == Decimal("11")
     assert outcome.margin == Decimal("-1")
     assert outcome.status == "FAIL"
 
 
 def test_weighing_performance_negative_error_uses_absolute_value():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("10000"), indication=Decimal("9985"))]))
-    assert outcome.rows[0].error == Decimal("-10")
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("10000"), indication=Decimal("9985"))]))
+    assert outcome.rows[-1].error == Decimal("-10")
     assert outcome.status == "PASS"
 
 
@@ -180,6 +196,7 @@ def test_weighing_performance_governing_row_is_the_worst_error():
         context(
             "T-WP",
             [
+                ZERO_ROW,
                 row(1, load=Decimal("1000"), indication=Decimal("1001")),
                 row(2, load=Decimal("25000"), indication=Decimal("25030")),
             ],
@@ -192,21 +209,24 @@ def test_weighing_performance_governing_row_is_the_worst_error():
 
 
 def test_weighing_performance_uses_the_lower_band_mpe_near_zero():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("1000"), indication=Decimal("1006"))]))
-    assert outcome.rows[0].mpe == Decimal("5")
-    assert outcome.rows[0].error == Decimal("11")
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("1000"), indication=Decimal("1006"))]))
+    target = next(item for item in outcome.rows if item.load == Decimal("1000"))
+    assert target.mpe == Decimal("5")
+    assert target.error == Decimal("11")
     assert outcome.status == "FAIL"
 
 
 def test_weighing_performance_reports_a_missing_indication_as_incomplete():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("1000"))]))
+    outcome = evaluate(context("T-WP", [ZERO_ROW, row(1, load=Decimal("1000"))]))
     assert outcome.is_valid is False
     assert outcome.status == "INCOMPLETE"
     assert "indication" in outcome.errors[0]
 
 
 def test_weighing_performance_warns_when_the_additional_load_is_assumed_zero():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("1000"), indication=Decimal("1001"))]))
+    outcome = evaluate(context("T-WP", [ZERO_ROW,
+                                        row(1, load=Decimal("1000"), indication=Decimal("1001"))]))
     assert outcome.warnings
     assert "Additional load" in outcome.warnings[0]
 
@@ -215,21 +235,25 @@ def test_weighing_performance_converts_observation_units():
     outcome = evaluate(
         context(
             "T-WP",
-            [row(1, load=Decimal("10"), indication=Decimal("10002"), unit="kg")],
+            [ZERO_ROW, row(1, load=Decimal("10"), indication=Decimal("10002"), unit="kg")],
         )
     )
-    assert outcome.rows[0].load == Decimal("10000")
+    assert outcome.rows[-1].load == Decimal("10000")
     assert outcome.status == "PASS"
 
 
 def test_weighing_performance_rejects_an_incompatible_unit():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("1"), indication=Decimal("1"), unit="s")]))
+    outcome = evaluate(
+        context("T-WP", [ZERO_ROW, row(1, load=Decimal("1"), indication=Decimal("1"), unit="s")])
+    )
     assert outcome.is_valid is False
     assert outcome.status == "INVALID"
 
 
 def test_multi_range_instrument_e_is_a_required_input():
-    outcome = evaluate(context("T-WP", [row(1, load=Decimal("1000"), indication=Decimal("1001"))], e=None))
+    outcome = evaluate(
+        context("T-WP", [ZERO_ROW, row(1, load=Decimal("1000"), indication=Decimal("1001"))], e=None)
+    )
     assert outcome.status == "INCOMPLETE"
 
 
@@ -334,7 +358,9 @@ def test_conformity_checklist_requires_every_mandatory_item():
 def test_negative_load_is_rejected_by_the_validation_rules():
     from app.services.calculation_engine.engine import validate_inputs
 
-    problems = validate_inputs(context("T-WP", [row(1, load=Decimal("-1"), indication=Decimal("1"))]))
+    problems = validate_inputs(
+        context("T-WP", [ZERO_ROW, row(1, load=Decimal("-1"), indication=Decimal("1"))])
+    )
     assert any("must not be negative" in problem for problem in problems)
 
 

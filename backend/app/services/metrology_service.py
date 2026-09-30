@@ -28,6 +28,7 @@ from app.models import (
 from app.services import audit_service
 from app.services.calculation_engine.engine import ENGINE_VERSION, build_observation, evaluate
 from app.services.calculation_engine.types import CalcContext, CalcOutcome
+from app.services.instrument_profile import instrument_flags
 from app.services.compliance_engine import evaluate as evaluate_compliance
 from app.services.compliance_engine.engine import ComplianceDecision
 from app.utils.decimals import decimal_str
@@ -137,6 +138,10 @@ def build_calc_context(
         "has_tare_device": instrument.has_tare_device,
         "has_zero_device": instrument.has_zero_device,
         "model": instrument.model,
+        # The same derived configuration attributes the applicability engine
+        # sees, so a calculator can never read a different view of the
+        # instrument than the plan was built from.
+        **instrument_flags(instrument),
         "ranges": [
             {
                 "range_no": item.range_no,

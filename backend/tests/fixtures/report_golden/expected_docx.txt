@@ -83,7 +83,7 @@ Measured value | 40 g
 Limit | 20 g
 Margin | -20
 Rule | R76-MPE-III-02 (r76-1-2006-v1)
-Explanation | Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g. FAIL: measured 40 against limit 20 (abs_lte), margin -20.
+Explanation | Governing error 40.00000000 g at row 3 against MPE +/-20.000000000 g (margin -20.000000000 g). FAIL: measured 40 against limit 20 (abs_lte), margin -20.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | 0 | 0 | 0 | 5 | 5 | 0 | Yes
@@ -98,7 +98,7 @@ Measured value | 2 g
 Limit | 10 g
 Margin | 8
 Rule | R76-MPE-III-02 (r76-1-2006-v1)
-Explanation | Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8.
+Explanation | Largest spread 2.00000000 g at load 15000.00000000 g against MPE +/-10.000000000 g; every repetition was also checked against the MPE for its load. PASS: measured 2 against limit 10 (abs_lte), margin 8.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | 15000 | 15000 | 5 | 0 | 10 | 10 | Yes
@@ -128,7 +128,7 @@ Measured value | 2 g
 Limit | 5 g
 Margin | 3
 Rule | R76-ZR-01 (r76-1-2006-v1)
-Explanation | Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Explanation | Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | - | - | - | 0 | 5 | 5 | Yes
@@ -142,7 +142,7 @@ Measured value | 2 g
 Limit | 5 g
 Margin | 3
 Rule | R76-CREEP-01 (r76-1-2006-v1)
-Explanation | Maximum deviation 2.00000000 g against limit 5.000000000 g (OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED). PASS: measured 2 against limit 5 (abs_lte), margin 3.
+Explanation | Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | - | - | - | 0 | 5 | 5 | Yes
@@ -156,7 +156,7 @@ Measured value | 3 g
 Limit | 10 g
 Margin | 7
 Rule | R76-TEMP-NL-01 (r76-1-2006-v1)
-Explanation | Maximum deviation 3.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED). PASS: measured 3 against limit 10 (abs_lte), margin 7.
+Explanation | Governing deviation 3.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 3 against limit 10 (abs_lte), margin 7.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | - | - | - | 0 | 10 | 10 | Yes
@@ -197,7 +197,7 @@ Measured value | 4 g
 Limit | 10 g
 Margin | 6
 Rule | R76-STAB-01 (r76-1-2006-v1)
-Explanation | Maximum deviation 4.00000000 g against limit 10.000000000 g (OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED). PASS: measured 4 against limit 10 (abs_lte), margin 6.
+Explanation | Governing deviation 4.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 4 against limit 10 (abs_lte), margin 6.
 Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | - | - | - | 0 | 10 | 10 | Yes
@@ -218,6 +218,7 @@ CON-01 | Yes | -
 CON-02 | Yes | -
 CON-03 | Yes | -
 CON-04 | Yes | -
+CON-05 | Yes | -
 CON-06 | Yes | -
 CON-07 | Yes | -
 6.11 Identification and markings (T-CHK-ID)

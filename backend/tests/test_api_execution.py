@@ -167,7 +167,9 @@ def test_a_failing_result_is_recorded_as_fail_not_a_user_choice(client, tokens, 
         json={
             "replace": True,
             "observations": [
-                {"observation_no": 1, "load": "10000", "indication": "10020",
+                {"observation_no": 1, "position_label": "Zero", "load": "0",
+                 "indication": "0", "additional_load": "5"},
+                {"observation_no": 2, "load": "10000", "indication": "10020",
                  "additional_load": "5"},
             ],
         },
@@ -282,7 +284,12 @@ def test_an_approved_waiver_is_recorded_and_recoverable(client, tokens, new_case
     client.put(
         f"{API}/tests/{target['id']}/observations",
         json={"replace": True,
-              "observations": [{"observation_no": 1, "load": "10000", "indication": "10020"}]},
+              "observations": [
+                  {"observation_no": 1, "position_label": "Zero", "load": "0",
+                   "indication": "0", "additional_load": "5"},
+                  {"observation_no": 2, "load": "10000", "indication": "10020",
+                   "additional_load": "5"},
+              ]},
         headers=tokens[ENGINEER],
     )
     automated = client.post(f"{API}/tests/{target['id']}/calculate", headers=tokens[ENGINEER]).json()

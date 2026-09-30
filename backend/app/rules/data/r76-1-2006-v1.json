@@ -12,7 +12,11 @@
     "Before production use a qualified metrology authority must confirm every band, tolerance and clause",
     "reference against the controlled copy of the standard and against the laboratory's approved procedures.",
     "Resolution policy: m = load / e. The first band whose upper bound is not exceeded wins, so a boundary",
-    "value such as m = 500 belongs to the band '0 <= m <= 500'."
+    "value such as m = 500 belongs to the band '0 <= m <= 500'.",
+    "Entries marked review_status = pending_domain_review are project proposals for the phase-2",
+    "procedures of the catalogue. They are configuration data, not verified metrological truth: the",
+    "phase-2 tests are seeded inactive and must stay inactive until a competent metrology reviewer",
+    "confirms every factor, unit and clause reference against the controlled OIML text."
   ],
   "verification_stage": "verification",
   "mpe": {
@@ -107,6 +111,48 @@
       "factor": "1.0", "unit": "mpe", "comparator": "abs_lte", "rule_id": "R76-ECC-01",
       "clause_reference": "OIML R 76-1:2006 T.3.5 - REVIEW REQUIRED",
       "description": "The eccentricity difference is compared against the MPE for the applied load."
+    },
+    "tilt": {
+      "factor": "1.0", "unit": "mpe", "comparator": "abs_lte", "rule_id": "R76-TILT-01",
+      "clause_reference": "OIML R 76-1:2006 4.4.4 / T.3.6 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "The instrument must meet its MPE when it is tilted away from its reference position, so the change of indication caused by tilting is compared with the MPE that applies to the applied load.",
+      "description": "Change of indication caused by tilting the instrument away from its reference position."
+    },
+    "tare": {
+      "factor": "0.5", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-TARE-01",
+      "clause_reference": "OIML R 76-1:2006 4.6.4 / T.3.13 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "With a subtractive tare engaged the instrument must indicate zero, and the net indication of a load applied afterwards must agree with that load; both are the error of indication of the tared reading, held to 0.5 e.",
+      "description": "Error of indication of the tared reading with a subtractive tare device."
+    },
+    "warmup": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-WARMUP-01",
+      "clause_reference": "OIML R 76-1:2006 4.4.2 / T.3.8 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "Drift of the indication between power-on and the end of the manufacturer's warm-up period, held to 1 e.",
+      "description": "Drift of the indication between power-on and the end of the warm-up period."
+    },
+    "voltage_variation": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-VOLT-01",
+      "clause_reference": "OIML R 76-1:2006 4.4.3 / T.3.9 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "Change of indication between the nominal supply and each disturbed supply condition (variation, dip, short interruption), held to 1 e.",
+      "description": "Effect of mains voltage variation, voltage dips and short interruptions."
+    },
+    "emc_immunity": {
+      "factor": "1.0", "unit": "e", "comparator": "abs_lte", "rule_id": "R76-EMC-01",
+      "clause_reference": "OIML R 76-1:2006 4.4.5 / T.3.10 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "Change of indication attributable to the applied disturbance, measured against the reading taken immediately before it, held to 1 e.",
+      "description": "Effect of electrical bursts, surges, electrostatic discharge and radio-frequency fields."
+    },
+    "damp_heat": {
+      "factor": "1.0", "unit": "mpe", "comparator": "abs_lte", "rule_id": "R76-DAMP-01",
+      "clause_reference": "OIML R 76-1:2006 4.4.6 / T.3.11 - REVIEW REQUIRED",
+      "review_status": "pending_domain_review",
+      "basis": "After damp-heat conditioning the instrument must meet its MPE again, so the change of indication is compared with the MPE that applies to the applied load.",
+      "description": "Effect of damp heat, span stability and repeated loading."
     }
   }
 }

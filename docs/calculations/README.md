@@ -102,9 +102,21 @@ E_c = E - E0                (error corrected for the zero error, when available)
 * `E0` error at load zero (the first row with `L = 0`), used when
   `apply_zero_correction` is enabled
 
-The governing (worst) row is the one with the largest `abs(E_c)`. Its `E_c` is
-the reported `measured_value`, the band MPE is `limit_value` and
-`margin = limit - abs(measured)`.
+The governing row is the one with the **least compliance margin** against its
+own MPE (`margin = MPE - abs(E_c)`), not the largest absolute error: across MPE
+bands a 16 g error against a 15 g limit is a worse non-conformity than a 25 g
+error against a 45 g limit. Its `E_c` is the reported `measured_value` and its
+band MPE is `limit_value`. The zero row that establishes `E0` is checked but is
+not eligible to govern, because its error is subtracted from every other row.
+
+Two rules always apply on top of the comparison:
+
+* **Every required row must pass.** If any row is outside its own limit the test
+  is `FAIL`, whatever the governing row says (`failed_rows` is reported in the
+  intermediates).
+* **The required rows must exist.** `T-WP` requires a zero-load reading
+  (`required_rows` in the catalogue), otherwise the zero correction could be
+  skipped silently and the test cannot be evaluated.
 
 ### 3.2 Worked example - class III, Max 30000 g, e = d = 10 g
 
@@ -118,15 +130,12 @@ From the demo dataset (`T-WP`, `R76-MPE-III-*`):
 | 6 | 25000 | 25004 | 1 | 25004 + 5 - 1 = 25008 | 8 | 2500 | m > 2000 | 15 | +7 | yes |
 | 7 | 30000 | 30005 | 0 | 30005 + 5 - 0 = 30010 | 10 | 3000 | m > 2000 | 15 | +5 | yes |
 
-Row 1 is the zero row, so `E0 = 0` and `E_c = E` everywhere. The governing row
-is row 7 with `abs(E_c) = 10 g` against an MPE of `15 g`, so the test outcome is
-**PASS** with `measured_value = 10`, `limit_value = 15`, `margin = 5`,
-`rule_id = R76-MPE-III-03`.
-
-Row 2 is individually outside tolerance (margin `-1`); it is highlighted in the
-UI but does not by itself decide the test, because the requirement is on the
-maximum error of indication. This distinction is why per-row verdicts and the
-governing verdict are both shown.
+Row 1 is the zero row, so `E0 = 0` and `E_c = E` everywhere. Row 2 has the
+least margin (`-1 g`), so it governs: the outcome is **FAIL** with
+`measured_value = 6`, `limit_value = 5`, `margin = -1`,
+`rule_id = R76-MPE-III-02`. The rows that pass are still shown with their own
+margins; the per-row verdicts and the governing verdict are both visible, and
+the test can only pass when every row passes.
 
 ### 3.3 Boundary examples
 
@@ -144,24 +153,50 @@ Reference: `GET /test-definitions` (catalogue) and `GET /rules` (rule data).
 
 | Code | Test | Measured quantity | Limit | Rule id | Cited clause |
 | --- | --- | --- | --- | --- | --- |
-| `T-WP` | Weighing performance | `max abs(E_c)` | MPE at governing load | `R76-MPE-<class>-<band>` | R 76-1:2006 T.3.1 / A.4.4, Table 1 |
-| `T-REP` | Repeatability | spread `= max(E) - min(E)` per load group | MPE at that load | `R76-REP-01` | R 76-1:2006 4.5.5 / T.3.3 |
-| `T-ECC` | Eccentricity | `abs(E_position - E_reference)` | MPE at applied load | `R76-ECC-01` | R 76-1:2006 T.3.5 |
-| `T-ZR` | Zero return | `abs(value_i - value_0)` | `0.5 e` | `R76-ZR-01` | R 76-1:2006 4.5.4 / T.3.2.1 |
-| `T-CREEP` | Creep | `abs(value_i - value_0)` | `0.5 e` | `R76-CREEP-01` | R 76-1:2006 4.5.5 / T.3.3 |
-| `T-TEMP-NL` | Temperature effect on no-load indication | `abs(value_i - value_0)` | `1.0 e` | `R76-TEMP-NL-01` | R 76-1:2006 4.5.2 / T.3.4.2 |
+| `T-WP` | Weighing performance | least-margin row of `E_c` | MPE at that row's load | `R76-MPE-<class>-<band>` | R 76-1:2006 T.3.1 / A.4.4, Table 1 |
+| `T-REP` | Repeatability | every repetition AND the spread `= max(E) - min(E)` per load group | MPE at that load | `R76-REP-01` | R 76-1:2006 3.5.2 / T.3.2 |
+| `T-ECC` | Eccentricity | `abs(E_position - E_reference)` | MPE at applied load | `R76-ECC-01` | R 76-1:2006 T.3.3 |
+| `T-ZR` | Zero return | `value(after unloading) - value(initial zero)` | `0.5 e` | `R76-ZR-01` | R 76-1:2006 4.5.4 / T.3.2.1 |
+| `T-CREEP` | Creep | `value(t_i) - value(t_0)`, constant load | `0.5 e` | `R76-CREEP-01` | R 76-1:2006 4.5.5 / T.3.3 |
+| `T-TEMP-NL` | Temperature effect on no-load indication | `value(T_i) - value(T_ref)`, unloaded | `1.0 e` | `R76-TEMP-NL-01` | R 76-1:2006 4.5.2 / T.3.4.2 |
 | `T-SENS` | Sensitivity | indication difference between two loads | `1.0 e` | `R76-SENS-01` | R 76-1:2006 A.4.4.2 / T.3.5 |
 | `T-DISC` | Discrimination | smallest indication change | `1.0 d` (`gte`) | `R76-DISC-01` | R 76-1:2006 4.5.6 / T.3.6 |
-| `T-STAB` | Stability of equilibrium | `abs(value_i - value_0)` | `1.0 e` | `R76-STAB-01` | R 76-1:2006 4.5.3 / T.3.7 |
-| `T-CHK-CON` | Examination of construction | boolean conformance of each item | all items conform | `R76-CHK-CON-01` | R 76-1:2006 6 / T.4 |
-| `T-CHK-ID` | Identification and markings | boolean conformance of each item | all items present and consistent | `R76-CHK-ID-01` | R 76-1:2006 7 / T.4 |
+| `T-STAB` | Stability of equilibrium | `value(t_i) - value(t_0)` | `1.0 e` | `R76-STAB-01` | R 76-1:2006 4.5.3 / T.3.7 |
+| `T-CHK-CON` | Examination of construction | boolean conformance of each item | all mandatory items conform | `R76-CONST` | R 76-1:2006 6 / T.4 |
+| `T-CHK-ID` | Identification and markings | boolean conformance of each item | all mandatory items present and consistent | `R76-MARKING` | R 76-1:2006 7 / T.4 |
+| `T-TILT` | Tilting | `value(tilted) - value(reference position)` | MPE at the test load (`R76-TILT-01`, provisional) | `R76-TILT-01` | R 76-1:2006 4.4.4 / T.3.6 |
+| `T-TARE` | Tare device (subtractive) | error of indication of the tared reading | `0.5 e` (`R76-TARE-01`, provisional) | `R76-TARE-01` | R 76-1:2006 4.6.4 / T.3.13 |
+| `T-WARMUP` | Warm-up time | `value(t) - value(power-on)` | `1.0 e` (`R76-WARMUP-01`, provisional) | `R76-WARMUP-01` | R 76-1:2006 4.4.2 / T.3.8 |
+| `T-VOLT` | Voltage variation, dips and interruptions | `value(supply condition) - value(nominal)` | `1.0 e` (`R76-VOLT-01`, provisional) | `R76-VOLT-01` | R 76-1:2006 4.4.3 / T.3.9 |
+| `T-EMC` | Bursts, surges, ESD and RF immunity | `value(after disturbance) - value(before)` | `1.0 e` (`R76-EMC-01`, provisional) | `R76-EMC-01` | R 76-1:2006 4.4.5 / T.3.10 |
+| `T-DAMP` | Damp heat, span stability and endurance | `value(after conditioning) - value(before)` | MPE at the test load (`R76-DAMP-01`, provisional) | `R76-DAMP-01` | R 76-1:2006 4.4.6 / T.3.11 |
 
-### 4.1 Deviation tests (`T-ZR`, `T-CREEP`, `T-TEMP-NL`, `T-STAB`)
+Procedures whose limit is marked *provisional* are executable, but the factor
+they are judged against is a project proposal recorded in the ruleset with
+`review_status = "pending_domain_review"`; the outcome carries a warning to that
+effect, and the catalogue seeds those tests inactive. A metrology reviewer
+confirms the limit, or replaces it, before they are enabled (see
+`docs/governance/metrology-review-register.md`).
 
-The calculator takes the first row as the reference and computes
-`deviation_i = value_i - value_0`. The reported `measured_value` is the largest
-`abs(deviation)`. At least two rows are required; a single row yields
-`INCOMPLETE`.
+### 4.1 Sequence procedures (`T-ZR`, `T-CREEP`, `T-TEMP-NL`, `T-STAB`, `T-TILT`,
+`T-TARE`, `T-WARMUP`, `T-VOLT`, `T-EMC`, `T-DAMP`)
+
+Each procedure is implemented separately, because the standard defines a
+different reference reading and a different record for each one. What they share
+is the comparison: `deviation_i = value_i - value_reference`, compared with the
+tolerance for that load. The reported `measured_value` is the deviation of the
+least-margin row; at least two rows are required, and a single row yields
+`INCOMPLETE`. In every one of these procedures **all** rows must pass.
+
+| Procedure | Reference row | Additionally required |
+| --- | --- | --- |
+| `T-ZR` | the initial zero reading (`initial`, `zero`, `start`, no load) - not simply the first row | a reading after unloading, recorded after the reference (`required_rows`, `stage_order`) |
+| `T-CREEP` | the earliest reading, by `elapsed_seconds` | `elapsed_seconds` on every row; a constant-load period of at least `minimum_duration_seconds` (900 s, provisional) |
+| `T-WARMUP` | the reading at power-on (earliest `elapsed_seconds`) | `elapsed_seconds` on every row; at least `minimum_duration_seconds` (1800 s, provisional) |
+| `T-TEMP-NL` | the reading nearest `reference_temperature_c` (20 C) | `temperature_c` on every row; a temperature span of at least `required_temperature_span_c` (10 C) |
+| `T-STAB` | the first reading of the observation period | elapsed times when available (a warning is raised when they are not) |
+| `T-TILT` / `T-VOLT` / `T-EMC` / `T-DAMP` | the stage named by `reference_row`, otherwise a labelled stage (`level`, `nominal`, `before ...`) | - |
+| `T-TARE` | not applicable: it is the error of indication of the tared reading | a tared zero reading and at least one loaded reading |
 
 Illustrative example (`T-ZR`, e = 10 g, limit 0.5 e = 5 g):
 
@@ -178,8 +213,14 @@ Illustrative example (`T-ZR`, e = 10 g, limit 0.5 e = 5 g):
 
 Rows are grouped by load. For each group,
 `spread = max(E) - min(E)`, compared with the MPE for that load. The reported
-value is the largest spread and its limit is the MPE at the group load. At
-least two observations of the **same** load are required.
+value is the spread of the least-margin group and its limit is the MPE at that
+group's load. At least two observations of the **same** load are required
+(`min_repetitions`, default 2).
+
+Two conditions must hold together (audit item 4):
+
+* **every individual repetition** lies within the MPE for the load, and
+* **the spread of every group** does not exceed that MPE.
 
 Illustrative example (e = 10 g, L = 10000 g, MPE = 10 g):
 
@@ -208,14 +249,35 @@ change of exactly `1 d` passes; `0.9 d` fails.
 ### 4.5 Checklists (`T-CHK-CON`, `T-CHK-ID`)
 
 Each checklist item carries `item_code` and `conforms` (boolean). The test
-passes only when every item conforms. A non-conforming item is reported as a
-failure with the item code named in the explanation.
+passes only when every mandatory item conforms, and is `INCOMPLETE` with the
+missing items named when one has not been recorded.
+
+Some items are mandatory only on some instruments. The catalogue declares those
+with `conditional_items`, and the condition is evaluated against the instrument
+configuration (the same attributes the applicability expressions read):
+
+| Item | Mandatory when |
+| --- | --- |
+| `CON-05` tare device | `instrument.has_tare_device` is true |
+| `CON-08` software identification | `instrument.has_software` is true |
+| `CON-10` battery state indication | `instrument.has_battery` is true |
+
+When a conditional item is missing, the error names the condition as well as the
+item, so the reason is visible in the record.
 
 ## 5. Applicability
 
 Applicability is evaluated before any calculation (PRD 10.1). Expressions are
 JSON trees evaluated by `app/rules/expressions.py` against a context built from
-the instrument (class, `e`, `d`, Max, Min, electronic flags) and the case.
+the instrument and the case. The instrument part of the context carries the
+declared attributes (class, model, `e`, `d`, Max, Min, electronic, multi-range,
+multi-interval, tare device, zero-setting device, level indicator, range table)
+and the configuration-derived ones produced by
+`app/services/instrument_profile.py`: self-indicating type, mains supply, battery,
+interfaces, printer and embedded software. The same object is passed to the
+deterministic engine, so a plan and its calculation can never disagree about the
+instrument. For example `T-VOLT` applies only when the instrument is electronic
+**and** mains-powered.
 
 Example traces are returned in `applicability_trace`, e.g.
 `"root.all[0]: instrument.is_electronic eq True" -> true`. Tests may be manually

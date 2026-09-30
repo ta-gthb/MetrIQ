@@ -48,7 +48,9 @@ def failing_view(client, tokens, case_id: str) -> None:
         json={
             "replace": True,
             "observations": [
-                {"observation_no": 1, "load": "10000", "indication": "10020",
+                {"observation_no": 1, "position_label": "Zero", "load": "0",
+                 "indication": "0", "additional_load": "5"},
+                {"observation_no": 2, "load": "10000", "indication": "10020",
                  "additional_load": "5"},
             ],
         },

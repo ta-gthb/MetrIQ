@@ -12,6 +12,7 @@ from typing import Any, Iterable
 
 from app.models.test import TestImplementationStatus
 from app.rules.expressions import EvaluationTrace, evaluate
+from app.services.instrument_profile import instrument_flags
 from app.utils.decimals import decimal_str
 
 
@@ -85,6 +86,7 @@ def build_applicability_context(
         return getattr(instrument, name, default)
 
     ranges = range_payload(instrument)
+    flags = instrument_flags(instrument)
     context: dict[str, Any] = {
         "instrument": {
             "instrument_class": get("instrument_class"),
@@ -104,6 +106,18 @@ def build_applicability_context(
             "has_level_indicator": bool(get("has_level_indicator")),
             "range_count": len(ranges),
             "ranges": ranges,
+            # Configuration-derived attributes: self-indicating type, battery,
+            # interfaces, embedded software. Exposed so an applicability rule can
+            # be driven by the instrument's actual configuration.
+            "is_self_indicating": flags["is_self_indicating"],
+            "has_battery": flags["has_battery"],
+            "is_mains_powered": flags["is_mains_powered"],
+            "has_interfaces": flags["has_interfaces"],
+            "interfaces": flags["interfaces"],
+            "has_printer": flags["has_printer"],
+            "has_software": flags["has_software"],
+            "power_supply": flags["power_supply"],
+            "temperature_range": flags["temperature_range"],
         },
         "environment": environment or {},
     }

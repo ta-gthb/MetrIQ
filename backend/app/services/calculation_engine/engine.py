@@ -12,7 +12,12 @@ from typing import Any
 
 from app.services.calculation_engine.calculators import get_calculator, supported_test_codes
 from app.services.calculation_engine.errors import MissingInputError, ValidationError
-from app.services.calculation_engine.types import CalcContext, CalcOutcome, ObservationRow
+from app.services.calculation_engine.types import (
+    CalcContext,
+    CalcOutcome,
+    ObservationRow,
+    find_stage,
+)
 from app.utils.decimals import InvalidDecimalValue, to_decimal
 
 ENGINE_VERSION = "2.0.0"
@@ -78,6 +83,40 @@ def validate_inputs(ctx: CalcContext) -> list[str]:
     max_rows = rules.get("max_rows")
     if isinstance(max_rows, int) and len(ctx.observations) > max_rows:
         problems.append(f"at most {max_rows} observation row(s) are allowed")
+
+    required_rows = rules.get("required_rows") or []
+    if isinstance(required_rows, list) and required_rows:
+        positions: list[int | None] = []
+        for requirement in required_rows:
+            if not isinstance(requirement, dict):
+                continue
+            phrases = tuple(
+                str(phrase).strip().lower()
+                for phrase in (requirement.get("match") or [])
+                if str(phrase).strip()
+            )
+            load_equals = requirement.get("load_equals")
+            description = requirement.get("description") or " / ".join(phrases) or "required row"
+            index: int | None = None
+            if phrases:
+                index = find_stage(ctx.observations, phrases)
+            if index is None and load_equals is not None:
+                target = to_decimal(load_equals, field="required_rows.load_equals")
+                for position, obs in enumerate(ctx.observations):
+                    if obs.load is not None and target is not None and obs.load == target:
+                        index = position
+                        break
+            if index is None:
+                problems.append(
+                    f"the {description} is missing; record it as a row of this test"
+                )
+            positions.append(index)
+        if rules.get("stage_order") == "strict":
+            recorded = [position for position in positions if position is not None]
+            if recorded != sorted(recorded):
+                problems.append(
+                    "the required stages were recorded out of the order this procedure prescribes"
+                )
 
     non_negative = set(rules.get("non_negative_fields") or [])
     maximum = rules.get("max_value")
