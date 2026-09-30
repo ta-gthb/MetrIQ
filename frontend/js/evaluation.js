@@ -776,34 +776,80 @@ function bindEquipmentPanel() {
 
 /* --------------------------------------------------------- step 18: conditions */
 
+function conditionRange(start, peak, end, unit) {
+  const values = [start, peak, end];
+  if (values.every((value) => value === null || value === undefined || value === '')) {
+    return '\u2014';
+  }
+  return '<span class="num small">' + values.map((value) => fmt(value)).join(' / ') +
+    (unit ? ' ' + unit : '') + '</span>';
+}
+
+function conditionTestOptions() {
+  return state.tests
+    .filter((test) => !test.superseded_at)
+    .map((test) => '<option value="' + test.id + '">' + escapeHtml(test.definition.test_code) +
+      ' \u2014 ' + escapeHtml(test.definition.name) + '</option>')
+    .join('');
+}
+
+function conditionTestLabel(condition) {
+  if (!condition.test_instance_id) return '\u2014';
+  const test = state.tests.find((item) => item.id === condition.test_instance_id);
+  return test ? escapeHtml(test.definition.test_code) : '\u2014';
+}
+
 function stepConditions() {
   const editable = isEditable() && canAny('tests.edit', 'tests.edit.own', 'cases.edit');
   const rows = state.conditions.length
     ? state.conditions.map((condition) => '<tr>' +
         '<td>' + escapeHtml(condition.label) + '</td>' +
-        '<td class="num">' + fmt(condition.temperature_c, { unit: '\u00b0C' }) + '</td>' +
-        '<td class="num">' + fmt(condition.relative_humidity_pct, { unit: '%' }) + '</td>' +
+        '<td class="mono small">' + conditionTestLabel(condition) + '</td>' +
+        '<td>' + conditionRange(condition.temperature_c, condition.max_temperature_c, condition.end_temperature_c, '\u00b0C') + '</td>' +
+        '<td>' + conditionRange(condition.relative_humidity_pct, condition.max_relative_humidity_pct, condition.end_relative_humidity_pct, '%') + '</td>' +
         '<td class="num">' + fmt(condition.barometric_pressure_kpa, { unit: 'kPa' }) + '</td>' +
-        '<td class="small faint">' + fmtDate(condition.started_at) + '</td>' +
+        '<td class="small faint">' + fmtDate(condition.started_at) + '<br />' + fmtDate(condition.ended_at) + '</td>' +
         '<td class="small">' + escapeHtml(condition.notes || '\u2014') + '</td></tr>').join('')
-    : '<tr><td colspan="6" class="faint small">No environmental conditions recorded.</td></tr>';
+    : '<tr><td colspan="7" class="faint small">No environmental conditions recorded.</td></tr>';
   const form = editable
     ? '<div class="card tight mt-3"><div class="card-title"><h3>Record conditions</h3></div>' +
         '<div class="field-row">' +
           '<div class="field"><label>Label</label><input id="c-label" value="Ambient" /></div>' +
-          '<div class="field"><label>Temperature (\u00b0C)</label><input id="c-temp" class="numeric" /></div>' +
-          '<div class="field"><label>Relative humidity (%)</label><input id="c-humidity" class="numeric" /></div>' +
+          '<div class="field"><label>Test (optional)</label><select id="c-test">' +
+            '<option value="">Whole case</option>' + conditionTestOptions() + '</select></div>' +
           '<div class="field"><label>Pressure (kPa)</label><input id="c-pressure" class="numeric" /></div>' +
         '</div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label>Temperature start (\u00b0C)</label><input id="c-temp" class="numeric" /></div>' +
+          '<div class="field"><label>Temperature max (\u00b0C)</label><input id="c-temp-max" class="numeric" /></div>' +
+          '<div class="field"><label>Temperature end (\u00b0C)</label><input id="c-temp-end" class="numeric" /></div>' +
+        '</div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label>Humidity start (%)</label><input id="c-humidity" class="numeric" /></div>' +
+          '<div class="field"><label>Humidity max (%)</label><input id="c-humidity-max" class="numeric" /></div>' +
+          '<div class="field"><label>Humidity end (%)</label><input id="c-humidity-end" class="numeric" /></div>' +
+        '</div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label>Period started</label><input id="c-started" type="datetime-local" /></div>' +
+          '<div class="field"><label>Period ended</label><input id="c-ended" type="datetime-local" /></div>' +
+        '</div>' +
         '<div class="field"><label>Notes</label><input id="c-notes" /></div>' +
+        '<div class="hint">Record the reading at the start, the maximum seen during the period and the reading at the end. A start or end reading above the stated maximum is refused, and the period must not end before it starts.</div>' +
         '<button class="btn-primary btn-sm" id="save-condition">Add condition record</button></div>'
     : '';
   return '<div class="card"><div class="step-head"><span class="step-no">18</span>' +
     '<div><h2>Laboratory and environmental conditions</h2>' +
     '<div class="faint small">Conditions under which the observations were taken; they form part of the evidence.</div></div></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Label</th><th class="num">Temp</th><th class="num">RH</th>' +
-      '<th class="num">Pressure</th><th>Started</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Label</th><th>Test</th>' +
+      '<th>Temperature (\u00b0C) start / max / end</th><th>Humidity (%) start / max / end</th>' +
+      '<th class="num">Pressure</th><th>Period</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     form + equipmentPanel() + '</div>';
+}
+
+function toIsoInstant(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
 function bindConditions() {
@@ -815,9 +861,16 @@ function bindConditions() {
     try {
       const payload = {
         label: document.getElementById('c-label').value.trim() || 'Ambient',
+        test_instance_id: document.getElementById('c-test').value || null,
         temperature_c: document.getElementById('c-temp').value.trim() || null,
+        max_temperature_c: document.getElementById('c-temp-max').value.trim() || null,
+        end_temperature_c: document.getElementById('c-temp-end').value.trim() || null,
         relative_humidity_pct: document.getElementById('c-humidity').value.trim() || null,
+        max_relative_humidity_pct: document.getElementById('c-humidity-max').value.trim() || null,
+        end_relative_humidity_pct: document.getElementById('c-humidity-end').value.trim() || null,
         barometric_pressure_kpa: document.getElementById('c-pressure').value.trim() || null,
+        started_at: toIsoInstant(document.getElementById('c-started').value),
+        ended_at: toIsoInstant(document.getElementById('c-ended').value),
         notes: document.getElementById('c-notes').value.trim() || null,
       };
       await api.post('/cases/' + caseId + '/conditions', payload);
@@ -1126,13 +1179,40 @@ function requiredEvidencePanel() {
       (present ? '<span class="faint small" style="margin-left:8px">' + escapeHtml(req.present.length + '/' + req.required.length) + ' attachments</span>' : '') + '</span>' +
       slot + '</div>';
   }).join('');
+  const perTest = req.per_test || [];
+  const outstandingTests = req.missing_per_test || [];
+  const testRows = perTest.map((entry) => {
+    const slot = entry.satisfied || !editable
+      ? ''
+      : '<span class="inline"><input type="file" id="req-test-file-' + entry.test_instance_id + '" accept="image/*" style="max-width:190px" />' +
+        '<button class="btn-sm" data-upload-test-evidence="' + entry.test_instance_id + '">Upload</button></span>';
+    return '<div class="inline" style="justify-content:space-between;margin-bottom:6px">' +
+      '<span>' + (entry.satisfied ? '<span class="pill pill-pass">linked</span>' : '<span class="pill pill-warn">required</span>') +
+      ' <span class="small mono">' + escapeHtml(entry.test_code) + '</span>' +
+      ' <span class="faint small">' + escapeHtml(entry.name) + '</span></span>' + slot + '</div>';
+  }).join('');
+  const outstanding = req.missing.length + outstandingTests.length;
   return '<div class="card tight mt-3"><div class="card-title"><h3>Mandatory photographs</h3>' +
     (req.satisfied
       ? '<span class="pill pill-pass">complete</span>'
-      : '<span class="pill pill-warn">' + req.missing.length + ' outstanding</span>') + '</div>' +
+      : '<span class="pill pill-warn">' + outstanding + ' outstanding</span>') + '</div>' +
     '<div class="hint">Two clear photographs are required before this evaluation can be submitted ' +
     'for technical review: the instrument nameplate and the test setup.</div>' +
-    rows + '</div>';
+    rows +
+    (testRows
+      ? '<div class="mt-3"><div class="card-title"><h3>Procedure evidence</h3>' +
+        (outstandingTests.length
+          ? '<span class="pill pill-warn">' + outstandingTests.length + ' outstanding</span>'
+          : '<span class="pill pill-pass">complete</span>') + '</div>' +
+        '<div class="hint">These procedures declare mandatory evidence. Upload a record or link an ' +
+        'existing attachment to each before it can be marked complete.</div>' +
+        testRows + '</div>'
+      : '') + '</div>';
+}
+
+async function refreshEvidence() {
+  state.attachments = await api.get('/cases/' + caseId + '/attachments');
+  state.evidenceReq = await api.get('/cases/' + caseId + '/evidence-requirements').catch(() => state.evidenceReq);
 }
 
 async function uploadRequiredEvidence(category) {
@@ -1146,9 +1226,49 @@ async function uploadRequiredEvidence(category) {
   if (selectedTestId) form.append('test_instance_id', selectedTestId);
   try {
     await api.upload('/cases/' + caseId + '/attachments', form);
-    state.attachments = await api.get('/cases/' + caseId + '/attachments');
-    state.evidenceReq = await api.get('/cases/' + caseId + '/evidence-requirements');
+    await refreshEvidence();
     toast(statusLabel(category) + ' attached.', 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+async function uploadTestEvidence(testInstanceId) {
+  const input = document.getElementById('req-test-file-' + testInstanceId);
+  if (!input || !input.files.length) { toast('Choose a file to upload.', 'warn'); return; }
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  form.append('test_instance_id', testInstanceId);
+  form.append('auto_classify', 'false');
+  try {
+    await api.upload('/cases/' + caseId + '/attachments', form);
+    await refreshEvidence();
+    toast('Evidence linked to the procedure.', 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+async function linkEvidence(attachmentId) {
+  const select = document.querySelector('[data-link-test="' + attachmentId + '"]');
+  if (!select || !select.value) { toast('Choose the procedure this evidence supports.', 'warn'); return; }
+  try {
+    await api.post('/attachments/' + attachmentId + '/links', { test_instance_id: select.value });
+    await refreshEvidence();
+    toast('Evidence linked to the procedure.', 'success');
+    render();
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
+async function unlinkEvidence(attachmentId, linkId) {
+  try {
+    await api.delete('/attachments/' + attachmentId + '/links/' + linkId);
+    await refreshEvidence();
+    toast('Link removed.', 'success');
     render();
   } catch (error) {
     toast(formatApiError(error), 'error');
@@ -1158,6 +1278,15 @@ async function uploadRequiredEvidence(category) {
 function bindRequiredEvidence() {
   document.querySelectorAll('[data-upload-required]').forEach((button) => {
     button.addEventListener('click', () => uploadRequiredEvidence(button.dataset.uploadRequired));
+  });
+  document.querySelectorAll('[data-upload-test-evidence]').forEach((button) => {
+    button.addEventListener('click', () => uploadTestEvidence(button.dataset.uploadTestEvidence));
+  });
+  document.querySelectorAll('[data-link-attachment]').forEach((button) => {
+    button.addEventListener('click', () => linkEvidence(button.dataset.linkAttachment));
+  });
+  document.querySelectorAll('[data-unlink-attachment]').forEach((button) => {
+    button.addEventListener('click', () => unlinkEvidence(button.dataset.unlinkAttachment, button.dataset.linkId));
   });
 }
 
@@ -1183,14 +1312,34 @@ async function downloadEvidence(attachmentId) {
 }
 
 function evidencePanel() {
+  const live = state.tests.filter((item) => !item.superseded_at);
   const rows = state.attachments.length
-    ? '<div class="table-wrap mt-2"><table><tbody>' + state.attachments.map((item) =>
-      '<tr><td>' + escapeHtml(item.original_filename) +
-        ' <button class="btn-sm" data-download-attachment="' + escapeHtml(item.id) + '">Download</button>' +
-        '<div class="faint small">' + escapeHtml(item.caption || '') + '</div></td>' +
-      '<td><span class="pill pill-info">' + escapeHtml(statusLabel(item.category)) + '</span>' +
-        (item.advisory_category ? ' <span class="pill pill-accent">AI suggested</span>' : '') + '</td>' +
-      '<td class="small faint nowrap">' + fmtDate(item.created_at) + '</td></tr>').join('') + '</tbody></table></div>'
+    ? '<div class="table-wrap mt-2"><table><thead><tr><th>File</th><th>Category</th><th>Supports</th>' +
+      '<th>Uploaded</th></tr></thead><tbody>' + state.attachments.map((item) => {
+        const links = item.links || [];
+        const linkedIds = new Set(links.map((link) => link.test_instance_id));
+        const candidates = live.filter((candidate) => !linkedIds.has(candidate.id));
+        const chips = links.length
+          ? links.map((link) => '<span class="pill pill-info">' + escapeHtml(link.test_code || 'test') +
+              ' <button class="btn-sm" data-unlink-attachment="' + escapeHtml(item.id) +
+              '" data-link-id="' + escapeHtml(link.id) + '" title="Remove this link">\u00d7</button></span>').join(' ')
+          : '<span class="faint small">not linked</span>';
+        const picker = candidates.length
+          ? '<div class="inline mt-2"><select data-link-test="' + escapeHtml(item.id) + '" style="max-width:200px">' +
+              '<option value="">Link to procedure\u2026</option>' +
+              candidates.map((candidate) => '<option value="' + candidate.id + '">' +
+                escapeHtml(candidate.definition.test_code) + ' \u2014 ' + escapeHtml(candidate.definition.name) +
+                '</option>').join('') + '</select>' +
+              '<button class="btn-sm" data-link-attachment="' + escapeHtml(item.id) + '">Link</button></div>'
+          : '';
+        return '<tr><td>' + escapeHtml(item.original_filename) +
+          ' <button class="btn-sm" data-download-attachment="' + escapeHtml(item.id) + '">Download</button>' +
+          '<div class="faint small">' + escapeHtml(item.caption || '') + '</div></td>' +
+        '<td><span class="pill pill-info">' + escapeHtml(statusLabel(item.category)) + '</span>' +
+          (item.advisory_category ? ' <span class="pill pill-accent">AI suggested</span>' : '') + '</td>' +
+        '<td>' + chips + picker + '</td>' +
+        '<td class="small faint nowrap">' + fmtDate(item.created_at) + '</td></tr>';
+      }).join('') + '</tbody></table></div>'
     : '<div class="faint small mt-2">No evidence uploaded yet.</div>';
   return '<div class="card tight mt-3"><div class="card-title"><h3>Evidence</h3>' +
     '<span class="faint small">Recommended: ' + escapeHtml(((definitionFor(selectedTest()).evidence_requirements || {}).recommended || []).join(', ') || 'none') + '</span></div>' +
@@ -1199,6 +1348,10 @@ function evidencePanel() {
       '<input id="evidence-caption" placeholder="Caption" style="max-width:220px" />' +
       '<select id="evidence-category" style="max-width:180px"><option value="">Auto-classify</option>' +
         ATTACHMENT_CATEGORIES.map((c) => '<option value="' + c + '">' + statusLabel(c) + '</option>').join('') + '</select>' +
+      '<select id="evidence-test" style="max-width:200px"><option value="">Not linked to a procedure</option>' +
+        live.map((candidate) => '<option value="' + candidate.id + '"' +
+          (candidate.id === selectedTestId ? ' selected' : '') + '>' + escapeHtml(candidate.definition.test_code) +
+          ' \u2014 ' + escapeHtml(candidate.definition.name) + '</option>').join('') + '</select>' +
       '<button class="btn-sm" id="upload-evidence">Upload</button></div>' + rows + '</div>' +
     requiredEvidencePanel();
 }
@@ -1435,11 +1588,11 @@ async function uploadEvidence() {
   const category = document.getElementById('evidence-category').value;
   if (category) form.append('category', category);
   // An empty string is not a valid UUID, so only attach the test when one is selected.
-  if (selectedTestId) form.append('test_instance_id', selectedTestId);
+  const testSelection = document.getElementById('evidence-test');
+  if (testSelection && testSelection.value) form.append('test_instance_id', testSelection.value);
   try {
     const created = await api.upload('/cases/' + caseId + '/attachments', form);
-    state.attachments = await api.get('/cases/' + caseId + '/attachments');
-    state.evidenceReq = await api.get('/cases/' + caseId + '/evidence-requirements').catch(() => state.evidenceReq);
+    await refreshEvidence();
     toast('Evidence uploaded' + (created.classification && created.classification.category
       ? ' and classified as ' + statusLabel(created.classification.category) + ' (advisory).' : '.'), 'success');
     render();

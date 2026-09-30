@@ -39,11 +39,21 @@ def _test_by_code(client, tokens, case_id: str, code: str) -> dict:
     return next(item for item in detail["tests"] if item["test_code"] == code)
 
 
-def _upload(client, tokens, case_id: str, category: str = "test_setup_photograph") -> dict:
+def _upload(
+    client,
+    tokens,
+    case_id: str,
+    category: str = "test_setup_photograph",
+    *,
+    test_id: str | None = None,
+) -> dict:
+    data = {"category": category, "caption": f"{category} for item 12", "auto_classify": "false"}
+    if test_id is not None:
+        data["test_instance_id"] = test_id
     response = client.post(
         f"{API}/cases/{case_id}/attachments",
         files={"file": (f"{category}.png", png_bytes(), "image/png")},
-        data={"category": category, "caption": f"{category} for item 12", "auto_classify": "false"},
+        data=data,
         headers=tokens[ENGINEER],
     )
     assert response.status_code == 201, response.text
@@ -204,6 +214,46 @@ def test_evidence_cannot_be_linked_across_cases(client, tokens, new_case):
     foreign = _test_by_code(client, tokens, second, "T-WP")
     refused = _link(client, tokens, attachment["id"], foreign["id"])
     assert refused.status_code == 422
+
+
+def test_an_upload_can_name_the_test_it_supports(client, tokens, new_case):
+    case_id = new_case()["id"]
+    test = _test_by_code(client, tokens, case_id, "T-WP")
+    attachment = _upload(client, tokens, case_id, test_id=test["id"])
+    assert [link["test_code"] for link in attachment["links"]] == ["T-WP"]
+
+    listed = client.get(f"{API}/cases/{case_id}/attachments", headers=tokens[ENGINEER]).json()
+    stored = next(item for item in listed if item["id"] == attachment["id"])
+    assert [link["test_instance_id"] for link in stored["links"]] == [test["id"]]
+
+
+def test_an_upload_cannot_support_a_foreign_or_superseded_test(client, tokens, new_case):
+    first = new_case()["id"]
+    second = new_case()["id"]
+    foreign = _test_by_code(client, tokens, second, "T-WP")
+    refused = client.post(
+        f"{API}/cases/{first}/attachments",
+        files={"file": ("test_setup_photograph.png", png_bytes(), "image/png")},
+        data={"category": "test_setup_photograph", "test_instance_id": foreign["id"], "auto_classify": "false"},
+        headers=tokens[ENGINEER],
+    )
+    assert refused.status_code == 422
+
+    test = _test_by_code(client, tokens, first, "T-WP")
+    replacement = client.post(
+        f"{API}/tests/{test['id']}/retest",
+        json={"reason": "Reference weights re-calibrated; repeat the test."},
+        headers=tokens[ENGINEER],
+    ).json()
+    superseded = client.post(
+        f"{API}/cases/{first}/attachments",
+        files={"file": ("test_setup_photograph.png", png_bytes(), "image/png")},
+        data={"category": "test_setup_photograph", "test_instance_id": test["id"], "auto_classify": "false"},
+        headers=tokens[ENGINEER],
+    )
+    assert superseded.status_code == 409
+    assert "superseded" in superseded.json()["detail"]
+    assert replacement["superseded_at"] is None
 
 
 # --------------------------------------------------------- mandatory evidence ---

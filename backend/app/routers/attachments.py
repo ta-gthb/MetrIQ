@@ -100,6 +100,18 @@ async def upload_attachment(
             status_code=422,
             detail=f"category must be one of: {', '.join(AttachmentCategory.ALL)}",
         )
+    if test_instance_id is not None:
+        test = db.get(TestInstance, test_instance_id)
+        if test is None or test.case_id != case.id:
+            raise HTTPException(
+                status_code=422,
+                detail="That test belongs to a different evaluation case.",
+            )
+        if test.superseded_at is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="That test record has been superseded; link the evidence to its live revision.",
+            )
 
     data = await file.read()
     try:
