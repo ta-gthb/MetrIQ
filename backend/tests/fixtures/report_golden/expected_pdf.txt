@@ -17,6 +17,8 @@ Ruleset version
 r76-1-2006-v1
 Report template version
 r76-2-2007-v1
+Report mode
+OIML R 76-2 aligned
 Overall result
 FAIL
 Verification code
@@ -721,7 +723,11 @@ Yes
 10
 6
 Yes
-6.10 Examination of construction (T-CHK-CON)
+
+RPT-GOLDEN-00001 - revision 1
+Page 10
+7. Construction and identification checklist
+7.1 Examination of construction (T-CHK-CON)
  OIML clause
 OIML R 76-1:2006 6 / T.4
 Applicability
@@ -768,10 +774,7 @@ Yes
 CON-07
 Yes
 -
-
-RPT-GOLDEN-00001 - revision 1
-Page 10
-6.11 Identification and markings (T-CHK-ID)
+7.2 Identification and markings (T-CHK-ID)
  OIML clause
 OIML R 76-1:2006 7 / T.4
 Applicability
@@ -815,12 +818,16 @@ Yes
 ID-06
 Yes
 -
+
+RPT-GOLDEN-00001 - revision 1
+Page 11
+Item
+Conforms
+Remarks
 ID-09
 Yes
 -
-8. Evidence and attachments
-No evidence attached.
-9. Review, approval and versioning
+9. Review, approval and signatures
  engineer
 Arjun Mehta
 reviewer
@@ -837,18 +844,24 @@ approved_at
 -
 finalized_at
 -
-Ruleset version
+10. Ruleset, template and revision history
+ Ruleset version
 r76-1-2006-v1
+Ruleset status
+active
 Standard
 OIML R 76-1 2006
 Source reference
 https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf
 Template version
 r76-2-2007-v1
+11. Document verification
+ Verification code
+<verification-code>
 Content hash (SHA-256)
 <hash>
-Verification code
-<verification-code>
+Checking the code, or scanning the mark, recomputes this document's content hash from the recorded result and reports whether the
+two still agree.
 This report is generated from structured records under a versioned OIML R 76 ruleset. It is a technical type-evaluation record and does
 not by itself constitute statutory approval.
 

@@ -32,6 +32,7 @@ from app.routers import (
     reports,
     standards,
     tests,
+    verification,
     workflow,
 )
 from app.services.attachment_service.storage import get_storage
@@ -271,7 +272,8 @@ def api_index() -> dict:
 
 
 PREFIX = settings.API_V1_PREFIX
-for module in (auth, dashboard, masters, cases, tests, workflow, reports, attachments, audit, standards, ai, admin, platform):
+for module in (auth, dashboard, masters, cases, tests, workflow, reports, attachments, audit,
+               standards, ai, admin, platform, verification):
     app.include_router(module.router, prefix=PREFIX)
 
 

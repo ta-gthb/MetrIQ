@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Attachment, EvaluationCase, ReportTemplateVersion, TestEquipmentUsage, TestInstance
 from app.services.metrology_service import summarise_case
+from app.services.report_engine.verification import verification_url
 from app.utils.decimals import decimal_str
 
 
@@ -41,9 +42,13 @@ def snapshot_hash(payload: dict[str, Any]) -> str:
 
 
 #: Metadata that must not take part in the content hash: it records when a
-#: snapshot was built, not what it says. Excluding it is what makes the
-#: verification code reproducible from the report content alone.
-VOLATILE_META_FIELDS = frozenset({"content_hash", "verification_code", "generated_at"})
+#: snapshot was built, or where the deployment happens to live, not what the
+#: report says. Excluding it is what makes the verification code reproducible
+#: from the report content alone - two instances holding the same records
+#: produce the same code, whatever their public address.
+VOLATILE_META_FIELDS = frozenset(
+    {"content_hash", "verification_code", "verification_url", "generated_at"}
+)
 
 
 def content_hash(snapshot: dict[str, Any]) -> str:
@@ -153,6 +158,8 @@ def build_report_snapshot(
             "standard_edition": standard_version.edition if standard_version else None,
             "source_reference": standard_version.source_reference if standard_version else None,
             "template_label": template_version.version_label if template_version else None,
+            "template_mode": (template_version.section_map or {}).get("mode") if template_version else None,
+            "template_mode_label": (template_version.section_map or {}).get("mode_label") if template_version else None,
             "template_sections": (template_version.section_map or {}).get("sections", []) if template_version else [],
         },
         "cover": {
@@ -265,4 +272,8 @@ def build_report_snapshot(
     digest = content_hash(snapshot)
     snapshot["meta"]["content_hash"] = digest
     snapshot["meta"]["verification_code"] = verification_code(digest)
+    # Where the printed mark sends a reader. Derived from the code, so it is
+    # stable for a given report; excluded from the hash, so it is not part of
+    # what the report says.
+    snapshot["meta"]["verification_url"] = verification_url(snapshot["meta"]["verification_code"])
     return snapshot, digest

@@ -160,6 +160,12 @@ class Settings(BaseSettings):
         "R 76 ruleset. It is a technical type-evaluation record and does not by "
         "itself constitute statutory approval."
     )
+    # The address at which a printed report can be checked, for example
+    # "https://metriq.vercel.app". Reports then carry a QR code that opens
+    # <PUBLIC_APP_URL>/verification.html?code=..., and the verification page
+    # answers from GET /api/v1/verify/{code}. Left empty, reports are rendered
+    # without a QR code and the verification page can still be reached directly.
+    PUBLIC_APP_URL: str | None = None
 
     # --- CORS -------------------------------------------------------------
     CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
@@ -295,6 +301,18 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip().lower() for item in value.split(",") if item.strip()]
         return value
+
+    @property
+    def public_app_url(self) -> str | None:
+        """The canonical origin of the deployed frontend, without a trailing slash."""
+        if not self.PUBLIC_APP_URL:
+            return None
+        url = self.PUBLIC_APP_URL.strip().rstrip("/")
+        if not url:
+            return None
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        return url
 
     @property
     def is_production(self) -> bool:

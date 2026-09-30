@@ -8,6 +8,7 @@ Case revision | 1
 Generated at (UTC) | <timestamp>
 Ruleset version | r76-1-2006-v1
 Report template version | r76-2-2007-v1
+Report mode | OIML R 76-2 aligned
 Overall result | FAIL
 Verification code | <verification-code>
 1. Applicant and manufacturer
@@ -202,7 +203,8 @@ Remarks | -
 # | Load | Indication | dL | Error | MPE | Margin | Within
 1 | - | - | - | 0 | 10 | 10 | Yes
 2 | - | - | - | 4 | 10 | 6 | Yes
-6.10 Examination of construction (T-CHK-CON)
+7. Construction and identification checklist
+7.1 Examination of construction (T-CHK-CON)
 OIML clause | OIML R 76-1:2006 6 / T.4
 Applicability | APPLICABLE - All applicability conditions satisfied.
 Status | COMPLETED
@@ -221,7 +223,7 @@ CON-04 | Yes | -
 CON-05 | Yes | -
 CON-06 | Yes | -
 CON-07 | Yes | -
-6.11 Identification and markings (T-CHK-ID)
+7.2 Identification and markings (T-CHK-ID)
 OIML clause | OIML R 76-1:2006 7 / T.4
 Applicability | APPLICABLE - All applicability conditions satisfied.
 Status | COMPLETED
@@ -240,9 +242,7 @@ ID-04 | Yes | -
 ID-05 | Yes | -
 ID-06 | Yes | -
 ID-09 | Yes | -
-7. Evidence and attachments
-No evidence attached.
-8. Review, approval and versioning
+9. Review, approval and signatures
 engineer | Arjun Mehta
 reviewer | -
 approver | -
@@ -251,10 +251,15 @@ submitted_at | -
 verified_at | -
 approved_at | -
 finalized_at | -
+10. Ruleset, template and revision history
 Ruleset version | r76-1-2006-v1
+Ruleset status | active
 Standard | OIML R 76-1 2006
 Source reference | https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf
 Template version | r76-2-2007-v1
-Content hash (SHA-256) | <hash>
+11. Document verification
 Verification code | <verification-code>
+Content hash (SHA-256) | <hash>
+Verification page | -
+Checking the code, or scanning the mark, recomputes this document's content hash from the recorded result and reports whether the two still agree.
 This report is generated from structured records under a versioned OIML R 76 ruleset. It is a technical type-evaluation record and does not by itself constitute statutory approval.

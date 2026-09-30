@@ -121,5 +121,5 @@ Answers the audit question *is any report field populated by an unexplained or m
 | `evidence` | 8 | Evidence and attachments | no | `attachments` | Index of uploaded files with their SHA-256 digests. |
 | `review` | 9 | Review, approval and signatures | yes | `evaluation_cases` (+ `workflow_actions`) | Named engineer, reviewer and approver with the workflow timestamps. Approval and hashing only: no digital signature is claimed. |
 | `versions` | 10 | Ruleset, template and revision history | yes | `standard_versions`, `rule_versions`, `report_template_versions` | The exact ruleset and template the case was evaluated against, plus the case revision number. |
-| `verification` | 11 | Document verification (hash / QR) | no | `meta.content_hash` / `meta.verification_code` | SHA-256 over the canonical snapshot; recomputable by anyone holding the report data. |
+| `verification` | 11 | Document verification | no | `meta.content_hash` / `meta.verification_code` | SHA-256 over the canonical snapshot; recomputable by anyone holding the report data. |
 

@@ -12,6 +12,7 @@ from app.routers import (
     reports,
     standards,
     tests,
+    verification,
     workflow,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "reports",
     "standards",
     "tests",
+    "verification",
     "workflow",
 ]

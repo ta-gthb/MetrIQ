@@ -20,6 +20,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.services.report_engine.sections import heading_text, section_number, section_required
+from app.services.report_engine.verification import qr_drawing
+
 ACCENT = colors.HexColor("#0F4C81")
 MUTED = colors.HexColor("#5A6472")
 LIGHT = colors.HexColor("#EEF2F7")
@@ -32,6 +35,110 @@ STATUS_COLORS = {
     "WAIVED": colors.HexColor("#4A4A8A"),
     "PENDING": MUTED,
 }
+
+
+def _test_records(
+    snapshot: dict[str, Any], tests: list[dict[str, Any]], styles, width: float, number: str
+) -> list[Any]:
+    """The record blocks for one section of the report: tables of observations."""
+    story: list[Any] = []
+    for index, test in enumerate(tests, start=1):
+        result = test["result"]
+        block: list[Any] = [
+            Paragraph(f"{number}.{index} {test['name']} ({test['test_code']})", styles["h2"]),
+            _kv_table(
+                [
+                    ("OIML clause", test.get("clause_reference")),
+                    ("Applicability", f"{test['applicability']['status']} - {test['applicability'].get('reason') or ''}"),
+                    ("Status", test.get("status")),
+                    ("Result", result.get("status")),
+                    ("Measured value", f"{_text(result.get('measured_value'))} {result.get('unit') or ''}".strip()),
+                    ("Limit", f"{_text(result.get('limit_value'))} {result.get('unit') or ''}".strip()),
+                    ("Margin", _text(result.get("margin"))),
+                    ("Rule", f"{result.get('rule_id') or '-'} ({result.get('rule_version') or '-'})"),
+                    ("Rounding policy", test["calculation"].get("rounding_policy")),
+                    ("Explanation", result.get("explanation")),
+                    ("Remarks", test.get("remarks")),
+                ],
+                styles,
+                width,
+            ),
+            Spacer(1, 3 * mm),
+        ]
+        story.append(KeepTogether(block))
+        if test["layout"] == "checklist":
+            data = [["Item", "Conforms", "Remarks"]]
+            for row in test["rows"]:
+                detail = row.get("detail") or {}
+                data.append(
+                    [
+                        Paragraph(_text(detail.get("item_code") or row.get("label")), styles["cell"]),
+                        Paragraph("Yes" if detail.get("conforms") else "No", styles["cell"]),
+                        Paragraph(_text(detail.get("remarks")), styles["cell"]),
+                    ]
+                )
+        else:
+            data = [["#", "Load", "Indication", "dL", "Error", "MPE", "Margin", "Within"]]
+            for row in test["rows"]:
+                data.append(
+                    [
+                        Paragraph(_text(row.get("observation_no")), styles["cell"]),
+                        Paragraph(_text(row.get("load")), styles["cell"]),
+                        Paragraph(_text(row.get("indication")), styles["cell"]),
+                        Paragraph(_text(row.get("additional_load")), styles["cell"]),
+                        Paragraph(_text(row.get("error")), styles["cell"]),
+                        Paragraph(_text(row.get("mpe")), styles["cell"]),
+                        Paragraph(_text(row.get("margin")), styles["cell"]),
+                        Paragraph(_text(row.get("within")), styles["cell"]),
+                    ]
+                )
+        table = Table(data, colWidths=[width / len(data[0])] * len(data[0]), hAlign="LEFT", repeatRows=1)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1B2A41")),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C9D3E0")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                ]
+            )
+        )
+        story.append(table)
+        story.append(Spacer(1, 5 * mm))
+    return story
+
+
+def _verification_block(snapshot: dict[str, Any], styles, width: float) -> list[Any]:
+    """The document-verification block: the mark, the code and what it proves."""
+    meta = snapshot.get("meta") or {}
+    rows = [
+        ("Verification code", meta.get("verification_code")),
+        ("Content hash (SHA-256)", meta.get("content_hash")),
+    ]
+    url = meta.get("verification_url")
+    if url:
+        rows.append(("Verification page", url))
+    note = Paragraph(
+        "Checking the code, or scanning the mark, recomputes this document's content hash from "
+        "the recorded result and reports whether the two still agree.",
+        styles["small"],
+    )
+    if not url:
+        return [_kv_table(rows, styles, width), Spacer(1, 2 * mm), note]
+    mark = qr_drawing(url, size=30 * mm)
+    table = _kv_table(rows, styles, width * 0.64)
+    grid = Table([[mark, table]], colWidths=[width * 0.34, width * 0.66], hAlign="LEFT")
+    grid.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (0, 0), 0),
+                ("RIGHTPADDING", (0, 0), (0, 0), 6),
+            ]
+        )
+    )
+    return [grid, Spacer(1, 2 * mm), note]
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -166,6 +273,7 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
                 ("Generated at (UTC)", meta.get("generated_at")),
                 ("Ruleset version", snapshot["versions"].get("ruleset_label")),
                 ("Report template version", snapshot["versions"].get("template_label")),
+                ("Report mode", snapshot["versions"].get("template_mode_label")),
                 ("Overall result", snapshot["summary"].get("overall")),
                 ("Verification code", meta.get("verification_code")),
             ],
@@ -175,12 +283,12 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
     )
     story.append(PageBreak())
 
-    story.append(Paragraph("1. Applicant and manufacturer", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "applicant", "Applicant and manufacturer"), styles["h1"]))
     story.append(_kv_table(list(snapshot["applicant"].items()), styles, width))
     story.append(Spacer(1, 4 * mm))
     story.append(_kv_table(list(snapshot["manufacturer"].items()), styles, width))
 
-    story.append(Paragraph("2. Instrument identification and metrological characteristics", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "instrument", "Instrument identification and metrological characteristics"), styles["h1"]))
     instrument = snapshot["instrument"]
     story.append(
         _kv_table(
@@ -202,7 +310,7 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
         table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C9D3E0"))]))
         story.append(table)
 
-    story.append(Paragraph("3. Laboratory and test conditions", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "conditions", "Laboratory and test conditions"), styles["h1"]))
     if snapshot["conditions"]:
         for index, condition in enumerate(snapshot["conditions"], start=1):
             story.append(Paragraph(f"Condition set {index}", styles["h2"]))
@@ -211,7 +319,7 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
     else:
         story.append(Paragraph("No environmental conditions recorded.", styles["body"]))
 
-    story.append(Paragraph("4. Test equipment and traceability", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "equipment", "Test equipment and traceability"), styles["h1"]))
     if snapshot["equipment"]:
         rows = snapshot["equipment"]
         headers = ["Code", "Name", "Type", "Serial", "Class", "Role"]
@@ -233,7 +341,7 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
         story.append(Paragraph("No test equipment referenced.", styles["body"]))
 
     story.append(PageBreak())
-    story.append(Paragraph("5. Summary of applicable tests and results", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "summary", "Summary of applicable tests and results"), styles["h1"]))
     summary = snapshot["summary"]
     story.append(
         _kv_table(
@@ -264,7 +372,7 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
                 Paragraph(_text(result.get("margin")), styles["cell"]),
             ]
         )
-    story.append(Paragraph("5.1 Test matrix", styles["h2"]))
+    story.append(Paragraph(f"{section_number(snapshot, 'summary', '5')}.1 Test matrix", styles["h2"]))
     table = Table(data, colWidths=[width * 0.24, width * 0.16, width * 0.12, width * 0.1,
                                    width * 0.13, width * 0.13, width * 0.12], hAlign="LEFT", repeatRows=1)
     table.setStyle(
@@ -281,73 +389,28 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
     story.append(table)
 
     story.append(PageBreak())
-    story.append(Paragraph("6. Individual test records", styles["h1"]))
-    for index, test in enumerate(snapshot["tests"], start=1):
-        result = test["result"]
-        block: list[Any] = [
-            Paragraph(f"6.{index} {test['name']} ({test['test_code']})", styles["h2"]),
-            _kv_table(
-                [
-                    ("OIML clause", test.get("clause_reference")),
-                    ("Applicability", f"{test['applicability']['status']} - {test['applicability'].get('reason') or ''}"),
-                    ("Status", test.get("status")),
-                    ("Result", result.get("status")),
-                    ("Measured value", f"{_text(result.get('measured_value'))} {result.get('unit') or ''}".strip()),
-                    ("Limit", f"{_text(result.get('limit_value'))} {result.get('unit') or ''}".strip()),
-                    ("Margin", _text(result.get("margin"))),
-                    ("Rule", f"{result.get('rule_id') or '-'} ({result.get('rule_version') or '-'})"),
-                    ("Rounding policy", test["calculation"].get("rounding_policy")),
-                    ("Explanation", result.get("explanation")),
-                    ("Remarks", test.get("remarks")),
-                ],
-                styles,
-                width,
-            ),
-            Spacer(1, 3 * mm),
-        ]
-        story.append(KeepTogether(block))
-        if test["layout"] == "checklist":
-            data = [["Item", "Conforms", "Remarks"]]
-            for row in test["rows"]:
-                detail = row.get("detail") or {}
-                data.append(
-                    [
-                        Paragraph(_text(detail.get("item_code") or row.get("label")), styles["cell"]),
-                        Paragraph("Yes" if detail.get("conforms") else "No", styles["cell"]),
-                        Paragraph(_text(detail.get("remarks")), styles["cell"]),
-                    ]
-                )
-        else:
-            data = [["#", "Load", "Indication", "dL", "Error", "MPE", "Margin", "Within"]]
-            for row in test["rows"]:
-                data.append(
-                    [
-                        Paragraph(_text(row.get("observation_no")), styles["cell"]),
-                        Paragraph(_text(row.get("load")), styles["cell"]),
-                        Paragraph(_text(row.get("indication")), styles["cell"]),
-                        Paragraph(_text(row.get("additional_load")), styles["cell"]),
-                        Paragraph(_text(row.get("error")), styles["cell"]),
-                        Paragraph(_text(row.get("mpe")), styles["cell"]),
-                        Paragraph(_text(row.get("margin")), styles["cell"]),
-                        Paragraph(_text(row.get("within")), styles["cell"]),
-                    ]
-                )
-        table = Table(data, colWidths=[width / len(data[0])] * len(data[0]), hAlign="LEFT", repeatRows=1)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1B2A41")),
-                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C9D3E0")),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-                ]
+    metrological = [item for item in snapshot["tests"] if item.get("layout") != "checklist"]
+    checklists = [item for item in snapshot["tests"] if item.get("layout") == "checklist"]
+    story.append(Paragraph(heading_text(snapshot, "tests", "Individual test records"), styles["h1"]))
+    story.extend(
+        _test_records(snapshot, metrological, styles, width, section_number(snapshot, "tests", "6"))
+    )
+    if checklists:
+        story.append(PageBreak())
+        story.append(
+            Paragraph(
+                heading_text(snapshot, "checklist", "Construction and identification checklist"),
+                styles["h1"],
             )
         )
-        story.append(table)
-        story.append(Spacer(1, 5 * mm))
+        story.extend(
+            _test_records(snapshot, checklists, styles, width, section_number(snapshot, "checklist", "7"))
+        )
 
-    story.append(Paragraph("8. Evidence and attachments", styles["h1"]))
+    if snapshot["evidence"] or section_required(snapshot, "evidence"):
+        story.append(
+            Paragraph(heading_text(snapshot, "evidence", "Evidence and attachments"), styles["h1"])
+        )
     if snapshot["evidence"]:
         data = [["File", "Category", "Caption", "Size (bytes)", "SHA-256"]]
         for item in snapshot["evidence"]:
@@ -372,26 +435,35 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
             )
         )
         story.append(table)
-    else:
+    elif section_required(snapshot, "evidence"):
         story.append(Paragraph("No evidence attached.", styles["body"]))
 
-    story.append(Paragraph("9. Review, approval and versioning", styles["h1"]))
+    story.append(Paragraph(heading_text(snapshot, "review", "Review, approval and signatures"), styles["h1"]))
     story.append(_kv_table(list(snapshot["review"].items()), styles, width))
     story.append(Spacer(1, 4 * mm))
+    story.append(
+        Paragraph(
+            heading_text(snapshot, "versions", "Ruleset, template and revision history"), styles["h1"]
+        )
+    )
     story.append(
         _kv_table(
             [
                 ("Ruleset version", snapshot["versions"].get("ruleset_label")),
+                ("Ruleset status", snapshot["versions"].get("ruleset_status")),
                 ("Standard", f"{_text(snapshot['versions'].get('standard'))} {_text(snapshot['versions'].get('standard_edition'))}"),
                 ("Source reference", snapshot["versions"].get("source_reference")),
                 ("Template version", snapshot["versions"].get("template_label")),
-                ("Content hash (SHA-256)", snapshot["meta"].get("content_hash")),
-                ("Verification code", snapshot["meta"].get("verification_code")),
             ],
             styles,
             width,
         )
     )
+    story.append(Spacer(1, 5 * mm))
+    story.append(
+        Paragraph(heading_text(snapshot, "verification", "Document verification"), styles["h1"])
+    )
+    story.extend(_verification_block(snapshot, styles, width))
     story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(snapshot.get("disclaimer") or "", styles["small"]))
 

@@ -86,3 +86,24 @@ Approval is recorded as a workflow decision with the named reviewer and
 approver. There is no cryptographic signature: the report is **approved and
 hash-verifiable**, and `tests/test_report_mapping.py` plus
 `backend/scripts/check_release.py` both keep it described that way.
+
+## 5. Checking a printed document
+
+Section 11 of the rendered document carries the verification code, the content
+hash and - when the deployment is told its own public address
+(`PUBLIC_APP_URL`) - a QR mark that opens
+`<PUBLIC_APP_URL>/verification.html?code=<code>`. The page reads
+`GET /api/v1/verify/{code}`, which:
+
+- looks the report up by its verification code;
+- recomputes `content_hash()` over the stored snapshot and compares it with the
+  hash recorded when the report was generated;
+- answers with the report's identity, the result it records, and whether the two
+  still agree.
+
+The address itself is excluded from the hash (`VOLATILE_META_FIELDS`), so two
+instances holding the same records print the same code whatever their hostname.
+The check is public and the scan is recorded against the report, so the issuing
+laboratory can see that a document was checked. Nothing from the case - no
+observations, evidence, personnel or applicant details - is returned, and the
+endpoint is rate limited.

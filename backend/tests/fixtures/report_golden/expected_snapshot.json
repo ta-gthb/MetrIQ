@@ -8,7 +8,8 @@
     "generated_by": "<removed>",
     "platform": "MetrIQ NAWI OIML R 76 Test Report Automation Platform",
     "content_hash": "<hash>",
-    "verification_code": "<verification-code>"
+    "verification_code": "<verification-code>",
+    "verification_url": null
   },
   "versions": {
     "ruleset_label": "r76-1-2006-v1",
@@ -17,6 +18,8 @@
     "standard_edition": "2006",
     "source_reference": "https://www.oiml.org/en/files/pdf_r/r076-1-e06.pdf",
     "template_label": "r76-2-2007-v1",
+    "template_mode": "oiml_r76_2_aligned",
+    "template_mode_label": "OIML R 76-2 aligned",
     "template_sections": [
       {
         "key": "cover",
@@ -87,8 +90,9 @@
       {
         "key": "verification",
         "number": "11",
-        "title": "Document verification (hash / QR)",
-        "required": false
+        "title": "Document verification",
+        "required": false,
+        "layer": "enhanced"
       }
     ]
   },

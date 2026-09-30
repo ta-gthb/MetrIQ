@@ -123,3 +123,11 @@ services:
         value: MetrIQ Regional Legal Metrology Laboratory
       - key: REPORT_LABORATORY_CODE
         value: LAB-001
+
+      # The deployed frontend origin, e.g. https://metriq.vercel.app. Reports
+      # then carry a QR code that opens the verification page
+      # (/verification.html?code=...) and the page checks the report through
+      # GET /api/v1/verify/{code}. Unset, reports are rendered without the
+      # mark and the page can still be used by typing the code.
+      - key: PUBLIC_APP_URL
+        sync: false

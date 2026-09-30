@@ -2,12 +2,16 @@
   "standard": "OIML R 76-2",
   "edition": "2007",
   "version_label": "r76-2-2007-v1",
+  "mode": "oiml_r76_2_aligned",
+  "mode_label": "OIML R 76-2 aligned",
   "status": "active",
   "review_status": "pending_domain_review",
   "effective_from": "2007-01-01",
   "source_reference": "https://www.oiml.org/en/files/pdf_r/r076-2-e07.pdf",
   "notes": [
     "OIML R 76-2:2007, Non-automatic weighing instruments - Part 2: Test report format.",
+    "Sections marked \"layer\": \"enhanced\" are the MetrIQ traceability layer - the report's",
+    "technical record on top of the R 76-2 format - and are not claimed as part of the standard.",
     "REVIEW REQUIRED: section numbering and wording must be validated against the laboratory's",
     "authorized report template before production use (PRD 17.4)."
   ],
@@ -23,6 +27,6 @@
     {"key": "evidence", "number": "8", "title": "Evidence and attachments", "required": false},
     {"key": "review", "number": "9", "title": "Review, approval and signatures", "required": true},
     {"key": "versions", "number": "10", "title": "Ruleset, template and revision history", "required": true},
-    {"key": "verification", "number": "11", "title": "Document verification (hash / QR)", "required": false}
+    {"key": "verification", "number": "11", "title": "Document verification", "required": false, "layer": "enhanced"}
   ]
 }

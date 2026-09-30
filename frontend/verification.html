@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Document verification - MetrIQ</title>
+  <meta name="description" content="Check a MetrIQ type evaluation report against the record it was generated from, using its verification code." />
+  <link rel="icon" href="/assets/favicon.ico" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <!-- Synchronous, so the theme is applied before the first paint; a file
+       rather than an inline script so the CSP needs no inline exception. -->
+  <script src="/js/theme-boot.js"></script>
+</head>
+<body class="auth-page" data-theme="dark">
+  <div class="auth-toolbar">
+    <div class="clock" data-clock role="group" aria-label="Current local date and time">
+      <span class="clock-time" data-clock-time>--:--:--</span>
+      <span class="clock-date" data-clock-date>&nbsp;</span>
+    </div>
+    <button class="btn-sm theme-toggle" id="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+      <span class="theme-icon" data-theme-icon aria-hidden="true"></span>
+      <span class="theme-toggle-label" data-theme-label>Light</span>
+    </button>
+  </div>
+
+  <main class="card auth-card" style="width:min(760px,100%)">
+    <div class="brand" style="margin-bottom:16px">
+      <img src="/assets/logo-emblem.png" alt="" width="320" height="241" />
+      <div>
+        <div class="brand-name">MetrIQ</div>
+        <div class="brand-sub">NAWI OIML R 76 platform</div>
+      </div>
+    </div>
+
+    <h1>Document verification</h1>
+    <p class="small muted">
+      Enter the verification code printed on a type evaluation report. The check
+      recalculates the content hash of the stored record and reports whether it
+      still agrees with the document.
+    </p>
+
+    <form id="verify-form" novalidate>
+      <div class="field">
+        <label class="req" for="code">Verification code</label>
+        <input id="code" name="code" type="text" inputmode="latin" autocomplete="off"
+               spellcheck="false" maxlength="32" placeholder="e.g. 8F2C1A9B4D70" required />
+        <div class="faint small">Twelve characters, printed on the report and encoded in its QR mark.</div>
+      </div>
+      <button class="btn-primary" type="submit" id="submit">Check the document</button>
+    </form>
+
+    <div id="result" class="mt-4" role="status" aria-live="polite"></div>
+
+    <p class="small muted mt-4">
+      <a href="/">Home</a> &middot; <a href="/login.html">Sign in</a>
+    </p>
+  </main>
+  <script type="module" src="/js/verification.js"></script>
+</body>
+</html>
