@@ -329,6 +329,8 @@ function rulesetActions(ruleset) {
   if (can('rules.view')) {
     buttons.push('<button class="btn-sm" data-package="' + id + '" data-label="' +
       escapeHtml(ruleset.version_label || id) + '">Review package</button>');
+    buttons.push('<button class="btn-sm" data-diff="' + id + '" data-label="' +
+      escapeHtml(ruleset.version_label || id) + '">Changes</button>');
   }
   if (can('rules.review') && ruleset.unreviewed_rule_count > 0) {
     buttons.push('<button class="btn-sm" data-review="' + id + '">Review rules</button>');
@@ -530,12 +532,66 @@ async function downloadReviewPackage(versionId, label) {
   }
 }
 
+function diffValue(value) {
+  if (value === null || value === undefined || value === '') return '\u2014';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+async function showRulesetDiff(versionId, label) {
+  try {
+    const diff = await api.get('/rulesets/' + versionId + '/diff');
+    const changed = diff.rules.filter((rule) => rule.change !== 'unchanged');
+    const rows = changed.length
+      ? changed.map((rule) => '<tr>' +
+          '<td class="mono small">' + escapeHtml(rule.code) + '</td>' +
+          '<td><span class="pill ' + (rule.change === 'added' ? 'pill-pass'
+            : rule.change === 'removed' ? 'pill-fail' : 'pill-warn') + '">' +
+            escapeHtml(rule.change) + '</span></td>' +
+          '<td class="small">' + (rule.fields.length
+            ? rule.fields.map((field) => '<div><span class="mono small">' + escapeHtml(field.field) +
+                '</span> ' + escapeHtml(diffValue(field.before)) + ' \u2192 ' +
+                escapeHtml(diffValue(field.after)) + '</div>').join('')
+            : '\u2014') + '</td>' +
+          '<td class="small mono">' + (rule.impacted_tests.length
+            ? escapeHtml(rule.impacted_tests.join(', ')) : '\u2014') + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="faint small">No rule differences against this baseline.</td></tr>';
+    const impacted = diff.impact.tests.length
+      ? '<div class="mt-3"><div class="card-title"><h3>Procedures affected</h3></div>' +
+        diff.impact.tests.map((item) => '<div class="small mt-2"><span class="mono">' +
+          escapeHtml(item.test_code) + '</span> \u00b7 ' + escapeHtml(item.name || '') +
+          '<div class="hint">' + escapeHtml(item.reasons.join('; ')) + '</div></div>').join('') + '</div>'
+      : '<div class="hint mt-3">No catalogue procedure reads a rule that changed.</div>';
+    const scope = diff.impact;
+    await openModal({
+      title: 'Changes in ' + (label || diff.ruleset.version_label) + ' \u00b7 ' +
+        diff.summary.change_count + ' change(s)',
+      submitLabel: null, cancelLabel: 'Close',
+      bodyHtml: '<div class="small faint">Against <span class="mono">' +
+        escapeHtml(diff.against.version_label) + '</span>: ' + diff.summary.added + ' added, ' +
+        diff.summary.removed + ' removed, ' + diff.summary.changed + ' changed, ' +
+        diff.summary.unchanged + ' unchanged. History: this version has ' +
+        scope.under_this_ruleset.reports + ' report(s) (' +
+        scope.under_this_ruleset.finalized_reports + ' finalized) and ' +
+        scope.under_this_ruleset.open_cases + ' open case(s); the baseline has ' +
+        scope.under_compared_ruleset.reports + ' report(s) and ' +
+        scope.under_compared_ruleset.open_cases + ' open case(s).</div>' +
+        '<div class="table-wrap mt-2" style="max-height:50vh;overflow:auto"><table><thead><tr>' +
+        '<th>Rule</th><th>Change</th><th>Field changes</th><th>Procedures</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>' + impacted,
+    });
+  } catch (error) {
+    toast(formatApiError(error), 'error');
+  }
+}
+
 function bindStandards() {
   const on = (attribute, handler) => content.querySelectorAll('[data-' + attribute + ']')
     .forEach((button) => button.addEventListener('click', () => handler(button.dataset[attribute], button)));
 
   on('review', (versionId) => openReviewDialog(versionId));
   on('package', (versionId, button) => downloadReviewPackage(versionId, button.dataset.label));
+  on('diff', (versionId, button) => showRulesetDiff(versionId, button.dataset.label));
 
   on('activate', async (versionId) => {
     const reason = await promptReason('Activate this rule set?', {

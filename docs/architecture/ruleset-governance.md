@@ -115,6 +115,20 @@ change a historical result. `test_a_case_keeps_the_ruleset_it_was_created_agains
 pins this down: a case created under version A still points at A after version B
 is activated and A becomes `superseded`.
 
+## Rule diff and impact analysis
+
+`GET /rulesets/{id}/diff` (optionally `?against=<version>`, defaulting to the
+active version of the same standard) answers what a reviewer asks before
+approval: which rules are added, removed or changed, field by field, and what
+that touches. The impact map is derived from the test catalogue - a procedure
+declares `limit_source: mpe`, `limit_source: tolerance:<key>` or a
+`tolerance_key` - so it cannot drift from a hand-maintained list. The answer
+also states how many reports were generated under each version and how many
+cases are still open against them. A draft that does not carry its own
+catalogue yet is read against the baseline's, and the response says so via
+`impact.catalogue_source`. The API is read-only: nothing in it computes a
+result or changes a rule.
+
 ## Audit
 
 Every transition appends to the audit trail: `RULE_SUBMIT`, `RULE_REVIEW`,
@@ -130,3 +144,5 @@ single answer.
   binding.
 * `backend/tests/test_rule_boundaries.py` - the numeric edges of every
   implemented rule.
+* `backend/tests/test_ruleset_diff.py` - the field-level diff, the derived
+  impact map and the history counts each version carries.

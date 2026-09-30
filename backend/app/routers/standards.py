@@ -32,7 +32,7 @@ from app.schemas.reports import (
 )
 from app.schemas.tests import TestDefinitionOut
 from app.security.permissions import P
-from app.services import audit_service, ruleset_lifecycle
+from app.services import audit_service, ruleset_diff, ruleset_lifecycle
 from app.services.ruleset_lifecycle import LifecycleError
 from app.services.calculation_engine import ENGINE_VERSION, CalcContext, evaluate
 from app.services.calculation_engine.engine import build_observation, supported_test_codes
@@ -176,6 +176,47 @@ def get_ruleset(
     if version is None:
         raise HTTPException(status_code=404, detail="Ruleset not found")
     return _ruleset_payload(db, version)
+
+
+@router.get(
+    "/rulesets/{standard_version_id}/diff",
+    summary="Rule-by-rule diff and impact against another version",
+)
+def diff_ruleset(
+    standard_version_id: uuid.UUID,
+    against: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> dict:
+    """What changes if this version is activated, and which procedures read it.
+
+    Without an explicit baseline the comparison uses the active version of the
+    same standard, which is the question a reviewer actually asks: what is
+    different from what is running now (audit item 15).
+    """
+    version = db.get(StandardVersion, standard_version_id)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Ruleset not found")
+    if against is not None:
+        baseline = db.get(StandardVersion, against)
+        if baseline is None:
+            raise HTTPException(status_code=404, detail="Comparison ruleset not found")
+    else:
+        baseline = db.execute(
+            select(StandardVersion)
+            .where(
+                StandardVersion.standard_id == version.standard_id,
+                StandardVersion.id != version.id,
+                StandardVersion.is_active.is_(True),
+            )
+            .order_by(StandardVersion.effective_from.desc())
+        ).scalars().first()
+        if baseline is None:
+            raise HTTPException(
+                status_code=422,
+                detail="There is no other version of this standard to compare with; pass ?against=<id>.",
+            )
+    return ruleset_diff.diff_rulesets(db, version, baseline)
 
 
 def _ruleset_payload(db: Session, version: StandardVersion) -> dict:
