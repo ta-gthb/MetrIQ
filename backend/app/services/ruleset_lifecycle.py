@@ -29,7 +29,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Rule, RuleReview, RuleVersion, StandardVersion, User, utcnow
+from app.models import Rule, RuleReview, RuleVersion, StandardVersion, TestDefinition, User, utcnow
 
 # draft -> under_review -> approved -> scheduled -> active. `superseded` is where
 # a previously active version lands when a newer one takes over; `retired` is a
@@ -65,6 +65,7 @@ REVIEW_DECISIONS = ("approved", "rejected", "needs_changes")
 # development/demo bootstrap, never by a user, and the UI and reports label it.
 BASIS_DOMAIN_REVIEW = "domain_review"
 BASIS_PROVISIONAL = "provisional"
+PROPOSED_TEST_CODES = frozenset({"T-TILT", "T-TARE", "T-WARMUP", "T-VOLT", "T-EMC", "T-DAMP"})
 
 
 class LifecycleError(Exception):
@@ -461,6 +462,18 @@ def activate(
     version.activation_basis = basis
     if basis == BASIS_DOMAIN_REVIEW:
         version.approved_fingerprint = ruleset_fingerprint(rows)
+        # These procedures are seeded as proposals. A successful governed
+        # activation is the explicit Super Admin decision that makes them
+        # eligible for generated evaluation plans.
+        definitions = db.execute(
+            select(TestDefinition).where(
+                TestDefinition.standard_version_id == version.id,
+                TestDefinition.test_code.in_(PROPOSED_TEST_CODES),
+            )
+        ).scalars().all()
+        for definition in definitions:
+            definition.is_active = True
+            db.add(definition)
     if reason:
         version.notes = (version.notes + "\n" if version.notes else "") + f"[activated] {reason}"
     db.add(version)

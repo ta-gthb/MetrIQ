@@ -250,6 +250,33 @@ def test_the_full_lifecycle_reaches_an_active_domain_reviewed_ruleset(client, to
     assert body["can_activate"] is True
 
 
+def test_super_admin_activation_enables_the_six_proposed_tests(client, tokens, draft_ruleset):
+    from app.database import SessionLocal
+    from app.models import TestDefinition
+
+    fixture = draft_ruleset()
+    version_id = fixture["version_id"]
+    submitted = client.post(
+        f"{API}/rulesets/{version_id}/submit-review",
+        json={"note": "Review proposed influence-factor procedures."},
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert submitted.status_code == 200, submitted.text
+    review_every_rule(client, tokens, version_id, fixture["rule_version_ids"])
+    approve_and_activate(client, tokens, version_id)
+
+    db = SessionLocal()
+    try:
+        rows = db.execute(
+            select(TestDefinition).where(TestDefinition.standard_version_id == uuid.UUID(version_id))
+        ).scalars().all()
+        active = {row.test_code for row in rows if row.is_active}
+    finally:
+        db.close()
+
+    assert {"T-TILT", "T-TARE", "T-WARMUP", "T-VOLT", "T-EMC", "T-DAMP"} <= active
+
+
 def test_scheduling_records_the_effective_date_and_still_activates(client, tokens, draft_ruleset):
     fixture = draft_ruleset()
     version_id = fixture["version_id"]
