@@ -154,16 +154,18 @@ def review_case(
     decision: str = "verify",
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.CASES_REVIEW)),
+    participant_field: str = "reviewer",
+    allowed_statuses: set[str] | None = None,
 ) -> dict:
     from app.routers._helpers import serialise_case
 
     case = get_case_or_404(db, case_id, user)
     _assert_status(
         case,
-        {CaseStatus.TESTING_COMPLETED, CaseStatus.UNDER_REVIEW, CaseStatus.CORRECTION_REQUIRED},
+        allowed_statuses or {CaseStatus.TESTING_COMPLETED, CaseStatus.UNDER_REVIEW, CaseStatus.CORRECTION_REQUIRED},
         "review",
     )
-    _assert_participant(case, user, "reviewer", "review")
+    _assert_participant(case, user, participant_field, "review")
 
     if decision not in {"verify", "request_correction"}:
         raise HTTPException(status_code=422, detail="decision must be 'verify' or 'request_correction'")
@@ -219,6 +221,18 @@ def request_correction(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.CASES_REQUEST_CORRECTION)),
 ) -> dict:
+    from app.security.permissions import APPROVER
+
+    if user.role_code == APPROVER:
+        return review_case(
+            case_id=case_id,
+            payload=payload,
+            decision="request_correction",
+            db=db,
+            user=user,
+            participant_field="approver",
+            allowed_statuses={CaseStatus.VERIFIED, CaseStatus.UNDER_APPROVAL},
+        )
     return review_case(case_id=case_id, payload=payload, decision="request_correction", db=db, user=user)
 
 

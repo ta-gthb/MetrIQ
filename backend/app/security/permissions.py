@@ -217,6 +217,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
+                P.CASES_REQUEST_CORRECTION,
                 P.CASES_APPROVE,
                 P.CASES_FINALIZE,
                 P.TESTS_VIEW_RESULTS,

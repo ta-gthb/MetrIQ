@@ -100,7 +100,8 @@ def test_the_role_matrix_is_a_consistent_hierarchy():
     assert not (ROLE_DEFINITIONS[REVIEWER].permissions & {P.CASES_APPROVE, P.CASES_FINALIZE})
     assert P.CASES_APPROVE in ROLE_DEFINITIONS[APPROVER].permissions
     assert P.CASES_FINALIZE in ROLE_DEFINITIONS[APPROVER].permissions
-    assert not (ROLE_DEFINITIONS[APPROVER].permissions & {P.CASES_REVIEW, P.CASES_REQUEST_CORRECTION})
+    assert not (ROLE_DEFINITIONS[APPROVER].permissions & {P.CASES_REVIEW})
+    assert P.CASES_REQUEST_CORRECTION in ROLE_DEFINITIONS[APPROVER].permissions
 
 
 def test_every_role_reaches_its_dashboard_and_profile(client, tokens, accounts):
