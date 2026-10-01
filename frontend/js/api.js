@@ -311,13 +311,11 @@ export async function requireSession(...permissions) {
     window.location.href = `/login.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     throw new ApiError(401, 'Sign-in required.');
   }
-  if (!session.permissions || !session.permissions.length) {
-    try {
-      await refreshProfile();
-    } catch (error) {
-      // A backend that is briefly unavailable must not lock the user out of a
-      // page they can already see; the API calls themselves will surface it.
-    }
+  try {
+    await refreshProfile();
+  } catch (error) {
+    // Keep a valid cached session usable during a brief profile-read outage;
+    // protected API calls still enforce the current server-side permissions.
   }
   if (permissions.length && !permissions.some((code) => can(code))) {
     throw new ApiError(403, 'Your role does not have access to this page.');
