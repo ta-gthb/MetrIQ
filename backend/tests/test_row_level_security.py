@@ -427,6 +427,7 @@ def _build_laboratories(session, role_code, test_definition_id) -> dict:
             id=user_id,
             email=f"rls-{suffix.lower()}@example.test",
             full_name=f"RLS user {suffix}",
+            user_code=f"rls{suffix.lower()}2026{1 if suffix == 'A' else 2:03d}",
             role_code=role_code,
             is_active=True,
             is_demo=False,
