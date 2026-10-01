@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 # Rendered rather than imported by Alembic: JSONB's astext_type comes out as a
 # bare `Text()`, which would be a NameError without this line.
@@ -55,21 +55,48 @@ def upgrade() -> None:
     year = datetime.now(timezone.utc).year
     counters: dict[str, int] = {}
     bind = op.get_bind()
-    rows = bind.execute(
-        sa.text("select id, role_code from users order by created_at, email")
-    ).fetchall()
-    for user_id, role_code in rows:
-        prefix = prefixes.get(role_code)
-        if prefix is None:
-            raise RuntimeError(
-                f"users.role_code {role_code!r} has no identifier format; add one"
-                " before migrating"
+    if context.is_offline_mode():
+        # Offline Alembic has no result set to iterate. Keep the generated
+        # PostgreSQL script executable by expressing the same deterministic
+        # role-local numbering as one set-based update.
+        op.execute(sa.text("""
+            WITH numbered AS (
+                SELECT id, role_code,
+                       row_number() OVER (
+                           PARTITION BY role_code ORDER BY created_at, email
+                       ) AS sequence_number
+                FROM users
             )
-        counters[prefix] = counters.get(prefix, 0) + 1
-        bind.execute(
-            sa.text("update users set user_code = :code where id = :user_id"),
-            {"code": f"{prefix}{year}{counters[prefix]:03d}", "user_id": user_id},
-        )
+            UPDATE users
+            SET user_code = CASE numbered.role_code
+                WHEN 'SUPER_ADMIN' THEN 'stmadm'
+                WHEN 'LAB_ADMIN' THEN 'labadm'
+                WHEN 'ENGINEER' THEN 'temadm'
+                WHEN 'REVIEWER' THEN 'trvadm'
+                WHEN 'APPROVER' THEN 'apradm'
+                WHEN 'AUDITOR' THEN 'audadm'
+            END
+            || EXTRACT(YEAR FROM CURRENT_TIMESTAMP)::integer::text
+            || LPAD(numbered.sequence_number::text, 3, '0')
+            FROM numbered
+            WHERE users.id = numbered.id
+        """))
+    else:
+        rows = bind.execute(
+            sa.text("select id, role_code from users order by created_at, email")
+        ).fetchall()
+        for user_id, role_code in rows:
+            prefix = prefixes.get(role_code)
+            if prefix is None:
+                raise RuntimeError(
+                    f"users.role_code {role_code!r} has no identifier format; add one"
+                    " before migrating"
+                )
+            counters[prefix] = counters.get(prefix, 0) + 1
+            bind.execute(
+                sa.text("update users set user_code = :code where id = :user_id"),
+                {"code": f"{prefix}{year}{counters[prefix]:03d}", "user_id": user_id},
+            )
 
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.alter_column(

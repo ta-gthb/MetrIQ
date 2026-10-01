@@ -17,16 +17,16 @@ concurrency:
 jobs:
   test:
     name: Tests and release gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # The suite provisions its own throwaway SQLite database in the temp
       # folder; these are the values it expects to find in the environment.
       ENVIRONMENT: test
       JWT_SECRET: ci-only-secret-not-for-deployment
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -44,14 +44,14 @@ jobs:
 
   migrations:
     name: Schema migrations
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       ENVIRONMENT: test
       JWT_SECRET: ci-only-secret-not-for-deployment
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -91,7 +91,7 @@ jobs:
 
   rls:
     name: Row-level security on a real PostgreSQL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Audit item 14. SQLite has no row-level security, so the unit assertions in
     # the main job cannot prove the policies do anything. This job runs them
     # against a server, as a role that is not the table owner.
@@ -112,9 +112,9 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
