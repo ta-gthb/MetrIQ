@@ -493,6 +493,17 @@ html:not([data-theme-ready]) .theme-toggle .theme-toggle-label { visibility: hid
 }
 
 .hero-logo { display: block; width: min(300px, 58vw); height: auto; margin: 0 0 16px; }
+.hero-workbench { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr); gap: 28px; align-items: center; overflow: hidden; }
+.hero-copy { min-width: 0; }
+.hero-flow { background: var(--bg-inset); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 18px; }
+.flow-label { color: var(--accent); font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+.hero-flow ol { list-style: none; counter-reset: flow; padding: 0; margin: 0; }
+.hero-flow li { counter-increment: flow; display: grid; grid-template-columns: 30px 1fr; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); }
+.hero-flow li::before { content: "0" counter(flow); color: var(--accent); font-family: var(--mono); font-size: 0.78rem; }
+.hero-flow li strong, .hero-flow li span { grid-column: 2; }
+.hero-flow li strong { grid-row: 1; }
+.hero-flow li span { grid-row: 2; color: var(--text-muted); font-size: 0.8rem; }
+.text-link { display: inline-block; margin-top: 14px; font-size: 0.82rem; }
 .hero .eyebrow {
   margin: 0 0 8px;
   font-size: 0.72rem; letter-spacing: 1.1px; text-transform: uppercase;
@@ -501,6 +512,15 @@ html:not([data-theme-ready]) .theme-toggle .theme-toggle-label { visibility: hid
 .hero h1 { font-size: 1.9rem; max-width: 48ch; }
 .hero .lede { font-size: 1rem; color: var(--text-muted); max-width: 82ch; margin-bottom: 0; }
 .home-cta { margin-top: 18px; }
+.home-roles { padding: 2px 0 4px; }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 12px; }
+.section-heading .eyebrow { margin: 0; }
+.section-heading h2 { margin: 0; }
+.role-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.role-tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); }
+.role-tile:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-2px); }
+.role-number { color: var(--accent); font-family: var(--mono); font-size: 0.72rem; }
+.role-tile span:last-child { color: var(--text-muted); font-size: 0.78rem; }
 
 .hero-facts {
   /* min() on the track floor, and an anywhere-wrap on the values: a long
@@ -575,6 +595,9 @@ html:not([data-theme-ready]) .theme-toggle .theme-toggle-label { visibility: hid
   .home-tools { gap: 10px; }
   .home-main { padding: 18px 14px 30px; }
   .hero h1 { font-size: 1.5rem; }
+  .hero-workbench { grid-template-columns: 1fr; gap: 18px; }
+  .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .section-heading { display: block; }
   /* The badge shares its row with the section title; at this width it has to
      be allowed to wrap rather than push the card out of the viewport. */
   .card-title { flex-wrap: wrap; }

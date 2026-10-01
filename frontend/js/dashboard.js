@@ -1,7 +1,7 @@
 /* Dashboard: KPI cards, role-specific queue, status chart, recent activity,
    test metrics and the AI review queue (PRD 15.4). */
 
-import { api, requireSession, formatApiError, canAny } from './api.js';
+import { api, requireSession, formatApiError, can, getUser } from './api.js';
 import { renderShell, caseStatusPill, resultPill, fmt, fmtDate, escapeHtml, empty, loading, toast } from './ui.js';
 
 const content = renderShell({
@@ -42,6 +42,62 @@ function queueCard(title, description, items) {
     ${body}</div>`;
 }
 
+const ROLE_PROFILES = {
+  SUPER_ADMIN: {
+    title: 'Operations overview',
+    description: 'See every laboratory queue, unblock decisions and keep the evaluation service moving.',
+    action: ['/evaluations.html', 'Open evaluation register'],
+    queueOrder: ['my_testing', 'awaiting_review', 'awaiting_approval'],
+  },
+  LAB_ADMIN: {
+    title: 'Laboratory control room',
+    description: 'Coordinate your laboratory\'s active evaluations, assignments and review hand-offs.',
+    action: ['/evaluation.html?new=1', 'Start an evaluation'],
+    queueOrder: ['my_testing', 'awaiting_review'],
+  },
+  ENGINEER: {
+    title: 'My test bench',
+    description: 'Record observations, resolve returned work and move assigned instruments toward review.',
+    action: ['/evaluations.html', 'Open my evaluations'],
+    queueOrder: ['my_testing', 'corrections_requested'],
+  },
+  REVIEWER: {
+    title: 'Technical review desk',
+    description: 'Validate evidence, calculations and rule references before a case moves to approval.',
+    action: ['/evaluations.html', 'Open review queue'],
+    queueOrder: ['awaiting_review'],
+  },
+  APPROVER: {
+    title: 'Approval desk',
+    description: 'Make accountable approval decisions on verified type-evaluation records.',
+    action: ['/evaluations.html', 'Open approval queue'],
+    queueOrder: ['awaiting_approval'],
+  },
+  AUDITOR: {
+    title: 'Audit and traceability',
+    description: 'Follow finalized reports, evidence and the recorded history of every decision.',
+    action: ['/reports.html', 'Browse reports'],
+    queueOrder: [],
+  },
+};
+
+const QUEUE_LABELS = {
+  my_testing: ['Testing workspace', 'Assigned cases that still need observations or calculations.'],
+  awaiting_review: ['Technical review queue', 'Submitted cases that need independent verification.'],
+  awaiting_approval: ['Approval queue', 'Verified cases that need an approval decision.'],
+  corrections_requested: ['Corrections to resolve', 'Cases returned with a reviewer\'s reason.'],
+};
+
+function roleProfile() {
+  const role = getUser()?.role_code;
+  return ROLE_PROFILES[role] || {
+    title: 'Evaluation overview',
+    description: 'Monitor the evaluation records available to your account.',
+    action: ['/evaluations.html', 'Open evaluations'],
+    queueOrder: [],
+  };
+}
+
 function statusChart(rows) {
   const data = rows.filter((row) => row.count > 0);
   if (!data.length) return '<div class="faint small">No cases recorded yet.</div>';
@@ -67,14 +123,26 @@ async function load() {
 
     const k = summary.kpis;
     const queues = pending.queues || {};
-    const labels = {
-      my_testing: ['Ready for test execution', 'Cases assigned to you that still need observations or calculations.'],
-      awaiting_review: ['Awaiting technical review', 'Submitted cases that need independent verification.'],
-      awaiting_approval: ['Awaiting approval', 'Verified cases that need an approval decision.'],
-      corrections: ['Corrections requested', 'Your cases returned by the reviewer with a reason.'],
-    };
+    const profile = roleProfile();
+    const queueEntries = profile.queueOrder
+      .filter((key) => Object.prototype.hasOwnProperty.call(queues, key))
+      .map((key) => [key, queues[key]]);
+    const queueTotal = queueEntries.reduce((total, [, items]) => total + items.length, 0);
+    const [actionHref, actionLabel] = profile.action;
 
     content.innerHTML = `
+      <div class="dashboard-intro">
+        <div>
+          <div class="eyebrow">${escapeHtml(getUser()?.role_code || 'WORKSPACE')}</div>
+          <h2>${escapeHtml(profile.title)}</h2>
+          <p class="muted">${escapeHtml(profile.description)}</p>
+        </div>
+        <div class="inline dashboard-intro-actions">
+          <span class="pill pill-info">${queueTotal} action${queueTotal === 1 ? '' : 's'} waiting</span>
+          <a class="btn btn-primary" href="${actionHref}">${escapeHtml(actionLabel)}</a>
+        </div>
+      </div>
+
       <div class="grid cols-4">
         ${kpiCard('Total cases', k.total, 'accent')}
         ${kpiCard('In progress', k.in_progress)}
@@ -85,9 +153,9 @@ async function load() {
       </div>
 
       <div class="grid cols-3 mt-4">
-        ${Object.entries(queues).map(([key, items]) =>
-          queueCard((labels[key] || [key])[0], (labels[key] || ['', ''])[1], items)).join('')
-          || '<div class="card faint">No role-specific queue is defined for your role.</div>'}
+        ${queueEntries.map(([key, items]) =>
+          queueCard(QUEUE_LABELS[key][0], QUEUE_LABELS[key][1], items)).join('')
+          || '<div class="card faint">This role has no action queue. Use the register or reports to inspect records.</div>'}
       </div>
 
       <div class="grid cols-2 mt-4">
@@ -107,7 +175,7 @@ async function load() {
         </div>
       </div>
 
-      <div class="card mt-4">
+      ${can('ai.view') ? `<div class="card mt-4">
         <div class="card-title"><h3>Recent activity</h3>
           <a href="/evaluations.html" class="small">View all evaluations</a></div>
         ${(summary.recent_cases || []).length
@@ -134,7 +202,7 @@ async function load() {
               <td class="small faint nowrap">${fmtDate(item.created_at)}</td>
             </tr>`).join('')}</tbody></table></div>`
           : '<div class="faint small">No AI outputs are awaiting disposition.</div>'}
-      </div>`;
+      </div>` : ''}`;
   } catch (error) {
     content.innerHTML = `<div class="banner fail"><div><strong>Could not load the dashboard</strong>${escapeHtml(formatApiError(error))}</div></div>`;
     toast(formatApiError(error), 'error');
