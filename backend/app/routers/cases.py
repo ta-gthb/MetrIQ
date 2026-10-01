@@ -211,7 +211,7 @@ def list_cases(
 def get_case(
     case_id: uuid.UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(require_permission(P.CASES_WORKSPACE)),
 ) -> dict:
     case = get_case_or_404(db, case_id, user)
     payload = serialise_case(case, detail=True)

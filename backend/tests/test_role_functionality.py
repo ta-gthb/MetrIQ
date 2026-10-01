@@ -84,7 +84,8 @@ def test_the_role_matrix_is_a_consistent_hierarchy():
     for code, definition in ROLE_DEFINITIONS.items():
         assert definition.permissions <= catalogue, f"{code} grants unknown permissions"
 
-    assert ROLE_DEFINITIONS[SUPER_ADMIN].permissions == catalogue == ALL_PERMISSIONS
+    assert ROLE_DEFINITIONS[SUPER_ADMIN].permissions == ALL_PERMISSIONS - {P.CASES_WORKSPACE}
+    assert catalogue == ALL_PERMISSIONS
 
     ranks = [ROLE_DEFINITIONS[code].rank for code in PINNED_ROLE_ORDER]
     assert ranks == sorted(ranks), "role ranks must order from most to least privileged"
@@ -136,7 +137,7 @@ def test_every_role_reaches_its_dashboard_and_profile(client, tokens, accounts):
 # --------------------------------------------------------------- super admin
 def test_super_admin_administers_every_platform_function(client, tokens, accounts):
     profile = client.get(f"{API}/me", headers=tokens[SUPER_ADMIN]).json()
-    assert set(profile["permissions"]) == set(ALL_PERMISSIONS)
+    assert set(profile["permissions"]) == set(ALL_PERMISSIONS - {P.CASES_WORKSPACE})
 
     catalogue = client.get(f"{API}/admin/permissions", headers=tokens[SUPER_ADMIN])
     assert catalogue.status_code == 200
@@ -144,7 +145,7 @@ def test_super_admin_administers_every_platform_function(client, tokens, account
 
     roles = client.get(f"{API}/admin/roles", headers=tokens[SUPER_ADMIN]).json()
     assert [row["code"] for row in roles] == PINNED_ROLE_ORDER
-    assert roles[0]["permission_count"] == len(ALL_PERMISSIONS)
+    assert roles[0]["permission_count"] == len(ALL_PERMISSIONS) - 1
 
     # User lifecycle: create, edit, reset the password and sign in with it.
     email = unique_email("provisioned.engineer")

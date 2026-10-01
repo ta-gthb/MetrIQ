@@ -2105,7 +2105,7 @@ document.getElementById('refresh-case')?.addEventListener('click', async () => {
 /* ------------------------------------------------------------------ bootstrap */
 
 try {
-  await requireSession('cases.view', 'cases.view.scope', 'cases.create', 'tests.view_results');
+  await requireSession('cases.workspace');
   if (!caseId) {
     content.innerHTML = '<div class="banner warn"><div><strong>No case selected</strong>' +
       'Open an evaluation from the register, or create a new one.</div></div>' +

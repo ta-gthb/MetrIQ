@@ -12,7 +12,9 @@ import re
 
 from playwright.sync_api import expect
 
-from e2e.conftest import ADMIN_ACCOUNT, DEFAULT_PASSWORD
+from e2e.conftest import DEFAULT_PASSWORD
+
+ENGINEER_ACCOUNT = "engineer@metriq.local"
 
 
 def test_the_home_page_plays_the_startup_animation_and_live_statistics(page, server):
@@ -47,7 +49,7 @@ def test_the_theme_switch_persists_across_pages(page, server):
 
 def test_sign_in_opens_the_workspace_and_runs_the_consistency_review(page, server):
     page.goto(f"{server}/login.html")
-    page.fill("#user-id", ADMIN_ACCOUNT)
+    page.fill("#user-id", ENGINEER_ACCOUNT)
     page.fill("#password", DEFAULT_PASSWORD)
     page.click("#submit")
     page.wait_for_url(re.compile(r"/dashboard\.html"))

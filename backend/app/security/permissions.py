@@ -27,6 +27,7 @@ class P:
     AUDIT_VIEW_SCOPE = "audit.view.scope"
     CASES_VIEW = "cases.view"
     CASES_VIEW_SCOPE = "cases.view.scope"
+    CASES_WORKSPACE = "cases.workspace"
     CASES_CREATE = "cases.create"
     CASES_ASSIGN = "cases.assign"
     CASES_EDIT = "cases.edit"
@@ -66,6 +67,7 @@ PERMISSION_CATALOGUE: list[tuple[str, str, str]] = [
     (P.AUDIT_VIEW_LIMITED, "View case-level audit entries", "governance"),
     (P.CASES_VIEW, "View all evaluation cases", "cases"),
     (P.CASES_VIEW_SCOPE, "View cases within authorized scope", "cases"),
+    (P.CASES_WORKSPACE, "Enter the evaluation workspace", "cases"),
     (P.CASES_CREATE, "Create evaluation cases", "cases"),
     (P.CASES_ASSIGN, "Assign engineer, reviewer and approver", "cases"),
     (P.CASES_EDIT, "Edit any evaluation case", "cases"),
@@ -113,7 +115,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
         name="Super Admin",
         description="Platform and configuration control",
         rank=10,
-        permissions=ALL_PERMISSIONS,
+        permissions=ALL_PERMISSIONS - {P.CASES_WORKSPACE},
     ),
     LAB_ADMIN: RoleDefinition(
         code=LAB_ADMIN,
@@ -133,6 +135,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
+                P.CASES_WORKSPACE,
                 P.CASES_CREATE,
                 P.CASES_ASSIGN,
                 P.CASES_EDIT,
@@ -162,6 +165,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.RULES_VIEW,
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW_SCOPE,
+                P.CASES_WORKSPACE,
                 P.CASES_CREATE,
                 P.TESTS_EDIT_OWN,
                 P.TESTS_VALIDATE,
@@ -189,6 +193,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
+                P.CASES_WORKSPACE,
                 P.CASES_REVIEW,
                 P.CASES_REQUEST_CORRECTION,
                 P.TESTS_VALIDATE,
@@ -214,6 +219,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
+                P.CASES_WORKSPACE,
                 P.CASES_REQUEST_CORRECTION,
                 P.CASES_APPROVE,
                 P.CASES_FINALIZE,
@@ -239,6 +245,7 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.AUDIT_VIEW,
                 P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
+                P.CASES_WORKSPACE,
                 P.TESTS_VIEW_RESULTS,
                 P.REPORTS_DOWNLOAD,
                 P.AI_VIEW,

@@ -183,9 +183,9 @@ function navItems() {
        figures from anywhere inside the application. */
     { href: '/', label: 'Home', icon: ICONS.home, show: true, key: 'home' },
     { href: '/dashboard.html', label: 'Dashboard', icon: ICONS.dashboard, show: can('dashboard.view'), key: 'dashboard' },
-    { href: '/evaluations.html', label: is('REVIEWER') ? 'Review queue' : is('APPROVER') ? 'Approval queue' : is('ENGINEER') ? 'My evaluations' : 'Evaluations', icon: ICONS.evaluations, show: canAny('cases.view', 'cases.view.scope'), key: 'evaluations' },
-    { href: '/evaluation.html?new=1', label: 'New evaluation', icon: '\uff0b', show: can('cases.create'), key: 'new' },
-    { href: '/evaluations.html#instruments', label: 'Instruments', icon: ICONS.instruments, show: canAny('cases.view', 'cases.view.scope'), key: 'instruments' },
+    { href: '/evaluations.html', label: is('REVIEWER') ? 'Review queue' : is('APPROVER') ? 'Approval queue' : is('ENGINEER') ? 'My evaluations' : 'Evaluations', icon: ICONS.evaluations, show: canAny('cases.view', 'cases.view.scope') && !is('SUPER_ADMIN'), key: 'evaluations' },
+    { href: '/evaluation.html?new=1', label: 'New evaluation', icon: '\uff0b', show: can('cases.create') && !is('SUPER_ADMIN'), key: 'new' },
+    { href: '/evaluations.html#instruments', label: 'Instruments', icon: ICONS.instruments, show: canAny('cases.view', 'cases.view.scope') && !is('SUPER_ADMIN'), key: 'instruments' },
     { href: '/reports.html', label: 'Reports', icon: ICONS.reports, show: can('reports.download'), key: 'reports' },
     { href: '/assistant.html', label: 'R 76 assistant', icon: ICONS.assistant, show: can('ai.view') && !is('AUDITOR', 'APPROVER'), key: 'assistant' },
   ];
