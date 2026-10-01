@@ -181,7 +181,7 @@ def test_only_the_assigned_reviewer_may_verify(client, tokens, case_factory):
     # reviewer, so the record-scope check must still refuse the action.
     response = client.post(f"{API}/cases/{case_id}/verify", json={}, headers=tokens[LAB_ADMIN])
     assert response.status_code == 403
-    assert "reviewer" in response.json()["detail"]
+    assert "cases.review" in response.json()["detail"]
 
 
 def test_cases_are_scoped_to_the_users_laboratory(client, tokens, new_case, accounts):

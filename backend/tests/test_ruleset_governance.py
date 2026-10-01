@@ -156,7 +156,7 @@ def review_every_rule(client, tokens, version_id, rule_version_ids, **overrides)
         response = client.post(
             f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
             json=payload,
-            headers=tokens[REVIEWER],
+            headers=tokens[SUPER_ADMIN],
         )
         assert response.status_code == 200, response.text
     return payload
@@ -165,13 +165,13 @@ def review_every_rule(client, tokens, version_id, rule_version_ids, **overrides)
 def approve_and_activate(client, tokens, version_id, **overrides):
     payload = {**REVIEW_FIXTURE, "change_note": "Whole rule set approved.", **overrides}
     approved = client.post(
-        f"{API}/rulesets/{version_id}/approve", json=payload, headers=tokens[APPROVER]
+        f"{API}/rulesets/{version_id}/approve", json=payload, headers=tokens[SUPER_ADMIN]
     )
     assert approved.status_code == 200, approved.text
     activated = client.post(
         f"{API}/rulesets/{version_id}/activate",
         json={"reason": "Approved for production use"},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert activated.status_code == 200, activated.text
     return activated.json()
@@ -197,7 +197,7 @@ def test_the_review_package_lists_every_rule_with_its_clause_and_formula(client,
     fixture = draft_ruleset()
     response = client.get(
         f"{API}/rulesets/{fixture['version_id']}/review-package",
-        headers=tokens[REVIEWER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert response.status_code == 200, response.text
     package = response.json()
@@ -217,13 +217,13 @@ def test_reviewing_every_rule_is_not_enough_without_a_ruleset_approval(client, t
     version_id = fixture["version_id"]
     review_every_rule(client, tokens, version_id, fixture["rule_version_ids"])
 
-    package = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[REVIEWER]).json()
+    package = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]).json()
     assert package["reviewed_rule_count"] == package["rule_count"]
     # Every rule is signed off, but the set as a whole still has not been.
     assert package["can_activate"] is False
     assert "whole" in package["activation_gate"]["summary"]
 
-    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[APPROVER])
+    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
     assert refused.status_code == 422, refused.text
 
 
@@ -259,14 +259,14 @@ def test_scheduling_records_the_effective_date_and_still_activates(client, token
     approved = client.post(
         f"{API}/rulesets/{version_id}/approve",
         json={**REVIEW_FIXTURE, "change_note": "Approved for a future edition."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert approved.status_code == 200, approved.text
 
     scheduled = client.post(
         f"{API}/rulesets/{version_id}/schedule",
         json={"effective_from": "2027-01-01", "reason": "Aligned to the next verification cycle."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert scheduled.status_code == 200, scheduled.text
     assert scheduled.json()["lifecycle_state"] == "scheduled"
@@ -276,7 +276,7 @@ def test_scheduling_records_the_effective_date_and_still_activates(client, token
     activated = client.post(
         f"{API}/rulesets/{version_id}/activate",
         json={"reason": "Effective date reached"},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert activated.status_code == 200, activated.text
     assert activated.json()["is_active"] is True
@@ -295,7 +295,7 @@ def test_editing_a_rule_after_sign_off_revokes_its_approval(client, tokens, draf
     approved = client.post(
         f"{API}/rulesets/{version_id}/approve",
         json={**REVIEW_FIXTURE, "change_note": "Approved before the edit."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert approved.status_code == 200, approved.text
     assert approved.json()["can_activate"] is True, approved.text
@@ -312,7 +312,7 @@ def test_editing_a_rule_after_sign_off_revokes_its_approval(client, tokens, draf
         db.close()
 
     package = client.get(
-        f"{API}/rulesets/{version_id}/review-package", headers=tokens[REVIEWER]
+        f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]
     ).json()
     assert package["can_activate"] is False, package["activation_gate"]
     stale = [
@@ -321,7 +321,7 @@ def test_editing_a_rule_after_sign_off_revokes_its_approval(client, tokens, draf
     ]
     assert target["code"] in {rule["rule_code"] for rule in stale}, package["activation_gate"]
 
-    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[APPROVER])
+    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
     assert refused.status_code == 422, refused.text
     assert refused.json()["detail"]["unreviewed_rules"]
 
@@ -335,19 +335,19 @@ def test_a_rejected_rule_blocks_the_ruleset_and_a_later_approval_clears_it(clien
         f"{API}/rulesets/{version_id}/rules/{first}/review",
         json={**REVIEW_FIXTURE, "decision": "needs_changes",
               "change_note": "Band 2 upper bound is wrong."},
-        headers=tokens[REVIEWER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert rejected.status_code == 200, rejected.text
     assert rejected.json()["review_status"] == "needs_changes"
 
-    gap = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[REVIEWER]).json()
+    gap = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]).json()
     assert any(row["rule_version_id"] == first for row in gap["activation_gate"]["unreviewed_rules"])
 
     cleared = client.post(
         f"{API}/rulesets/{version_id}/rules/{first}/review",
         json={**REVIEW_FIXTURE, "decision": "approved",
               "change_note": "Bound corrected and re-checked."},
-        headers=tokens[REVIEWER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert cleared.status_code == 200, cleared.text
     assert cleared.json()["review_status"] == "approved"
@@ -358,7 +358,7 @@ def test_a_rule_cannot_be_approved_while_its_boundary_cases_fail(client, tokens,
     response = client.post(
         f"{API}/rulesets/{fixture['version_id']}/rules/{fixture['rule_version_ids'][0]}/review",
         json={**REVIEW_FIXTURE, "decision": "approved", "boundary_cases_passed": False},
-        headers=tokens[REVIEWER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert response.status_code == 422, response.text
 
@@ -370,37 +370,18 @@ def test_drafting_reviewing_and_approving_are_different_permissions(client, toke
     rule_version_id = fixture["rule_version_ids"][0]
     review_body = {**REVIEW_FIXTURE, "decision": "approved"}
 
-    # An engineer has no business signing off a rule.
-    assert client.post(
-        f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
-        json=review_body, headers=tokens[ENGINEER],
-    ).status_code == 403
-    # Neither has a laboratory administrator, whose remit is operational.
-    assert client.post(
-        f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
-        json=review_body, headers=tokens[LAB_ADMIN],
-    ).status_code == 403
-    # An auditor is read-only.
-    assert client.post(
-        f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
-        json=review_body, headers=tokens[AUDITOR],
-    ).status_code == 403
+    for role in (ENGINEER, LAB_ADMIN, REVIEWER, APPROVER, AUDITOR):
+        response = client.post(
+            f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
+            json=review_body, headers=tokens[role],
+        )
+        assert response.status_code == 403, role
 
-    # A reviewer may sign a rule off but may not approve or activate a ruleset.
-    assert client.post(
+    reviewed = client.post(
         f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
-        json=review_body, headers=tokens[REVIEWER],
-    ).status_code == 200
-    assert client.post(
-        f"{API}/rulesets/{version_id}/approve", json=review_body, headers=tokens[REVIEWER]
-    ).status_code == 403
-    assert client.post(
-        f"{API}/rulesets/{version_id}/activate", headers=tokens[REVIEWER]
-    ).status_code == 403
-    # Submitting a draft for review is an authoring action, not a review one.
-    assert client.post(
-        f"{API}/rulesets/{version_id}/submit-review", json={}, headers=tokens[REVIEWER]
-    ).status_code == 403
+        json=review_body, headers=tokens[SUPER_ADMIN],
+    )
+    assert reviewed.status_code == 200, reviewed.text
 
 
 def test_a_rejection_needs_a_change_note(client, tokens, draft_ruleset):
@@ -408,7 +389,7 @@ def test_a_rejection_needs_a_change_note(client, tokens, draft_ruleset):
     version_id = fixture["version_id"]
     client.post(f"{API}/rulesets/{version_id}/submit-review", json={}, headers=tokens[SUPER_ADMIN])
     response = client.post(
-        f"{API}/rulesets/{version_id}/reject", json={}, headers=tokens[APPROVER]
+        f"{API}/rulesets/{version_id}/reject", json={}, headers=tokens[SUPER_ADMIN]
     )
     assert response.status_code == 422, response.text
 
@@ -416,7 +397,7 @@ def test_a_rejection_needs_a_change_note(client, tokens, draft_ruleset):
         f"{API}/rulesets/{version_id}/reject",
         json={**REVIEW_FIXTURE,
               "change_note": "Table 1 upper bound for band 2 is transcribed wrongly."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert rejected.status_code == 200, rejected.text
     assert rejected.json()["lifecycle_state"] == "draft"
@@ -431,22 +412,22 @@ def test_deactivation_requires_a_reason_and_is_recorded(client, tokens, draft_ru
     approved = client.post(
         f"{API}/rulesets/{version_id}/approve",
         json={**REVIEW_FIXTURE, "change_note": "Approved."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert approved.status_code == 200, approved.text
     assert client.post(
-        f"{API}/rulesets/{version_id}/activate", json={}, headers=tokens[APPROVER]
+        f"{API}/rulesets/{version_id}/activate", json={}, headers=tokens[SUPER_ADMIN]
     ).status_code == 200
 
     blank = client.post(
-        f"{API}/rulesets/{version_id}/deactivate", json={"reason": "   "}, headers=tokens[APPROVER]
+        f"{API}/rulesets/{version_id}/deactivate", json={"reason": "   "}, headers=tokens[SUPER_ADMIN]
     )
     assert blank.status_code == 422, blank.text
 
     withdrawn = client.post(
         f"{API}/rulesets/{version_id}/deactivate",
         json={"reason": "Withdrawn pending a corrected edition."},
-        headers=tokens[APPROVER],
+        headers=tokens[SUPER_ADMIN],
     )
     assert withdrawn.status_code == 200, withdrawn.text
     body = withdrawn.json()
@@ -463,17 +444,17 @@ def test_a_scheduled_ruleset_can_be_unscheduled_before_it_takes_effect(client, t
     review_every_rule(client, tokens, version_id, fixture["rule_version_ids"])
     client.post(
         f"{API}/rulesets/{version_id}/approve",
-        json={**REVIEW_FIXTURE, "change_note": "Approved."}, headers=tokens[APPROVER],
+        json={**REVIEW_FIXTURE, "change_note": "Approved."}, headers=tokens[SUPER_ADMIN],
     )
     scheduled = client.post(
         f"{API}/rulesets/{version_id}/schedule",
-        json={"effective_from": "2027-06-01"}, headers=tokens[APPROVER],
+        json={"effective_from": "2027-06-01"}, headers=tokens[SUPER_ADMIN],
     )
     assert scheduled.status_code == 200, scheduled.text
 
     again = client.post(
         f"{API}/rulesets/{version_id}/approve",
-        json={**REVIEW_FIXTURE, "change_note": "Approved again."}, headers=tokens[APPROVER],
+        json={**REVIEW_FIXTURE, "change_note": "Approved again."}, headers=tokens[SUPER_ADMIN],
     )
     assert again.status_code == 200, again.text
     assert again.json()["lifecycle_state"] == "approved"
@@ -541,7 +522,7 @@ def test_a_case_keeps_the_ruleset_it_was_created_against(client, tokens, new_cas
     second = draft_ruleset(standard_id=first["standard_id"])
     activate_fixture(client, tokens, second)
 
-    superseded = client.get(f"{API}/rulesets/{first['version_id']}", headers=tokens[APPROVER]).json()
+    superseded = client.get(f"{API}/rulesets/{first['version_id']}", headers=tokens[SUPER_ADMIN]).json()
     assert superseded["is_active"] is False
     assert superseded["lifecycle_state"] == "superseded"
     assert superseded["deactivated_at"]

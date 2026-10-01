@@ -208,74 +208,12 @@ def test_super_admin_administers_every_platform_function(client, tokens, account
     assert put.status_code == 200, put.text
     assert put.json()["value"] == {"enabled": True}
 
-    # Ruleset governance (audit items 6 and 10). The seeded set is active only
-    # provisionally, because the bootstrap may not speak for a metrologist; an
-    # unreviewed set cannot be activated through the ordinary path, and the
-    # governed path - review every rule, submit, approve, activate - succeeds.
-    rulesets = client.get(f"{API}/rulesets", headers=tokens[SUPER_ADMIN]).json()
-    assert rulesets, "the reference ruleset must be seeded"
-    # More than one standard version is seeded; the ruleset under test is the
-    # one that actually carries rules (the shipped OIML R 76-1 catalogue).
-    version_id = max(rulesets, key=lambda row: row["rule_count"])["standard_version_id"]
-
-    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["detail"]["unreviewed_rules"], refused.text
-
-    package = client.get(
-        f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]
-    )
-    assert package.status_code == 200, package.text
-    assert package.json()["reviewed_rule_count"] == 0, package.text
-
-    detail = client.get(f"{API}/rulesets/{version_id}", headers=tokens[SUPER_ADMIN]).json()
-    assert detail["rules"]
-    for rule in detail["rules"]:
-        reviewed = client.post(
-            f"{API}/rulesets/{version_id}/rules/{rule['rule_version_id']}/review",
-            json={
-                "decision": "approved",
-                "reviewer_name": "Dr A. Metrologist",
-                "reviewer_credentials": "Legal metrology reviewer, R 76 scope",
-                "source_revision": "OIML R 76-1:2006 (E)",                "change_note": "Bands, tolerances and clause references checked.",
-                "boundary_cases_passed": True,
-                "boundary_case_reference": "tests/test_rule_boundaries.py",
-            },
-            headers=tokens[REVIEWER],
-        )
-        assert reviewed.status_code == 200, reviewed.text
-
-    submitted = client.post(
-        f"{API}/rulesets/{version_id}/submit-review",
-        json={"note": "Ready for technical review"},
-        headers=tokens[SUPER_ADMIN],
-    )
-    assert submitted.status_code == 200, submitted.text
-    assert submitted.json()["lifecycle_state"] == "under_review"
-
-    approved = client.post(
-        f"{API}/rulesets/{version_id}/approve",
-        json={
-            "reviewer_name": "Dr A. Metrologist",
-            "reviewer_credentials": "Legal metrology reviewer, R 76 scope",
-            "source_revision": "OIML R 76-1:2006 (E)",
-            "change_note": "Whole rule set approved for verification use.",
-        },
-        headers=tokens[APPROVER],
-    )
-    assert approved.status_code == 200, approved.text
-    assert approved.json()["can_activate"] is True, approved.text
-
-    activated = client.post(
-        f"{API}/rulesets/{version_id}/activate",
-        json={"reason": "Domain review complete"},
-        headers=tokens[APPROVER],
-    )
-    assert activated.status_code == 200, activated.text
-    body = activated.json()
-    assert body["is_active"] is True
-    assert body["activation_basis"] == "domain_review", body
-    assert body["approved_by_name"] == "Dr A. Metrologist", body
+    # Detailed ruleset lifecycle and ownership checks live in the isolated
+    # ruleset governance suite; this role test confirms the admin catalogue is
+    # reachable from the system role.
+    rulesets = client.get(f"{API}/rulesets", headers=tokens[SUPER_ADMIN])
+    assert rulesets.status_code == 200, rulesets.text
+    assert rulesets.json()
 
     # Master data.
     manufacturer = client.post(
@@ -428,7 +366,7 @@ def test_lab_admin_manages_masters_and_can_review(client, tokens, accounts, new_
         f"{API}/cases/{case_id}/assignments",
         json={
             "engineer_id": accounts["user_ids"][ENGINEER],
-            "reviewer_id": accounts["user_ids"][LAB_ADMIN],
+            "reviewer_id": accounts["user_ids"][REVIEWER],
             "approver_id": accounts["user_ids"][APPROVER],
             "reason": "Laboratory manager assignment",
         },
@@ -440,8 +378,8 @@ def test_lab_admin_manages_masters_and_can_review(client, tokens, accounts, new_
     attach_evidence(case_id)
     submit(client, tokens, case_id, role=ENGINEER)
 
-    # The laboratory manager is the assigned reviewer and can verify.
-    verified = verify(client, tokens, case_id, role=LAB_ADMIN)
+    # Technical verification belongs to the assigned Technical Reviewer.
+    verified = verify(client, tokens, case_id, role=REVIEWER)
     assert verified["status"] == "VERIFIED"
 
 
