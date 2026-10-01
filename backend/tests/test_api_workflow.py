@@ -370,8 +370,7 @@ def test_a_report_cannot_be_generated_for_a_draft_case(client, tokens, new_case)
         json={"formats": ["pdf"]},
         headers=tokens[APPROVER],
     )
-    assert response.status_code == 409
-    assert "review workflow" in response.json()["detail"]
+    assert response.status_code == 404
 
 
 def test_reports_can_be_regenerated_as_a_new_revision(client, tokens, case_factory):

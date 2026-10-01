@@ -10,7 +10,7 @@ from app.database import get_db
 from app.dependencies.auth import get_current_active_user
 from app.models import AIEvent, CaseStatus, EvaluationCase, TestInstance, User
 from app.security.permissions import APPROVER, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
-from app.security.scope import laboratory_filter
+from app.security.scope import case_scope_clause
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -28,13 +28,9 @@ OPEN_STATUSES = [
 
 def _base_query(user: User):
     statement = select(EvaluationCase)
-    laboratory_id = laboratory_filter(user)
-    if laboratory_id is not None:
-        statement = statement.where(EvaluationCase.laboratory_id == laboratory_id)
-    if user.role_code == ENGINEER:
-        statement = statement.where(
-            (EvaluationCase.engineer_id == user.id) | (EvaluationCase.created_by == user.id)
-        )
+    scope = case_scope_clause(user)
+    if scope is not None:
+        statement = statement.where(scope)
     return statement
 
 

@@ -31,7 +31,7 @@ from app.schemas.reports import (
     ReportRevisionOut,
 )
 from app.security.permissions import P
-from app.security.scope import laboratory_filter
+from app.security.scope import case_scope_clause
 from app.services import audit_service
 from app.services.report_engine import generate_report
 from app.services.report_engine.comparison import compare_snapshots
@@ -123,11 +123,9 @@ def _repository_statement(
         .join(Instrument, Instrument.id == EvaluationCase.instrument_id)
         .order_by(GeneratedReport.created_at.desc())
     )
-    laboratory_id = laboratory_filter(user)
-    if laboratory_id is not None:
-        statement = statement.where(EvaluationCase.laboratory_id == laboratory_id)
-    if user.role_code == "ENGINEER":
-        statement = statement.where(EvaluationCase.engineer_id == user.id)
+    scope = case_scope_clause(user)
+    if scope is not None:
+        statement = statement.where(scope)
     if only_final:
         statement = statement.where(GeneratedReport.is_immutable.is_(True))
     if instrument_id is not None:
@@ -399,11 +397,9 @@ def instrument_history(
         .where(EvaluationCase.instrument_id == instrument.id)
         .order_by(EvaluationCase.created_at.desc())
     )
-    laboratory_id = laboratory_filter(user)
-    if laboratory_id is not None:
-        statement = statement.where(EvaluationCase.laboratory_id == laboratory_id)
-    if user.role_code == "ENGINEER":
-        statement = statement.where(EvaluationCase.engineer_id == user.id)
+    scope = case_scope_clause(user)
+    if scope is not None:
+        statement = statement.where(scope)
     cases = db.execute(statement).scalars().all()
 
     latest: dict[uuid.UUID, GeneratedReport] = {}

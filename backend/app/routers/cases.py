@@ -43,7 +43,7 @@ from app.schemas.cases import (
 from app.schemas.common import Paginated
 from app.schemas.masters import EquipmentUsageCreate, InstrumentCreate
 from app.security.permissions import P, SUPER_ADMIN
-from app.security.scope import case_editable_by, laboratory_filter
+from app.security.scope import case_editable_by, case_scope_clause
 from app.services import audit_service, equipment_service, readiness
 from app.services.test_engine import generate_and_persist_plan
 
@@ -189,13 +189,9 @@ def list_cases(
     page_size: int = Query(25, le=200),
 ) -> Paginated[CaseListOut]:
     statement = select(EvaluationCase).order_by(EvaluationCase.created_at.desc())
-    laboratory_id = laboratory_filter(user)
-    if laboratory_id is not None:
-        statement = statement.where(EvaluationCase.laboratory_id == laboratory_id)
-    if user.role_code == "ENGINEER":
-        statement = statement.where(
-            (EvaluationCase.engineer_id == user.id) | (EvaluationCase.created_by == user.id)
-        )
+    scope = case_scope_clause(user)
+    if scope is not None:
+        statement = statement.where(scope)
     if mine:
         statement = statement.where(
             (EvaluationCase.engineer_id == user.id)
