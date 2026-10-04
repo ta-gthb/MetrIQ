@@ -95,6 +95,8 @@ def create_user(
                 status_code=403,
                 detail="Laboratory administrators cannot create platform or laboratory administrator accounts.",
             )
+    if payload.laboratory_id is not None and db.get(Laboratory, payload.laboratory_id) is None:
+        raise HTTPException(status_code=422, detail="laboratory_id must reference a registered laboratory.")
     existing = db.execute(
         select(User).where(User.email == payload.email.strip().lower())
     ).scalars().first()
@@ -144,6 +146,14 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     changes = payload.model_dump(exclude_unset=True)
+    if "laboratory_id" in changes and user.role_code != SUPER_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the Super Admin may assign a user to a laboratory.",
+        )
+    if "laboratory_id" in changes and changes["laboratory_id"] is not None:
+        if db.get(Laboratory, changes["laboratory_id"]) is None:
+            raise HTTPException(status_code=422, detail="laboratory_id must reference a registered laboratory.")
     if "password" in changes and changes["password"]:
         record.password_hash = hash_password(changes["password"])
     for field in ("full_name", "designation", "phone", "laboratory_id", "is_active"):

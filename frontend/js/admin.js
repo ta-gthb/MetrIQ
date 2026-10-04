@@ -524,10 +524,10 @@ function rulesetActions(ruleset) {
     buttons.push('<button class="btn-sm" data-diff="' + id + '" data-label="' +
       escapeHtml(ruleset.version_label || id) + '">Changes</button>');
   }
-  if (can('rules.review') && ruleset.unreviewed_rule_count > 0) {
+  if (isSuperAdmin() && can('rules.review') && ruleset.unreviewed_rule_count > 0) {
     buttons.push('<button class="btn-sm" data-review="' + id + '">Review rules</button>');
   }
-  if (can('rules.manage') && state === 'draft') {
+  if (isSuperAdmin() && can('rules.manage') && state === 'draft') {
     buttons.push('<button class="btn-sm" data-submit="' + id + '">Submit for review</button>');
   }
   if (mayApproveRuleset() && state === 'under_review') {

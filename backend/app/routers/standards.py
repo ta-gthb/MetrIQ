@@ -358,6 +358,7 @@ def submit_ruleset_for_review(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_MANAGE)),
 ) -> dict:
+    _require_super_admin(user, "submit a ruleset for review")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.submit_for_review(db, version, actor=user, note=payload.note)
@@ -381,6 +382,7 @@ def review_rule_version(
     user: User = Depends(require_permission(P.RULES_REVIEW)),
 ) -> dict:
     """A named reviewer validates one rule against the controlled standard (item 6)."""
+    _require_super_admin(user, "review a ruleset rule")
     version = _ruleset_or_404(db, standard_version_id)
     rule_version = db.get(RuleVersion, rule_version_id)
     if rule_version is None or rule_version.standard_version_id != version.id:
@@ -435,6 +437,7 @@ def approve_ruleset(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
+    _require_super_admin(user, "approve a ruleset")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.approve_ruleset(
@@ -467,6 +470,7 @@ def reject_ruleset(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
+    _require_super_admin(user, "reject a ruleset")
     version = _ruleset_or_404(db, standard_version_id)
     if not (payload.change_note or "").strip():
         raise HTTPException(status_code=422, detail="A rejection needs a change note.")
@@ -607,6 +611,7 @@ def update_report_sections(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_MANAGE)),
 ) -> dict:
+    _require_super_admin(user, "edit report template sections")
     template = db.get(ReportTemplate, template_id)
     if template is None:
         raise HTTPException(status_code=404, detail="Report template not found")
