@@ -127,6 +127,13 @@ def test_user_registration_applies_password_and_designation_policy(client, token
     )
     assert bad_designation.status_code == 422, bad_designation.text
 
+    missing_designation = client.post(
+        f"{API}/users",
+        json={key: value for key, value in base.items() if key != "designation"} | {"password": PASSWORD},
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert missing_designation.status_code == 422, missing_designation.text
+
     created = client.post(
         f"{API}/users", json={**base, "password": PASSWORD, "designation": "Operator"},
         headers=tokens[SUPER_ADMIN],

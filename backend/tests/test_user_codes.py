@@ -273,6 +273,7 @@ def test_an_administrator_creating_an_account_has_the_id_issued_for_it(
                 "full_name": f"Issued {role}",
                 "password": "FixturePass1!",
                 "role_code": role,
+                "designation": "Officer",
                 "laboratory_id": accounts["laboratory_id"],
             },
         )

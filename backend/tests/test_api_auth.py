@@ -203,6 +203,7 @@ def test_cases_are_scoped_to_the_users_laboratory(client, tokens, new_case, acco
             "full_name": "Second Engineer",
             "password": "MetrIQ@2026",
             "role_code": ENGINEER,
+            "designation": "Officer",
             "laboratory_id": laboratory.json()["id"],
         },
         headers=tokens[SUPER_ADMIN],

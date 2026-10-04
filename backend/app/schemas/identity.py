@@ -167,7 +167,7 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=256)
     role_code: str
     laboratory_id: uuid.UUID | None = None
-    designation: str | None = None
+    designation: str
     phone: str | None = None
     is_active: bool = True
 
@@ -182,12 +182,10 @@ class UserCreate(BaseModel):
 
     @field_validator("designation")
     @classmethod
-    def _known_designation(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
+    def _known_designation(cls, value: str) -> str:
         text = value.strip()
         if not text:
-            return None
+            raise ValueError("designation is required")
         if text not in DESIGNATIONS:
             raise ValueError("designation must be one of: " + ", ".join(DESIGNATIONS))
         return text

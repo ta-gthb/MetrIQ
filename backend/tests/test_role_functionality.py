@@ -246,6 +246,7 @@ def test_lab_admin_is_limited_to_its_own_laboratory(client, tokens, accounts):
             "full_name": "Escalation Attempt",
             "password": "Provisional@2026",
             "role_code": SUPER_ADMIN,
+            "designation": "Officer",
         },
         headers=tokens[LAB_ADMIN],
     )
@@ -259,6 +260,7 @@ def test_lab_admin_is_limited_to_its_own_laboratory(client, tokens, accounts):
             "full_name": "Foreign Lab User",
             "password": "Provisional@2026",
             "role_code": ENGINEER,
+            "designation": "Officer",
             "laboratory_id": str(uuid.uuid4()),
         },
         headers=tokens[LAB_ADMIN],
@@ -273,6 +275,7 @@ def test_lab_admin_is_limited_to_its_own_laboratory(client, tokens, accounts):
             "full_name": "Lab Staff",
             "password": "Provisional@2026",
             "role_code": ENGINEER,
+            "designation": "Officer",
         },
         headers=tokens[LAB_ADMIN],
     )
@@ -291,8 +294,8 @@ def test_lab_admin_is_limited_to_its_own_laboratory(client, tokens, accounts):
     assert (
         client.post(
             f"{API}/users",
-            json={"email": unique_email("x"), "full_name": "Xavier", "password": "Provisional@2026",
-                  "role_code": LAB_ADMIN},
+                json={"email": unique_email("x"), "full_name": "Xavier", "password": "Provisional@2026",
+                    "role_code": LAB_ADMIN, "designation": "Officer"},
             headers=tokens[LAB_ADMIN],
         ).status_code
         == 403
