@@ -69,7 +69,15 @@ def collect_inputs(args) -> bool:
     banner("MetrIQ - reinitialise database (DESTRUCTIVE)")
 
     stored = read_env_file()
-    configured = os.environ.get("DATABASE_URL") or stored.get("DATABASE_URL") or ""
+    from app.config import DEPLOYMENT_DEFAULTS
+
+    deployment_defaults = read_env_file(DEPLOYMENT_DEFAULTS)
+    configured = (
+        os.environ.get("DATABASE_URL")
+        or stored.get("DATABASE_URL")
+        or deployment_defaults.get("DATABASE_URL")
+        or ""
+    )
 
     # Once the target is remembered in backend/.env this is a single keystroke.
     if configured:
@@ -118,6 +126,33 @@ def collect_inputs(args) -> bool:
         args.no_admin = True
 
     return True
+
+
+def drop_rls_policies(connection, schema: str | None) -> int:
+    """Remove MetrIQ's cross-table RLS policies before dropping their tables."""
+    if connection.dialect.name != "postgresql":
+        return 0
+
+    from sqlalchemy import inspect
+
+    from app.security.rls import POLICY_NAME, TENANT_TABLES
+
+    inspector = inspect(connection)
+    existing = set(inspector.get_table_names(schema=schema))
+    preparer = connection.dialect.identifier_preparer
+    policy = preparer.quote(POLICY_NAME)
+    removed = 0
+    for table in sorted(TENANT_TABLES):
+        if table not in existing:
+            continue
+        qualified_table = preparer.quote(table)
+        if schema:
+            qualified_table = f"{preparer.quote_schema(schema)}.{qualified_table}"
+        connection.exec_driver_sql(
+            f"DROP POLICY IF EXISTS {policy} ON {qualified_table}"
+        )
+        removed += 1
+    return removed
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -190,7 +225,11 @@ def main(argv: list[str] | None = None) -> int:
         warn("DB_SCHEMA=<name> instead, so only MetrIQ's own tables are touched")
 
     warn(f"dropping all tables in {target}")
-    Base.metadata.drop_all(bind=engine)
+    with engine.begin() as connection:
+        removed_policies = drop_rls_policies(connection, settings.DB_SCHEMA)
+        if removed_policies:
+            ok(f"removed {removed_policies} MetrIQ row-level security policies")
+        Base.metadata.drop_all(bind=connection)
     tables = bootstrap.ensure_schema()
     ok(f"schema recreated with {tables} tables")
 

@@ -577,6 +577,62 @@ def test_reinit_db_guided_flow_never_asks_for_a_remembered_target(monkeypatch, i
     assert args.schema == "metriq"
 
 
+def test_reinit_db_guided_flow_uses_deployment_database_default(monkeypatch, isolated_env):
+    from scripts import reinit_db
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    def read_env(path=None):
+        if path is not None and path.name == "deployment.env":
+            return {"DATABASE_URL": "sqlite:///deployment-default.db"}
+        return {}
+
+    monkeypatch.setattr(reinit_db, "read_env_file", read_env)
+    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
+    monkeypatch.setattr(
+        reinit_db,
+        "prompt",
+        lambda label, **kw: "REINITIALISE" if label.startswith("Type REINITIALISE") else "public",
+    )
+    monkeypatch.setattr(reinit_db, "prompt_secret", lambda label: "")
+
+    args = reinit_db.build_parser().parse_args([])
+    assert reinit_db.collect_inputs(args) is True
+    assert args.url == "sqlite:///deployment-default.db"
+
+
+def test_reinit_db_drops_only_existing_metrIQ_policies_in_the_target_schema(monkeypatch):
+    import sqlalchemy
+    from sqlalchemy.dialects import postgresql
+
+    from scripts import reinit_db
+
+    class Inspector:
+        def get_table_names(self, schema=None):
+            assert schema == "metriq"
+            return ["ai_events", "evaluation_cases", "users", "unrelated_table"]
+
+    class Connection:
+        dialect = postgresql.dialect()
+
+        def __init__(self):
+            self.statements = []
+
+        def exec_driver_sql(self, statement):
+            self.statements.append(statement)
+
+    connection = Connection()
+    monkeypatch.setattr(sqlalchemy, "inspect", lambda bind: Inspector())
+
+    count = reinit_db.drop_rls_policies(connection, "metriq")
+
+    assert count == 3
+    assert connection.statements == [
+        "DROP POLICY IF EXISTS laboratory_scope ON metriq.ai_events",
+        "DROP POLICY IF EXISTS laboratory_scope ON metriq.evaluation_cases",
+        "DROP POLICY IF EXISTS laboratory_scope ON metriq.users",
+    ]
+
+
 def test_reinit_db_guided_flow_collects_a_typed_target_and_the_account(monkeypatch, isolated_env):
     from scripts import reinit_db
 

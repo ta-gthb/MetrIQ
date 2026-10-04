@@ -244,6 +244,13 @@ def test_a_report_is_released_only_after_approval(client, tokens, case_factory):
     download = client.get(
         f"{API}/reports/{released.json()['id']}/download",
         params={"fmt": "pdf"},
+        headers=tokens[APPROVER],
+    )
+    assert download.status_code == 403, download.text
+
+    download = client.get(
+        f"{API}/reports/{released.json()['id']}/download",
+        params={"fmt": "pdf"},
         headers=tokens[LAB_ADMIN],
     )
     assert download.status_code == 200, download.text
