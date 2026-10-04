@@ -240,16 +240,18 @@ def seed_masters(db) -> dict:
 def seed_equipment(db, laboratory: Laboratory) -> dict:
     equipment = {}
     sets = [
-        ("EQ-WTS-01", "OIML M1 test weight set 1 mg to 20 kg", "weights", "M1"),
-        ("EQ-THM-01", "Digital thermometer, -10 to 50 C", "thermometer", "0.1 C"),
-        ("EQ-HYG-01", "Relative humidity meter", "hygrometer", "2 %RH"),
-        ("EQ-BAR-01", "Barometric pressure gauge", "barometer", "0.1 kPa"),
+        ("EQ-WTS-01", "OIML M1 test weight set 1 mg to 20 kg", "weights", "M1", "g"),
+        ("EQ-THM-01", "Digital thermometer, -10 to 50 C", "thermometer", "+/- 0.5 C", "C"),
+        ("EQ-HYG-01", "Relative humidity meter", "hygrometer", "+/- 2 %RH", "%RH"),
+        ("EQ-BAR-01", "Barometric pressure gauge", "pressure_gauge", "+/- 0.1 kPa", "kPa"),
     ]
-    for code, name, kind, accuracy in sets:
+    for code, name, kind, accuracy, unit in sets:
         equipment[code] = _get_or_create(
             db, TestEquipment,
             {"name": name, "equipment_type": kind, "accuracy_class": accuracy,
-             "laboratory_id": laboratory.id, "is_active": True, "manufacturer": "Demo Instruments"},
+             "laboratory_id": laboratory.id, "is_active": True, "manufacturer": "Demo Instruments",
+             "model": code.split("-")[1] + " series", "serial_no": f"{code}-2026",
+             "unit": unit},
             code=code,
         )
     for item in equipment.values():

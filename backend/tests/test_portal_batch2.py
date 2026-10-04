@@ -126,6 +126,69 @@ def test_equipment_writes_belong_to_the_laboratory_admin(client, tokens):
     assert removed.status_code == 204, removed.text
 
 
+def test_legacy_equipment_rows_still_render_in_view_mode(client, tokens):
+    """Reading the register must not fail on rows recorded before the policy.
+
+    The demonstration register predates the mandatory-fields rule: a row may
+    carry no model, serial number, unit or accuracy class, and a type outside
+    the current dropdown. Every role still reads the register; writes stay with
+    the Laboratory Admin / Manager.
+    """
+    from sqlalchemy import select
+
+    from app.database import SessionLocal
+    from app.models import Laboratory, TestEquipment
+
+    tag = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        laboratory = (
+            db.execute(select(Laboratory).order_by(Laboratory.created_at)).scalars().first()
+        )
+        assert laboratory is not None
+        row = TestEquipment(
+            code=f"LEGACY-{tag}",
+            name="Legacy pressure gauge",
+            equipment_type="barometer",
+            manufacturer="Legacy Instruments",
+            laboratory_id=laboratory.id,
+            is_active=True,
+        )
+        db.add(row)
+        db.commit()
+        row_id = str(row.id)
+
+    for role in (SUPER_ADMIN, LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
+        response = client.get(
+            f"{API}/equipment", params={"search": f"LEGACY-{tag}"}, headers=tokens[role]
+        )
+        assert response.status_code == 200, (role, response.text)
+        items = response.json()["items"]
+        assert [item["id"] for item in items] == [row_id]
+        assert items[0]["model"] is None and items[0]["serial_no"] is None
+
+    status = client.get(
+        f"{API}/equipment/status", params={"search": f"LEGACY-{tag}"}, headers=tokens[ENGINEER]
+    )
+    assert status.status_code == 200, status.text
+    assert [item["equipment_id"] for item in status.json()] == [row_id]
+
+    denied = client.post(
+        f"{API}/equipment",
+        json={
+            "code": f"DENIED-{tag}",
+            "name": "Denied equipment",
+            "equipment_type": "weights",
+            "manufacturer": "Denied Instruments",
+            "model": "D-1",
+            "serial_no": "D-1",
+            "unit": "g",
+            "accuracy_class": "M1",
+        },
+        headers=tokens[ENGINEER],
+    )
+    assert denied.status_code == 403, denied.text
+
+
 # ---------------------------------------------------------- instrument register
 def test_the_instrument_register_publishes_approved_evaluations_only(client, tokens, case_factory):
     serial_number = f"B2-{uuid.uuid4().hex[:10]}"

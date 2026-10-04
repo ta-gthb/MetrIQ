@@ -197,8 +197,28 @@ class EquipmentCalibrationOut(ORMModel, EquipmentCalibrationCreate):
     equipment_id: uuid.UUID
 
 
-class TestEquipmentOut(ORMModel, TestEquipmentBase):
+class TestEquipmentOut(ORMModel):
+    """The register row as it is read, including rows recorded before the
+    mandatory-fields policy existed.
+
+    The create schema above stays strict; this output schema must not apply its
+    validators, because a historical row may carry no model, serial number or
+    accuracy class (and a type outside the current dropdown), and reading it
+    must never fail the whole register.
+    """
+
     id: uuid.UUID
+    code: str
+    name: str
+    equipment_type: str
+    manufacturer: str | None = None
+    model: str | None = None
+    serial_no: str | None = None
+    nominal_value: str | None = None
+    unit: str | None = None
+    accuracy_class: str | None = None
+    laboratory_id: uuid.UUID | None = None
+    is_active: bool = True
     calibrations: list[EquipmentCalibrationOut] = Field(default_factory=list)
 
 
