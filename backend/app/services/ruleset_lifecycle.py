@@ -62,9 +62,10 @@ ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 REVIEW_DECISIONS = ("approved", "rejected", "needs_changes")
 
 # How a version came to be active. "provisional" is only ever set by the
-# development/demo bootstrap, never by a user, and the UI and reports label it.
+# development/demo bootstrap; direct Super Admin activation is recorded separately.
 BASIS_DOMAIN_REVIEW = "domain_review"
 BASIS_PROVISIONAL = "provisional"
+BASIS_SUPER_ADMIN = "super_admin_direct"
 PROPOSED_TEST_CODES = frozenset({"T-TILT", "T-TARE", "T-WARMUP", "T-VOLT", "T-EMC", "T-DAMP"})
 
 
@@ -408,28 +409,41 @@ def activate(
     basis: str = BASIS_DOMAIN_REVIEW,
     reason: str | None = None,
     force_provisional: bool = False,
+    direct_admin: bool = False,
 ) -> StandardVersion:
-    """Make a version the active ruleset, after checking the review gate.
+    """Make a populated version active, optionally by direct Super Admin action.
 
     Deactivating the siblings happens in the same transaction so there is never
     a moment with two active versions of one standard.
     """
     current = version.status or "draft"
-    if current not in {"approved", "scheduled", "draft", "active"}:
+    if not direct_admin and current not in {"approved", "scheduled", "draft", "active"}:
         raise LifecycleError(
             f"A ruleset in state '{current}' cannot be activated.", status_code=409
         )
 
+    rows = ruleset_rows(db, version)
+    if direct_admin:
+        if not rows:
+            raise LifecycleError(
+                "This ruleset has no rule definitions. Add its rules before activation.",
+                status_code=422,
+                detail={"rule_count": 0},
+            )
+        allowed, _gate = can_activate(db, version)
+        basis = BASIS_DOMAIN_REVIEW if allowed else BASIS_SUPER_ADMIN
+
     if force_provisional and basis != BASIS_PROVISIONAL:
         raise LifecycleError("Only the bootstrap may force a provisional activation.", status_code=409)
 
-    if basis == BASIS_PROVISIONAL:
+    if direct_admin:
+        pass
+    elif basis == BASIS_PROVISIONAL:
         if not force_provisional:
             raise LifecycleError(
                 "A provisional activation must be requested explicitly.", status_code=409
             )
-        allowed = True
-        gate: dict = {"summary": "provisional activation by the bootstrap", "rule_count": len(ruleset_rows(db, version))}
+        gate: dict = {"summary": "provisional activation by the bootstrap", "rule_count": len(rows)}
     else:
         allowed, gate = can_activate(db, version)
         if not allowed:
@@ -439,7 +453,6 @@ def activate(
                 detail=gate,
             )
 
-    rows = ruleset_rows(db, version)
     now = utcnow()
     siblings = db.execute(
         select(StandardVersion).where(StandardVersion.standard_id == version.standard_id)
@@ -462,9 +475,11 @@ def activate(
     version.activation_basis = basis
     if basis == BASIS_DOMAIN_REVIEW:
         version.approved_fingerprint = ruleset_fingerprint(rows)
-        # These procedures are seeded as proposals. A successful governed
-        # activation is the explicit Super Admin decision that makes them
-        # eligible for generated evaluation plans.
+    elif basis == BASIS_SUPER_ADMIN:
+        version.approved_fingerprint = None
+    if basis in {BASIS_DOMAIN_REVIEW, BASIS_SUPER_ADMIN}:
+        # These procedures are seeded as proposals. Activation by a Super
+        # Admin makes them eligible for generated evaluation plans.
         definitions = db.execute(
             select(TestDefinition).where(
                 TestDefinition.standard_version_id == version.id,

@@ -178,19 +178,18 @@ def approve_and_activate(client, tokens, version_id, **overrides):
 
 
 # ------------------------------------------------------------- the gate ---
-def test_an_unreviewed_ruleset_cannot_be_activated(client, tokens, draft_ruleset):
+def test_super_admin_can_directly_activate_a_populated_unreviewed_ruleset(client, tokens, draft_ruleset):
     fixture = draft_ruleset()
     version_id = fixture["version_id"]
     response = client.post(
-        f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN]
+        f"{API}/rulesets/{version_id}/activate",
+        json={"reason": "Direct activation approved by Super Admin."},
+        headers=tokens[SUPER_ADMIN],
     )
-    assert response.status_code == 422, response.text
-    detail = response.json()["detail"]
-    assert detail["unreviewed_rules"], detail
-    assert len(detail["unreviewed_rules"]) == fixture["rule_count"], detail
-    assert "metrology review" in detail["message"]
-    # The refusal names the rules, so the reviewer knows what to look at.
-    assert all(row["rule_code"] and row["clause_reference"] for row in detail["unreviewed_rules"])
+    assert response.status_code == 200, response.text
+    assert response.json()["is_active"] is True
+    assert response.json()["activation_basis"] == "super_admin_direct"
+    assert response.json()["approved_fingerprint"] is None
 
 
 def test_the_review_package_lists_every_rule_with_its_clause_and_formula(client, tokens, draft_ruleset):
@@ -212,19 +211,62 @@ def test_the_review_package_lists_every_rule_with_its_clause_and_formula(client,
         assert rule["pending_reason"]
 
 
-def test_reviewing_every_rule_is_not_enough_without_a_ruleset_approval(client, tokens, draft_ruleset):
+def test_rule_reviews_are_not_required_for_direct_activation(client, tokens, draft_ruleset):
     fixture = draft_ruleset()
     version_id = fixture["version_id"]
     review_every_rule(client, tokens, version_id, fixture["rule_version_ids"])
 
     package = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]).json()
     assert package["reviewed_rule_count"] == package["rule_count"]
-    # Every rule is signed off, but the set as a whole still has not been.
+    # The review package still describes review completeness, but it is no
+    # longer an activation prerequisite for a direct Super Admin action.
     assert package["can_activate"] is False
     assert "whole" in package["activation_gate"]["summary"]
 
-    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
-    assert refused.status_code == 422, refused.text
+    activated = client.post(
+        f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN]
+    )
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["activation_basis"] == "super_admin_direct"
+
+
+def test_empty_placeholder_ruleset_cannot_be_activated(client, tokens):
+    rulesets = client.get(f"{API}/rulesets", headers=tokens[SUPER_ADMIN]).json()
+    placeholder = next(
+        item for item in rulesets if item["version_label"] == "r76-1-rev-1.1-CD-2024"
+    )
+    assert placeholder["rule_count"] == 0
+
+    response = client.post(
+        f"{API}/rulesets/{placeholder['standard_version_id']}/activate",
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert response.status_code == 422, response.text
+    assert "no rule definitions" in response.json()["detail"]["message"]
+
+
+def test_non_super_admins_cannot_directly_activate_or_deactivate(client, tokens, draft_ruleset):
+    fixture = draft_ruleset()
+    version_id = fixture["version_id"]
+
+    for role in (ENGINEER, LAB_ADMIN, REVIEWER, APPROVER):
+        activated = client.post(
+            f"{API}/rulesets/{version_id}/activate", headers=tokens[role]
+        )
+        assert activated.status_code == 403, (role, activated.text)
+
+    activated = client.post(
+        f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN]
+    )
+    assert activated.status_code == 200, activated.text
+
+    for role in (ENGINEER, LAB_ADMIN, REVIEWER, APPROVER):
+        deactivated = client.post(
+            f"{API}/rulesets/{version_id}/deactivate",
+            json={"reason": "Not allowed"},
+            headers=tokens[role],
+        )
+        assert deactivated.status_code == 403, (role, deactivated.text)
 
 
 def test_the_full_lifecycle_reaches_an_active_domain_reviewed_ruleset(client, tokens, draft_ruleset):
@@ -348,9 +390,9 @@ def test_editing_a_rule_after_sign_off_revokes_its_approval(client, tokens, draf
     ]
     assert target["code"] in {rule["rule_code"] for rule in stale}, package["activation_gate"]
 
-    refused = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["detail"]["unreviewed_rules"]
+    activated = client.post(f"{API}/rulesets/{version_id}/activate", headers=tokens[SUPER_ADMIN])
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["activation_basis"] == "super_admin_direct"
 
 
 def test_a_rejected_rule_blocks_the_ruleset_and_a_later_approval_clears_it(client, tokens, draft_ruleset):

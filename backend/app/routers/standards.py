@@ -517,19 +517,23 @@ def schedule_ruleset(
     return _ruleset_payload(db, version)
 
 
-@router.post("/rulesets/{standard_version_id}/activate", response_model=RuleSetOut, summary="Activate an approved rule set")
+@router.post("/rulesets/{standard_version_id}/activate", response_model=RuleSetOut, summary="Activate a populated rule set")
 def activate_ruleset(
     standard_version_id: uuid.UUID,
     payload: ActivateRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
-    """Make this the active ruleset. Refused unless every rule is reviewed.\n\n"""
+    """Activate a populated ruleset directly by Super Admin decision."""
     _require_super_admin(user, "activate")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.activate(
-            db, version, actor=user, reason=payload.reason if payload else None
+            db,
+            version,
+            actor=user,
+            reason=payload.reason if payload else None,
+            direct_admin=True,
         )
     except LifecycleError as exc:
         raise _lifecycle_error(exc) from exc

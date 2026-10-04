@@ -58,12 +58,6 @@ function managesEquipment() {
   return (getUser() || {}).role_code === 'LAB_ADMIN';
 }
 
-/* Activating or deactivating a ruleset is reserved for the Super Admin; every
-   other role, the Laboratory Admin included, sees Standards & rules read-only. */
-function mayApproveRuleset() {
-  return can('rules.approve') && isSuperAdmin();
-}
-
 function creatableRoles() {
   const me = getUser() || {};
   if (me.role_code === 'SUPER_ADMIN') return CREATABLE_ROLES;
@@ -504,19 +498,14 @@ function lifecyclePill(ruleset) {
     html += ' <span class="pill pill-warn" title="Activated by the development/demo bootstrap ' +
       'without a metrology review. Its results are not from a verified ruleset.">provisional</span>';
   }
+  if (state === 'active' && ruleset.activation_basis === 'super_admin_direct') {
+    html += ' <span class="pill pill-info" title="Activated directly by a Super Admin">direct activation</span>';
+  }
   return html;
-}
-
-function reviewProgress(ruleset) {
-  const total = ruleset.rule_count || 0;
-  const reviewed = ruleset.reviewed_rule_count || 0;
-  const cls = total && reviewed === total ? 'pill-pass' : 'pill-warn';
-  return '<span class="pill ' + cls + '">' + reviewed + ' / ' + total + '</span>';
 }
 
 function rulesetActions(ruleset) {
   const id = ruleset.standard_version_id;
-  const state = ruleset.lifecycle_state || ruleset.status || 'draft';
   const buttons = [];
   if (can('rules.view')) {
     buttons.push('<button class="btn-sm" data-package="' + id + '" data-label="' +
@@ -524,27 +513,14 @@ function rulesetActions(ruleset) {
     buttons.push('<button class="btn-sm" data-diff="' + id + '" data-label="' +
       escapeHtml(ruleset.version_label || id) + '">Changes</button>');
   }
-  if (isSuperAdmin() && can('rules.review') && ruleset.unreviewed_rule_count > 0) {
-    buttons.push('<button class="btn-sm" data-review="' + id + '">Review rules</button>');
+  if (isSuperAdmin() && !ruleset.is_active) {
+    if (ruleset.rule_count > 0) {
+      buttons.push('<button class="btn-sm btn-primary" data-activate="' + id + '">Activate</button>');
+    } else {
+      buttons.push('<span class="faint small" title="Add rule definitions before activation">No rules defined</span>');
+    }
   }
-  if (isSuperAdmin() && can('rules.manage') && state === 'draft') {
-    buttons.push('<button class="btn-sm" data-submit="' + id + '">Submit for review</button>');
-  }
-  if (mayApproveRuleset() && state === 'under_review') {
-    buttons.push('<button class="btn-sm" data-reject="' + id + '">Reject</button>');
-    buttons.push('<button class="btn-sm btn-primary" data-approve="' + id + '">Approve</button>');
-  }
-  if (mayApproveRuleset() && state === 'approved') {
-    buttons.push('<button class="btn-sm" data-schedule="' + id + '">Schedule</button>');
-  }
-  if (mayApproveRuleset() && (state === 'approved' || state === 'scheduled')) {
-    const blocked = ruleset.can_activate
-      ? ''
-      : ' disabled title="Every rule needs a current metrology review first"';
-    buttons.push('<button class="btn-sm btn-primary" data-activate="' + id + '"' + blocked +
-      '>Activate</button>');
-  }
-  if (mayApproveRuleset() && (state === 'active' || state === 'scheduled')) {
+  if (isSuperAdmin() && ruleset.is_active) {
     buttons.push('<button class="btn-sm btn-danger" data-deactivate="' + id + '">Deactivate</button>');
   }
   return buttons.length ? buttons.join(' ') : '<span class="faint small">\u2014</span>';
@@ -578,7 +554,6 @@ async function renderStandards() {
     '<td>' + lifecyclePill(ruleset) +
       (ruleset.scheduled_for ? '<div class="faint small">effective ' + escapeHtml(ruleset.scheduled_for) + '</div>' : '') +
       '</td>' +
-    '<td>' + reviewProgress(ruleset) + '</td>' +
     '<td class="num">' + ruleset.rule_count + '</td>' +
     '<td class="nowrap">' + rulesetActions(ruleset) + '</td></tr>').join('');
 
@@ -590,15 +565,13 @@ async function renderStandards() {
     '<td class="mono small">' + escapeHtml(rule.version_label || '\u2014') + '</td>' +
     '<td>' + reviewPill(rule.review_status) + '</td></tr>').join('');
 
-  return '<div class="banner warn"><div><strong>A rule set reaches production through review, not by being seeded</strong>' +
-    'The shipped bands and tolerances are configuration data, not verified metrological truth. A rule set moves through ' +
-    '<span class="mono">draft \u2192 under review \u2192 approved \u2192 scheduled \u2192 active</span>, and activation is refused ' +
-    'while any rule lacks a current sign-off from a named metrology reviewer. Anything activated by the development/demo ' +
-    'bootstrap is labelled <span class="mono">provisional</span>. Historical cases keep the rule set they were created with.</div></div>' +
+  return '<div class="banner warn"><div><strong>Ruleset activation is a Super Admin decision</strong>' +
+    'A populated version can be activated directly without a review workflow. Empty placeholders cannot be activated. ' +
+    'Activation applies to new evaluations; historical cases keep the version they were created with.</div></div>' +
     '<div class="card"><div class="card-title"><h3>Standards</h3></div>' + standardsHtml + '</div>' +
     '<div class="card mt-3"><div class="card-title"><h3>Rule sets</h3>' +
       '<span class="faint small">Activating a version preserves the version used by historical cases</span></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Version</th><th>Standard</th><th>Lifecycle</th><th>Rules reviewed</th>' +
+    '<div class="table-wrap"><table><thead><tr><th>Version</th><th>Standard</th><th>Lifecycle</th>' +
       '<th class="num">Rules</th><th></th></tr></thead><tbody>' + rulesetsHtml + '</tbody></table></div></div>' +
     '<div class="card mt-3"><div class="card-title"><h3>Rules</h3><span class="faint small">' + rules.length + ' definitions</span></div>' +
     '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Rule</th><th>Category</th><th>Clause</th>' +

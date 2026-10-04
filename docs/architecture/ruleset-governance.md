@@ -25,25 +25,32 @@ draft ──► under_review ──► approved ──► scheduled ──► ac
 * **superseded** - it was active and a newer version of the same standard took over.
 * **retired** - deliberately withdrawn.
 
-Only `approved` and `scheduled` may become `active`. A version that is already
-`active` may be recalled to `under_review` - that is the route by which a
-provisionally activated ruleset gets the review it never had.
+The Super Admin can activate any populated version directly from the
+Standards & rules console; completing the review lifecycle is not a prerequisite.
+If an optional review has been completed, activation records that basis. Otherwise
+the version is marked `super_admin_direct`. Active versions can be deactivated
+directly by the Super Admin. Versions with no rule definitions remain ineligible:
+they cannot generate an evaluation plan.
 
 ## The activation gate
 
-`POST /api/v1/rulesets/{id}/activate` refuses unless every rule in the version
-carries a **current** approval, where *current* means the fingerprint of the
-reviewed content still matches the fingerprint of the stored rule. Editing a band
-or a tolerance after sign-off therefore revokes that rule's approval without
-anyone having to remember to clear a flag.
+The optional review workflow remains content-bound. A `RuleReview` carries a
+fingerprint of the reviewed content, so editing a band or tolerance makes that
+review stale. These records remain visible for governance and audit, but a stale
+or missing review does not block a direct Super Admin activation.
 
-The refusal is specific. It answers `422` with
+The review package still reports review gaps for informational purposes. An empty
+ruleset is refused at activation because it has no definitions from which to
+generate tests for an evaluation.
+
+The review package continues to describe gaps for auditing, independently of
+whether the Super Admin activates the version directly:
 
 ```json
 {
-  "detail": {
-    "message": "This rule set cannot be activated: 3 of 17 rules have no current metrology review.",
-    "rule_count": 17,
+  "can_activate": false,
+  "activation_gate": {
+    "summary": "3 of 17 rules have no current metrology review",
     "unreviewed_rules": [
       {"rule_version_id": "...", "rule_code": "R76-MPE-III-VERIFICATION",
        "clause_reference": "OIML R 76-1:2006 5.2.2 / Table 1",
@@ -53,21 +60,22 @@ The refusal is specific. It answers `422` with
 }
 ```
 
-The whole rule set also needs its own approval: an approval of the individual
-rules says "each band is right", the ruleset approval says "this set, together,
-is the one we are putting into service".
+When the optional review workflow is used, each rule sign-off is separate from
+the whole-ruleset approval; direct Super Admin activation does not require either.
 
 ## Permissions
 
 | Permission | Held by | Allows |
 |---|---|---|
 | `rules.view` | all roles | read standards, rules and the review package |
-| `rules.manage` | Super Admin | submit a draft for review |
-| `rules.review` | Reviewer, Approver, Super Admin | record a metrology review of a rule |
-| `rules.approve` | Approver, Super Admin | approve, reject, schedule, activate, deactivate |
+| `rules.manage` | Super Admin | submit a draft for optional review |
+| `rules.review` | Super Admin | record an optional metrology review of a rule |
+| `rules.approve` | Super Admin | optionally approve or schedule; directly activate or deactivate |
 
-Drafting, reviewing and approving are deliberately separate. A release that only
-allows one person to do all three is not a controlled change process.
+Every activation and deactivation is restricted to the Super Admin and is
+recorded in the audit trail. Review metadata remains available, but the
+Super Admin does not have to complete a separate review/approval workflow before
+activating a populated version.
 
 ## The review record
 
@@ -92,14 +100,16 @@ rule that is not covered there.
 
 ## The bootstrap
 
-Seeding the catalogue does not make it usable. On a fresh database the bootstrap
-asks the lifecycle to activate the shipped version:
+Seeding the catalogue creates the shipped populated version and a separate empty
+placeholder for a future committee draft. On a fresh database the bootstrap
+activates the shipped version as follows:
 
 * outside production, or with `DEMO_MODE` on, it activates it **provisionally** -
   `activation_basis='provisional'`, no reviewer is invented, and the API, the
   admin console and the report footer all label it;
-* in production it leaves the version in **draft** and logs a warning telling the
-  operator to run the review workflow.
+* in production it leaves the version in **draft**. A Super Admin can activate
+  this populated version directly from Standards & rules; no review workflow is
+  required.
 
 `ALLOW_PROVISIONAL_RULESET_ACTIVATION` overrides that decision explicitly.
 
