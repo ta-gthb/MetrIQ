@@ -30,7 +30,7 @@ from app.schemas.reports import (
     ReportListItemOut,
     ReportRevisionOut,
 )
-from app.security.permissions import P
+from app.security.permissions import LAB_ADMIN, SUPER_ADMIN, P
 from app.security.scope import case_scope_clause
 from app.services import audit_service
 from app.services.report_engine import generate_report
@@ -472,6 +472,11 @@ def download_report(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.REPORTS_DOWNLOAD)),
 ) -> Response:
+    if user.role_code not in {SUPER_ADMIN, LAB_ADMIN}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Super Admin or Laboratory Admin / Manager may download approved reports.",
+        )
     report = _load_report(db, report_id, user, require_approved=True)
     fmt = fmt.lower()
     if fmt not in CONTENT_TYPES:

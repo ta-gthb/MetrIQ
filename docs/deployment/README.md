@@ -495,7 +495,7 @@ curl -s https://<your-app>.vercel.app/health
 Then, in the browser, complete one full evaluation and confirm:
 
 * the mandatory nameplate photograph uploads and the case becomes submittable;
-* finalizing produces a PDF and a DOCX that download successfully;
+* finalizing produces a PDF and a DOCX that the Laboratory Admin / Manager can download;
 * the objects appear in the Supabase bucket under `cases/...` and `reports/...`.
 
 ## 7. Database initialization, reset and seeding

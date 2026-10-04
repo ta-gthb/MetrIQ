@@ -5,7 +5,9 @@ These tests hold the boundaries added with the laboratory-assignment model:
 * an evaluation case is opened only from the Laboratory Admin / Manager portal;
 * test equipment is written by the owning laboratory and read by everyone else;
 * the instrument register publishes only approved evaluations;
-* a report is released only after the Approving Authority approves;
+* a report is released only after the Approving Authority approves, and the
+  released document is downloadable by the Laboratory Admin / Manager (its own
+  laboratory) and the Super Admin alone;
 * case personnel must come from the case's own laboratory, and the Super Admin
   assigns users to a laboratory in the first place;
 * every case carries a discussion for its team, and every role has one support
@@ -179,10 +181,43 @@ def test_a_report_is_released_only_after_approval(client, tokens, case_factory):
     download = client.get(
         f"{API}/reports/{released.json()['id']}/download",
         params={"fmt": "pdf"},
-        headers=tokens[APPROVER],
+        headers=tokens[LAB_ADMIN],
     )
     assert download.status_code == 200, download.text
     assert download.content.startswith(b"%PDF")
+
+
+def test_approved_reports_download_only_for_super_admin_and_lab_manager(
+    client, tokens, case_factory
+):
+    case_id = case_factory()["id"]
+    drive_to_approved(client, tokens, case_id)
+    generated = client.post(
+        f"{API}/cases/{case_id}/reports/generate",
+        json={"formats": ["pdf"]},
+        headers=tokens[APPROVER],
+    )
+    assert generated.status_code == 201, generated.text
+    report_id = generated.json()["id"]
+
+    # The evaluation team keeps the snapshot and revision history but cannot
+    # release the document itself.
+    for role in (ENGINEER, REVIEWER, APPROVER):
+        response = client.get(
+            f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[role]
+        )
+        assert response.status_code == 403, (role, response.text)
+    assert (
+        client.get(f"{API}/reports/{report_id}/pdf", headers=tokens[ENGINEER]).status_code
+        == 403
+    )
+
+    for role in (SUPER_ADMIN, LAB_ADMIN):
+        response = client.get(
+            f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[role]
+        )
+        assert response.status_code == 200, (role, response.text)
+        assert response.content.startswith(b"%PDF")
 
 
 # ------------------------------------------------- laboratory-scoped personnel

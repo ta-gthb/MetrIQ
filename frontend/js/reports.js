@@ -4,7 +4,7 @@
    version. Downloads are fetched as authenticated blobs so the bearer token is
    never placed in a URL. */
 
-import { api, requireSession, formatApiError, can } from './api.js';
+import { api, requireSession, formatApiError, can, getUser } from './api.js';
 import {
   renderShell, resultPill, caseStatusPill, fmt, fmtDate, escapeHtml,
   empty, loading, toast, openModal,
@@ -21,6 +21,10 @@ const state = {
   search: '', onlyFinal: false, instrumentId: '', result: '', ruleset: '', from: '', to: '',
 };
 let compareSelection = null;
+
+// An approved report is released to the laboratory office and the platform
+// administrator; every other role keeps the snapshots and revision history.
+const canDownload = ['SUPER_ADMIN', 'LAB_ADMIN'].includes((getUser() || {}).role_code);
 
 async function download(reportId, fmt) {
   try {
@@ -220,8 +224,10 @@ async function load() {
     '<td class="mono small">' + escapeHtml(report.verification_code || '\u2014') + '</td>' +
     '<td class="small faint nowrap">' + fmtDate(report.generated_at) + '</td>' +
     '<td class="nowrap">' +
-      '<button class="btn-sm" data-dl="' + report.id + '" data-fmt="pdf">PDF</button> ' +
-      '<button class="btn-sm" data-dl="' + report.id + '" data-fmt="docx">DOCX</button> ' +
+      (canDownload
+        ? '<button class="btn-sm" data-dl="' + report.id + '" data-fmt="pdf">PDF</button> ' +
+          '<button class="btn-sm" data-dl="' + report.id + '" data-fmt="docx">DOCX</button> '
+        : '') +
       '<button class="btn-sm" data-snapshot="' + report.id + '" data-no="' + escapeHtml(report.report_no) + '">Snapshot</button> ' +
       '<button class="btn-sm" data-revisions="' + report.id + '" data-no="' + escapeHtml(report.report_no) + '">Revisions</button>' +
     '</td></tr>').join('');
@@ -253,7 +259,9 @@ async function load() {
     (data.items.length ? '<div class="table-wrap"><table><thead><tr><th>Report</th><th>Instrument</th>' +
       '<th>Status</th><th>Result</th>' +
       '<th>Ruleset</th><th>Verification code</th><th>Generated</th><th></th></tr></thead><tbody>' + rows +
-      '</tbody></table></div><div class="small faint mt-3">' + data.meta.total + ' report(s)</div>'
+      '</tbody></table></div><div class="small faint mt-3">' + data.meta.total + ' report(s)' +
+      (canDownload ? '' : ' \u00b7 Download is available to the Laboratory Admin / Manager and the Super Admin; snapshots and revision history stay readable here.') +
+      '</div>'
       : empty('No reports found.', 'Reports appear here once generated from a submitted case. Widen the filters or generate a report from a submitted case.')) +
     '</div>';
 

@@ -2030,6 +2030,7 @@ function reportPanel() {
   const reports = state.reports || [];
   const released = ['APPROVED', 'FINALIZED'].includes(state.case.status);
   const canGenerate = can('reports.generate') && released;
+  const canDownload = ['SUPER_ADMIN', 'LAB_ADMIN'].includes((getUser() || {}).role_code);
   const finalReport = reports.find((item) => item.is_immutable) || reports[0];
   const rows = reports.length
     ? '<div class="table-wrap mt-2"><table><thead><tr><th>Report</th><th>Rev</th><th>Status</th><th>Generated</th><th></th></tr></thead><tbody>' +
@@ -2039,8 +2040,10 @@ function reportPanel() {
         '<td>' + (report.is_immutable ? '<span class="pill pill-pass">locked</span>' : '<span class="pill pill-info">draft</span>') + '</td>' +
         '<td class="small faint">' + fmtDate(report.generated_at) + '</td>' +
         '<td class="nowrap">' + (released
-          ? '<button class="btn-sm" data-download="' + report.id + '" data-fmt="pdf">PDF</button> ' +
-            '<button class="btn-sm" data-download="' + report.id + '" data-fmt="docx">DOCX</button>'
+          ? (canDownload
+            ? '<button class="btn-sm" data-download="' + report.id + '" data-fmt="pdf">PDF</button> ' +
+              '<button class="btn-sm" data-download="' + report.id + '" data-fmt="docx">DOCX</button>'
+            : '<span class="faint small">Download is restricted to the Laboratory Admin / Manager and the Super Admin</span>')
           : '<span class="faint small">awaiting final approval</span>') + '</td></tr>').join('') +
       '</tbody></table></div>'
     : '<div class="faint small mt-2">' + (released

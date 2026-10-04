@@ -105,8 +105,9 @@ account's user ID.
    case and **Verify** (or **Request correction** with a reason).
 8. Switch to `approver@metriq.local`, **Approve**, then **Finalize and lock**.
    The content hash and verification code are frozen.
-9. Open **Reports**, search by application number, and download the PDF and DOCX.
-   The repository shows the hash, verification code and revision history.
+9. Switch to `labadmin@metriq.local`, open **Reports**, search by application
+   number, and download the PDF and DOCX. The repository shows the hash,
+   verification code and revision history.
 10. Sign in as `admin@metriq.local` and open **Administration -> Audit logs** to
     show the full history with the rule-set and template versions used.
 
@@ -152,7 +153,9 @@ support thread with the Super Admin.
 
 **Reports** - a frozen JSON snapshot of versions, results, rules and evidence
 rendered to PDF (reportlab) and DOCX (python-docx), with a content hash,
-verification code and immutable revisions.
+verification code and immutable revisions. An approved report is downloadable by
+the Laboratory Admin / Manager (its own laboratory) and the Super Admin; other
+roles keep the snapshot and revision history.
 
 **Approval, not a digital signature** - a report becomes final when the assigned
 approving authority approves it and the case is finalized; the guarantee is that

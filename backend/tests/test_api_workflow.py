@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 
-from app.security.permissions import APPROVER, ENGINEER, REVIEWER, SUPER_ADMIN
+from app.security.permissions import APPROVER, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
 
 API = "/api/v1"
 
@@ -157,7 +157,7 @@ def test_a_missing_report_artefact_reports_410_not_500(client, tokens, case_fact
         db.commit()
 
     response = client.get(
-        f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[APPROVER]
+        f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[LAB_ADMIN]
     )
     assert response.status_code == 410, response.text
 
@@ -434,7 +434,7 @@ def test_the_downloaded_report_matches_its_recorded_hash(client, tokens, case_fa
         response = client.get(
             f"{API}/reports/{report_id}/download",
             params={"fmt": fmt},
-            headers=tokens[APPROVER],
+            headers=tokens[LAB_ADMIN],
         )
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == expected_type
@@ -448,7 +448,7 @@ def test_the_downloaded_report_matches_its_recorded_hash(client, tokens, case_fa
     revision = client.get(
         f"{API}/reports/{report_id}/download",
         params={"fmt": "pdf", "revision": 1},
-        headers=tokens[APPROVER],
+        headers=tokens[LAB_ADMIN],
     )
     assert revision.status_code == 200
     assert revision.headers["x-content-sha256"] == digests["pdf"]

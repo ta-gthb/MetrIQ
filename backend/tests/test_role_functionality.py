@@ -594,12 +594,17 @@ def test_approver_approves_finalizes_and_downloads_the_report(client, tokens, ca
     assert snapshot.status_code == 200
     assert snapshot.json()
 
-    pdf = client.get(f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[APPROVER])
+    forbidden_download = client.get(
+        f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[APPROVER]
+    )
+    assert forbidden_download.status_code == 403, forbidden_download.text
+
+    pdf = client.get(f"{API}/reports/{report_id}/download", params={"fmt": "pdf"}, headers=tokens[LAB_ADMIN])
     assert pdf.status_code == 200, pdf.text
     assert pdf.content.startswith(b"%PDF")
     assert pdf.headers["X-Content-SHA256"]
 
-    docx = client.get(f"{API}/reports/{report_id}/pdf", headers=tokens[APPROVER])
+    docx = client.get(f"{API}/reports/{report_id}/pdf", headers=tokens[LAB_ADMIN])
     assert docx.status_code == 200
 
     # A finalized case is sealed.
