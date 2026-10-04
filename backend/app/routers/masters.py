@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,6 +18,7 @@ from app.models import (
     InstrumentRange,
     Manufacturer,
     TestEquipment,
+    TestEquipmentUsage,
     User,
 )
 from app.routers._helpers import paginate
@@ -277,6 +278,46 @@ def create_equipment(
     db.commit()
     db.refresh(record)
     return record
+
+
+@router.delete(
+    "/equipment/{equipment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+    summary="Delete test equipment",
+)
+def delete_equipment(
+    equipment_id: uuid.UUID,
+    reason: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.EQUIPMENT_MANAGE)),
+) -> None:
+    """Remove equipment that has never been recorded against a case."""
+    equipment = db.get(TestEquipment, equipment_id)
+    if equipment is None:
+        raise HTTPException(status_code=404, detail="Test equipment not found")
+    in_use = db.execute(
+        select(func.count()).select_from(TestEquipmentUsage).where(
+            TestEquipmentUsage.equipment_id == equipment.id
+        )
+    ).scalar_one()
+    if in_use:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This equipment is recorded against evaluation cases and cannot be "
+                "deleted. Withdraw it from those cases first."
+            ),
+        )
+    audit_service.record(
+        db, event_type="DELETE", entity_type="test_equipment", entity_id=equipment.id,
+        actor=user,
+        before={"code": equipment.code, "name": equipment.name},
+        reason=reason or "Administrative deletion",
+    )
+    db.delete(equipment)
+    db.commit()
 
 
 @router.post(

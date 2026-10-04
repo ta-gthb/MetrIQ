@@ -80,7 +80,19 @@ function isEditable() {
   if (user.role_code === 'ENGINEER' && c.engineer_id === user.id) return CASE_EDITABLE.includes(c.status);
   return false;
 }
-function canEditTests() { return isEditable() && canAny('tests.edit', 'tests.edit.own'); }
+/* Conditions and execution records are the Test Engineer's responsibility.
+   The Laboratory Admin/Manager, Reviewer and Approver read those steps but do
+   not write them, so this is keyed to the assigned engineer rather than to the
+   broader case-edit permission. */
+function isAssignedEngineer() {
+  const c = state.case;
+  const user = getUser() || {};
+  return Boolean(c) && user.role_code === 'ENGINEER' && c.engineer_id === user.id &&
+    CASE_EDITABLE.includes(c.status);
+}
+function canEditConditions() { return isAssignedEngineer(); }
+function canEditExecution() { return isAssignedEngineer(); }
+function canEditTests() { return canEditExecution() && canAny('tests.edit', 'tests.edit.own'); }
 
 function definitionFor(test) { return test.definition || {}; }
 function inputSchema(test) { return definitionFor(test).input_schema || {}; }
@@ -389,9 +401,46 @@ function asideHtml() {
 
 /* -------------------------------------------------------- step 14: application */
 
+function applicationInstrumentForm(instrument) {
+  const classes = ['I', 'II', 'III', 'IIII'].map((value) =>
+    '<option value="' + value + '"' + (instrument.instrument_class === value ? ' selected' : '') + '>' +
+    value + '</option>').join('');
+  const units = MASS_UNITS.map((value) =>
+    '<option value="' + value + '"' + ((instrument.unit || 'g') === value ? ' selected' : '') + '>' +
+    value + '</option>').join('');
+  return '<div class="card tight mt-3"><div class="card-title"><h3>Instrument details</h3>' +
+    '<span class="pill pill-info">Laboratory Admin / Manager</span></div>' +
+    '<div class="hint">These values describe the instrument under evaluation. The change is ' +
+    'recorded in the audit trail.</div>' +
+    '<div class="field-row mt-2">' +
+      '<div class="field"><label class="req">Model</label><input id="i-model" value="' +
+        escapeHtml(instrument.model || '') + '" /></div>' +
+      '<div class="field"><label>Type designation</label><input id="i-type-designation" value="' +
+        escapeHtml(instrument.type_designation || '') + '" /></div>' +
+      '<div class="field"><label>Serial number</label><input id="i-serial" value="' +
+        escapeHtml(instrument.serial_number || '') + '" /></div>' +
+      '<div class="field"><label class="req">Accuracy class</label><select id="i-class">' + classes + '</select></div>' +
+    '</div>' +
+    '<div class="field-row">' +
+      '<div class="field"><label class="req">Maximum capacity (Max)</label><input id="i-max" class="numeric" value="' +
+        escapeHtml(instrument.max_capacity || '') + '" /></div>' +
+      '<div class="field"><label>Minimum capacity (Min)</label><input id="i-min" class="numeric" value="' +
+        escapeHtml(instrument.min_capacity || '') + '" /></div>' +
+      '<div class="field"><label class="req">Verification scale interval (e)</label><input id="i-e" class="numeric" value="' +
+        escapeHtml(instrument.verification_scale_interval || '') + '" /></div>' +
+      '<div class="field"><label>Actual scale interval (d)</label><input id="i-d" class="numeric" value="' +
+        escapeHtml(instrument.actual_scale_interval || '') + '" /></div>' +
+      '<div class="field"><label>Unit</label><select id="i-unit">' + units + '</select></div>' +
+    '</div></div>';
+}
+
 function stepApplication() {
   const c = state.case;
   const editable = isEditable() && can('cases.edit');
+  const user = getUser() || {};
+  const instrumentForm = editable && user.role_code === 'LAB_ADMIN'
+    ? applicationInstrumentForm(c.instrument || {})
+    : '';
   return '<div class="card"><div class="step-head"><span class="step-no">14</span>' +
     '<div><h2>Application information</h2><div class="faint small">Registration data for this evaluation case.</div></div></div>' +
     '<div class="field-row">' +
@@ -412,6 +461,7 @@ function stepApplication() {
     '<div class="field"><label>Scope notes</label>' +
       (editable ? '<textarea id="f-scope" rows="2">' + escapeHtml(c.scope_notes || '') + '</textarea>'
                 : '<textarea rows="2" disabled>' + escapeHtml(c.scope_notes || '') + '</textarea>') + '</div>' +
+    instrumentForm +
     (editable ? '<div class="inline"><button class="btn-primary btn-sm" id="save-application">Save application data</button>' +
       '<span class="faint small">Every edit is written to the audit trail.</span></div>'
       : '<div class="hint">This case is ' + escapeHtml(statusLabel(c.status)) + '; it is read-only for your role.</div>') +
@@ -430,6 +480,26 @@ function bindApplication() {
         scope_notes: document.getElementById('f-scope').value.trim() || null,
         priority: document.getElementById('f-priority').value,
       };
+      const modelInput = document.getElementById('i-model');
+      if (modelInput) {
+        const instrument = {
+          model: modelInput.value.trim(),
+          type_designation: document.getElementById('i-type-designation').value.trim() || null,
+          serial_number: document.getElementById('i-serial').value.trim() || null,
+          instrument_class: document.getElementById('i-class').value,
+          max_capacity: document.getElementById('i-max').value.trim(),
+          min_capacity: document.getElementById('i-min').value.trim() || null,
+          verification_scale_interval: document.getElementById('i-e').value.trim(),
+          actual_scale_interval: document.getElementById('i-d').value.trim() || null,
+          unit: document.getElementById('i-unit').value,
+        };
+        if (!instrument.model || !instrument.max_capacity || !instrument.verification_scale_interval) {
+          toast('Model, maximum capacity and verification scale interval are required.', 'warn');
+          button.disabled = false;
+          return;
+        }
+        payload.instrument = instrument;
+      }
       state.case = await api.patch('/cases/' + caseId, payload);
       toast('Application data saved.', 'success');
       render();
@@ -468,9 +538,9 @@ function stepParties() {
     ? '<div class="card mt-3"><div class="card-title"><h3>Assignments</h3>' +
         '<span class="faint small">Engineer \u2192 reviewer \u2192 approver separation of duties</span></div>' +
         '<div class="field-row">' +
-          '<div class="field"><label>Engineer</label><select id="a-engineer">' + userOptions(c.engineer_id) + '</select></div>' +
-          '<div class="field"><label>Reviewer</label><select id="a-reviewer">' + userOptions(c.reviewer_id) + '</select></div>' +
-          '<div class="field"><label>Approver</label><select id="a-approver">' + userOptions(c.approver_id) + '</select></div>' +
+          '<div class="field"><label>Engineer</label><select id="a-engineer">' + userOptions(c.engineer_id, 'ENGINEER') + '</select></div>' +
+          '<div class="field"><label>Reviewer</label><select id="a-reviewer">' + userOptions(c.reviewer_id, 'REVIEWER') + '</select></div>' +
+          '<div class="field"><label>Approver</label><select id="a-approver">' + userOptions(c.approver_id, 'APPROVER') + '</select></div>' +
         '</div><button class="btn-primary btn-sm" id="save-assignments">Save assignments</button></div>'
     : '';
   return '<div class="card"><div class="step-head"><span class="step-no">15</span>' +
@@ -492,8 +562,8 @@ function stepParties() {
     '</div>' + assignForm + '</div>';
 }
 
-function userOptions(selected) {
-  const users = state.labUsers || [];
+function userOptions(selected, roleCode) {
+  const users = (state.labUsers || []).filter((user) => !roleCode || user.role_code === roleCode);
   return '<option value="">\u2014 unassigned \u2014</option>' + users.map((user) =>
     '<option value="' + user.id + '"' + (user.id === selected ? ' selected' : '') + '>' +
     escapeHtml(user.full_name) + ' (' + escapeHtml(user.role_code) + ')</option>').join('');
@@ -688,12 +758,14 @@ function bindMetrology() {
         load,
         e: instrument.verification_scale_interval,
         stage: 'verification',
+        standard_version_id: state.case.standard_version_id || undefined,
       });
       document.getElementById('mpe-result').innerHTML =
         '<div class="calc-panel"><div class="formula">' + escapeHtml(result.rule_id || '') + '</div><dl>' +
-        '<dt>Band</dt><dd>' + escapeHtml(result.band || '\u2014') + '</dd>' +
-        '<dt>MPE (\u00b1)</dt><dd>' + escapeHtml(fmt(result.mpe, { unit: instrument.unit })) + '</dd>' +
-        '<dt>m / e</dt><dd>' + escapeHtml(fmt(result.m_over_e)) + '</dd>' +
+        '<dt>Band</dt><dd>' + escapeHtml(result.band_label || '\u2014') + '</dd>' +
+        '<dt>MPE (\u00b1)</dt><dd>' + escapeHtml(fmt(result.mpe_value, { unit: instrument.unit })) + '</dd>' +
+        '<dt>Factor</dt><dd>' + escapeHtml(fmt(result.factor) + ' ' + (result.unit || 'e')) + '</dd>' +
+        '<dt>m / e</dt><dd>' + escapeHtml(fmt(result.m)) + '</dd>' +
         '<dt>Clause</dt><dd>' + escapeHtml(result.clause_reference || '\u2014') + '</dd></dl></div>';
     } catch (error) {
       toast(formatApiError(error), 'error');
@@ -708,7 +780,7 @@ function bindMetrology() {
 function equipmentPanel() {
   const data = state.equipment;
   if (!data) return '';
-  const editable = isEditable() && canAny('tests.edit', 'tests.edit.own', 'cases.edit');
+  const editable = canEditConditions();
   const blockers = data.blocking || [];
   const rows = data.items.length ? data.items.map((item) => {
     const calibration = item.calibration || {};
@@ -831,7 +903,7 @@ function conditionTestLabel(condition) {
 }
 
 function stepConditions() {
-  const editable = isEditable() && canAny('tests.edit', 'tests.edit.own', 'cases.edit');
+  const editable = canEditConditions();
   const rows = state.conditions.length
     ? state.conditions.map((condition) => '<tr>' +
         '<td>' + escapeHtml(condition.label) + '</td>' +
@@ -1935,7 +2007,10 @@ function stepApproval() {
   const c = state.case;
   const canApprove = can('cases.approve') && ['VERIFIED', 'UNDER_APPROVAL'].includes(c.status);
   const canFinalize = can('cases.finalize') && ['APPROVED', 'FINALIZED'].includes(c.status);
-  const canCancel = can('cases.assign') && !['FINALIZED', 'CANCELLED'].includes(c.status);
+  const currentUser = getUser() || {};
+  const canCancel = ['LAB_ADMIN', 'APPROVER'].includes(currentUser.role_code) &&
+    canAny('cases.assign', 'cases.approve') &&
+    !['FINALIZED', 'CANCELLED'].includes(c.status);
   const actions = (canApprove || canFinalize || canCancel)
     ? '<div class="inline mt-3">' +
         (canApprove ? '<button class="btn-primary btn-sm" id="btn-approve">Approve report</button>' +

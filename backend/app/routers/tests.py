@@ -31,7 +31,7 @@ from app.schemas.tests import (
     TestInstanceOut,
     TestInstanceUpdate,
 )
-from app.security.permissions import P
+from app.security.permissions import ENGINEER, P
 from app.security.scope import case_editable_by
 from app.services import audit_service, equipment_service, metrology_service, readiness
 from app.services.ai_service import get_ai_service
@@ -63,6 +63,20 @@ def _load_test(db: Session, test_id: uuid.UUID, user: User) -> tuple[TestInstanc
         raise HTTPException(status_code=404, detail="Test instance not found")
     case = get_case_or_404(db, instance.case_id, user)
     return instance, case
+
+
+def _require_execution_engineer(user: User, action: str) -> None:
+    """Execution records are written by the Test Engineer / Metrologist role.
+
+    The Laboratory Admin/Manager, Technical Reviewer and Approving Authority
+    read the execution stage but do not write it, regardless of the wider case
+    permissions they hold.
+    """
+    if user.role_code != ENGINEER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{action} is reserved for the Test Engineer / Metrologist role.",
+        )
 
 
 def _serialise_test(instance: TestInstance) -> dict:
@@ -129,6 +143,7 @@ def update_test(
     db: Session = Depends(get_db),
     user: User = Depends(require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
+    _require_execution_engineer(user, "Recording execution data")
     instance, case = _load_test(db, test_id, user)
     if not case_editable_by(user, case):
         raise HTTPException(status_code=409, detail="This case is not editable in its current status.")
@@ -211,6 +226,7 @@ def put_observations(
     db: Session = Depends(get_db),
     user: User = Depends(require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
+    _require_execution_engineer(user, "Recording execution data")
     instance, case = _load_test(db, test_id, user)
     if not case_editable_by(user, case):
         raise HTTPException(status_code=409, detail="This case is not editable in its current status.")
@@ -293,6 +309,7 @@ def calculate_test(
     db: Session = Depends(get_db),
     user: User = Depends(require_any_permission(P.TESTS_VALIDATE, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
+    _require_execution_engineer(user, "Recording execution data")
     instance, case = _load_test(db, test_id, user)
     if not case_editable_by(user, case) and case.status != CaseStatus.UNDER_REVIEW:
         raise HTTPException(status_code=409, detail="This case is not editable in its current status.")
@@ -375,6 +392,7 @@ def retest(
     calculation runs and its result, and the replacement points back at it, so
     what was measured before the correction stays readable.
     """
+    _require_execution_engineer(user, "Starting a re-test")
     instance, case = _load_test(db, test_id, user)
     try:
         replacement = readiness.start_retest(
@@ -492,6 +510,7 @@ def anomaly_disposition(
     db: Session = Depends(get_db),
     user: User = Depends(require_any_permission(P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> dict:
+    _require_execution_engineer(user, "Recording an anomaly disposition")
     instance, case = _load_test(db, test_id, user)
     observation = next(
         (item for item in instance.observations if item.observation_no == observation_no), None

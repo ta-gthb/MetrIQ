@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,8 +42,8 @@ from app.schemas.cases import (
     EnvironmentalConditionOut,
 )
 from app.schemas.common import Paginated
-from app.schemas.masters import EquipmentUsageCreate, InstrumentCreate
-from app.security.permissions import P, SUPER_ADMIN
+from app.schemas.masters import EquipmentUsageCreate, InstrumentBase, InstrumentCreate
+from app.security.permissions import APPROVER, ENGINEER, P, REVIEWER, SUPER_ADMIN
 from app.security.scope import case_editable_by, case_scope_clause
 from app.services import audit_service, equipment_service, readiness
 from app.services.test_engine import generate_and_persist_plan
@@ -58,6 +59,22 @@ def _active_standard_version(db: Session, standard_code: str = "OIML R 76-1") ->
         .order_by(StandardVersion.created_at.desc())
     )
     return db.execute(statement).scalars().first()
+
+
+def _require_case_engineer_role(user: User, action: str) -> None:
+    """Conditions and execution records belong to the Test Engineer role.
+
+    The Laboratory Admin/Manager, Reviewer and Approver keep view-only access
+    to these steps, so the guard lives here as well as in the interface.
+    """
+    if user.role_code != ENGINEER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"{action} is recorded by the assigned Test Engineer / Metrologist. "
+                "Your role has view-only access to this step."
+            ),
+        )
 
 
 def _active_template_version(db: Session, code: str = "R76-2-TYPE-EVAL") -> ReportTemplateVersion | None:
@@ -149,7 +166,7 @@ def create_case(
         applicant_id=applicant.id if applicant else None,
         manufacturer_id=manufacturer.id if manufacturer else None,
         laboratory_id=laboratory_id,
-        engineer_id=payload.engineer_id or (user.id if user.role_code in {"ENGINEER", "LAB_ADMIN"} else None),
+        engineer_id=payload.engineer_id or (user.id if user.role_code == ENGINEER else None),
         reviewer_id=payload.reviewer_id,
         approver_id=payload.approver_id,
         standard_version_id=standard_version.id,
@@ -288,11 +305,46 @@ def update_case(
             detail=f"A case in status {case.status} cannot be edited, or you are not its assigned engineer.",
         )
     changes = payload.model_dump(exclude_unset=True)
+    instrument_changes = changes.pop("instrument", None)
     before = {key: getattr(case, key) for key in changes}
     for key, value in changes.items():
         setattr(case, key, value)
     if "standard_version_id" in changes and changes["standard_version_id"]:
         generate_and_persist_plan(db, case=case, user=user)
+    if instrument_changes:
+        instrument = db.get(Instrument, case.instrument_id) if case.instrument_id else None
+        if instrument is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This case has no linked instrument record that can be edited.",
+            )
+        allowed = set(InstrumentBase.model_fields)
+        supplied = {
+            key: value
+            for key, value in instrument_changes.items()
+            if key in allowed and value is not None
+        }
+        if not supplied:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No supported instrument fields were supplied.",
+            )
+        current = {key: getattr(instrument, key) for key in allowed}
+        try:
+            validated = InstrumentBase(**{**current, **supplied})
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"The instrument values failed validation: {exc}",
+            ) from exc
+        instrument_before = {key: current[key] for key in supplied}
+        for key in supplied:
+            setattr(instrument, key, getattr(validated, key))
+        audit_service.record(
+            db, event_type="EDIT", entity_type="instrument", entity_id=instrument.id,
+            actor=user, case_id=case.id, before=instrument_before,
+            after={key: getattr(validated, key) for key in supplied},
+        )
     audit_service.record(
         db, event_type="EDIT", entity_type="evaluation_case", entity_id=case.id, actor=user,
         case_id=case.id, before=before, after=changes,
@@ -313,6 +365,11 @@ def assign_case(
     if case.status in CaseStatus.IMMUTABLE:
         raise HTTPException(status_code=409, detail="A finalized case cannot be reassigned.")
     changes: dict[str, uuid.UUID | None] = {}
+    required_role = {
+        "engineer_id": ENGINEER,
+        "reviewer_id": REVIEWER,
+        "approver_id": APPROVER,
+    }
     for field in ("engineer_id", "reviewer_id", "approver_id"):
         value = getattr(payload, field)
         if value is not None:
@@ -323,6 +380,15 @@ def assign_case(
                 raise HTTPException(
                     status_code=422,
                     detail=f"{field} must reference a user in the case laboratory.",
+                )
+            expected = required_role[field]
+            if target.role_code != expected:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"{field} must reference a registered user whose role is {expected}; "
+                        f"{target.full_name} holds the {target.role_code} role."
+                    ),
                 )
             setattr(case, field, value)
             changes[field] = value
@@ -397,6 +463,7 @@ def add_condition(
     user: User = Depends(require_any_permission(P.CASES_EDIT, P.TESTS_EDIT, P.TESTS_EDIT_OWN)),
 ) -> EnvironmentalCondition:
     case = get_case_or_404(db, case_id, user)
+    _require_case_engineer_role(user, "Environmental-condition evidence")
     if not case_editable_by(user, case):
         raise HTTPException(status_code=409, detail="Conditions cannot be added in the current status.")
     data = payload.model_dump()
@@ -498,6 +565,7 @@ def add_case_equipment(
     ),
 ) -> dict:
     case = get_case_or_404(db, case_id, user)
+    _require_case_engineer_role(user, "Equipment usage")
     if not case_editable_by(user, case):
         raise HTTPException(
             status_code=409, detail="Equipment cannot be recorded in the current status."
@@ -542,6 +610,7 @@ def remove_case_equipment(
     ),
 ) -> None:
     case = get_case_or_404(db, case_id, user)
+    _require_case_engineer_role(user, "Equipment usage")
     if not case_editable_by(user, case):
         raise HTTPException(
             status_code=409, detail="Equipment cannot be withdrawn in the current status."

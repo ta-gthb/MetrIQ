@@ -138,7 +138,8 @@ def test_engineer_cannot_manage_users_or_laboratories(client, tokens):
     assert client.get(f"{API}/laboratories", headers=tokens[ENGINEER]).status_code == 200
     response = client.post(
         f"{API}/laboratories",
-        json={"name": "Rogue Laboratory", "code": "LAB-ROGUE"},
+        json={"name": "Rogue Laboratory", "code": "LAB-ROGUE",
+              "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
         headers=tokens[ENGINEER],
     )
     assert response.status_code == 403
@@ -189,7 +190,8 @@ def test_cases_are_scoped_to_the_users_laboratory(client, tokens, new_case, acco
 
     laboratory = client.post(
         f"{API}/laboratories",
-        json={"name": "Second Laboratory", "code": "LAB-002"},
+        json={"name": "Second Laboratory", "code": "LAB-002",
+              "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
         headers=tokens[SUPER_ADMIN],
     )
     assert laboratory.status_code == 201, laboratory.text

@@ -17,13 +17,51 @@ const content = renderShell({
   actionsHtml: '<button class="btn-sm" id="refresh">Refresh</button>',
 });
 
-const ROLES = ['SUPER_ADMIN', 'LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER', 'AUDITOR'];
-const state = { tab: null, users: [], labs: [], roles: [], permissions: [], settings: [], equipment: [] };
+/* Super Admin accounts are created only through manage_admin.py, so they are
+   never offered here. A laboratory administrator may not create platform or
+   laboratory administrators either - the backend enforces the same rule. */
+const CREATABLE_ROLES = ['LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER', 'AUDITOR'];
+const DESIGNATIONS = ['Officer', 'Operator', 'Assistant'];
+const EQUIPMENT_TYPES = [
+  ['weights', 'Weights'],
+  ['mass_comparator', 'Mass comparator'],
+  ['balance', 'Balance / indicating instrument'],
+  ['thermometer', 'Thermometer'],
+  ['hygrometer', 'Hygrometer'],
+  ['pressure_gauge', 'Pressure gauge'],
+  ['voltmeter', 'Voltmeter'],
+  ['timer', 'Timer'],
+  ['other', 'Other'],
+];
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Andaman and Nicobar Islands', 'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir',
+  'Ladakh', 'Lakshadweep', 'Puducherry',
+];
+const state = {
+  tab: null, users: [], labs: [], roles: [], permissions: [], settings: [],
+  equipment: [], manufacturers: [], work: [],
+};
+
+function creatableRoles() {
+  const me = getUser() || {};
+  if (me.role_code === 'SUPER_ADMIN') return CREATABLE_ROLES;
+  return CREATABLE_ROLES.filter((role) => role !== 'LAB_ADMIN');
+}
 
 function tabs() {
-  return [
+  const me = getUser() || {};
+  const isLabAdmin = me.role_code === 'LAB_ADMIN';
+  const items = [
     ['users', 'Users', canAny('users.manage', 'users.manage.scoped')],
+    ['work', 'View Users Work Detail', can('users.manage')],
     ['laboratories', 'Laboratories', can('laboratories.manage')],
+    ['manufacturers', 'Manufacturers', can('masters.manage')],
     ['roles', 'Roles & permissions', canAny('users.manage', 'users.manage.scoped')],
     ['standards', 'Standards & rules', can('rules.view')],
     ['catalogue', 'Test catalogue', can('rules.view')],
@@ -32,7 +70,12 @@ function tabs() {
     ['ai', 'AI features', canAny('ai.manage', 'ai.view')],
     ['settings', 'System settings', can('settings.manage')],
     ['audit', 'Audit logs', canAny('audit.view', 'audit.view.scope', 'audit.view.limited')],
-  ].filter((item) => item[2]);
+  ];
+  // The Laboratory Admin / Manager administers its own laboratory, not the
+  // platform: users, role permissions, templates, AI and audit stay with the
+  // Super Admin, and standards are visible to the laboratory as reference only.
+  const labAdminHidden = new Set(['users', 'work', 'roles', 'templates', 'ai', 'audit']);
+  return items.filter((item) => item[2] && !(isLabAdmin && labAdminHidden.has(item[0])));
 }
 
 function renderTabs() {
@@ -48,6 +91,15 @@ function labName(id) {
 
 /* ------------------------------------------------------------------- users */
 
+function designationOptions(user) {
+  const current = user && user.designation ? user.designation : '';
+  const values = DESIGNATIONS.slice();
+  if (current && !values.includes(current)) values.push(current);
+  return values.map((value) =>
+    '<option value="' + escapeHtml(value) + '"' + (current === value ? ' selected' : '') + '>' +
+    escapeHtml(value) + '</option>').join('');
+}
+
 function userForm(user) {
   const editing = Boolean(user);
   const labs = state.labs.map((lab) =>
@@ -58,25 +110,52 @@ function userForm(user) {
     (editing ? '' : '<div class="field"><label class="req">Email</label>' +
       '<input data-input name="email" type="email" />' +
       '<div class="hint">The user ID is not entered here: the platform issues it for' +
-      ' the role when the account is created.</div></div>') +
+      ' the role when the account is registered.</div></div>') +
     '<div class="field-row">' +
-      '<div class="field"><label>Designation</label><input data-input name="designation" value="' +
-        escapeHtml(user ? user.designation || '' : '') + '" /></div>' +
-      '<div class="field"><label class="req">Role</label><select data-input name="role_code">' +
-        ROLES.map((role) => '<option value="' + role + '"' + (user && user.role_code === role ? ' selected' : '') + '>' +
-          role + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label class="req">Designation</label><select data-input name="designation">' +
+        designationOptions(user) + '</select></div>' +
+      '<div class="field"><label class="req">Role</label>' +
+        (editing
+          ? '<input value="' + escapeHtml(user.role_code) + '" disabled />' +
+            '<div class="hint">The role is fixed once the account is registered; it is ' +
+            'shown here for reference.</div>'
+          : '<select data-input name="role_code">' +
+            creatableRoles().map((role) => '<option value="' + role + '">' + role + '</option>').join('') +
+            '</select>') +
+      '</div>' +
     '</div>' +
     '<div class="field"><label>Laboratory</label><select data-input name="laboratory_id">' +
       '<option value="">\u2014 none \u2014</option>' + labs + '</select></div>' +
     (editing
-      ? '<div class="field"><label class="req">Active</label><select data-input name="is_active">' +
+      ? '<div class="field"><label class="req">Account Status</label><select data-input name="is_active">' +
           '<option value="true"' + (user.is_active ? ' selected' : '') + '>Active</option>' +
-          '<option value="false"' + (!user.is_active ? ' selected' : '') + '>Disabled</option></select></div>'
+          '<option value="false"' + (!user.is_active ? ' selected' : '') + '>Disabled</option></select>' +
+          '<div class="hint">A disabled account keeps its history but cannot sign in.</div></div>' +
+        '<div class="card tight mt-3"><div class="card-title"><h3>Delete user permanently</h3></div>' +
+          '<div class="hint">Removes the account from the system. Accounts that are part of a ' +
+          'governed evaluation record cannot be deleted; disable them instead.</div>' +
+          '<button type="button" class="btn-danger btn-sm mt-2" data-delete-user="' + user.id + '">' +
+          'Delete user permanently</button></div>'
       : '<div class="field"><label class="req">Initial password</label>' +
         '<input data-input name="password" type="text" value="" autocomplete="new-password" />' +
-        '<div class="hint">At least 8 characters. This bundle carries no default: ' +
+        '<div class="hint">At least 8 characters, including a letter, a digit and a special ' +
+        'character. This bundle carries no default: ' +
         '<button type="button" class="btn-ghost btn-sm" id="generate-password">Generate one</button> ' +
         'and communicate it through an approved channel. The user should change it after first sign-in.</div></div>');
+}
+
+/* The composition rule the registration form and the API both apply. */
+function passwordProblem(value) {
+  if (!value || value.length < 8) {
+    return 'Password must be at least 8 characters, including a letter, a digit and a special character.';
+  }
+  const hasLetter = /[A-Za-z]/.test(value);
+  const hasDigit = /[0-9]/.test(value);
+  const hasSpecial = /[^A-Za-z0-9\s]/.test(value);
+  if (!hasLetter || !hasDigit || !hasSpecial) {
+    return 'Password must be at least 8 characters, including a letter, a digit and a special character.';
+  }
+  return null;
 }
 
 function collectModal(backdrop) {
@@ -100,7 +179,7 @@ async function renderUsers() {
     '<td class="nowrap"><button class="btn-sm" data-edit-user="' + user.id + '">Edit</button> ' +
       '<button class="btn-sm" data-reset-user="' + user.id + '">Reset password</button></td></tr>').join('');
   return '<div class="card"><div class="card-title"><h3>Users</h3>' +
-    (can('users.manage') || can('users.manage.scoped') ? '<button class="btn-primary btn-sm" id="new-user">Create user</button>' : '') +
+    (can('users.manage') || can('users.manage.scoped') ? '<button class="btn-primary btn-sm" id="new-user">Register user</button>' : '') +
     '</div>' + (data.length ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Designation</th>' +
       '<th>Laboratory</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : empty('No users found.')) + '</div>';
@@ -120,18 +199,20 @@ function generatePassword() {
 
 function bindUsers() {
   document.getElementById('new-user')?.addEventListener('click', async () => {
-    const result = await openModal({
-      title: 'Create a user', submitLabel: 'Create user', bodyHtml: userForm(null),
+    await openModal({
+      title: 'Register a user', submitLabel: 'Register user', bodyHtml: userForm(null),
       onSubmit: (value, backdrop) => {
         const payload = collectModal(backdrop);
         if (!payload.full_name || !payload.email || !payload.password) {
           toast('Full name, email and an initial password are required.', 'warn');
           return false;
         }
+        const problem = passwordProblem(payload.password);
+        if (problem) { toast(problem, 'warn'); return false; }
         payload.is_active = true;
         payload.laboratory_id = payload.laboratory_id || null;
         api.post('/users', payload)
-          .then(() => { toast('User created.', 'success'); reloadTab(); })
+          .then(() => { toast('User registered.', 'success'); reloadTab(); })
           .catch((error) => toast(formatApiError(error), 'error'));
         return true;
       },
@@ -147,10 +228,11 @@ function bindUsers() {
   content.querySelectorAll('[data-edit-user]').forEach((button) => {
     button.addEventListener('click', async () => {
       const user = state.users.find((item) => item.id === button.dataset.editUser);
-      await openModal({
+      const modalPromise = openModal({
         title: 'Edit ' + user.full_name, submitLabel: 'Save changes', bodyHtml: userForm(user),
-        onSubmit: (value, backdrop) => {
-          const payload = collectModal(backdrop);
+        onSubmit: (value, editBackdrop) => {
+          const payload = collectModal(editBackdrop);
+          delete payload.role_code;
           payload.is_active = payload.is_active === 'true';
           payload.laboratory_id = payload.laboratory_id || null;
           api.patch('/users/' + user.id, payload)
@@ -159,28 +241,50 @@ function bindUsers() {
           return true;
         },
       });
+      const host = document.querySelector('.modal-backdrop');
+      host?.querySelector('[data-delete-user]')?.addEventListener('click', async () => {
+        const confirmed = await openModal({
+          title: 'Delete this user permanently?',
+          submitLabel: 'Delete permanently',
+          destructive: true,
+          bodyHtml: '<p><strong>' + escapeHtml(user.full_name) + '</strong> (' +
+            escapeHtml(user.user_code || user.email) + ') will be removed from the system immediately. ' +
+            'Accounts that appear in a governed evaluation record cannot be deleted; disable them instead.</p>',
+        });
+        if (!confirmed) return;
+        try {
+          await api.delete('/users/' + user.id);
+          toast('User deleted.', 'success');
+          host.remove();
+          reloadTab();
+        } catch (error) { toast(formatApiError(error), 'error'); }
+      });
+      await modalPromise;
     });
   });
   content.querySelectorAll('[data-reset-user]').forEach((button) => {
     button.addEventListener('click', async () => {
       const user = state.users.find((item) => item.id === button.dataset.resetUser);
-      const confirmed = await openModal({
-        title: 'Issue a temporary password?',
-        submitLabel: 'Reset password',
-        bodyHtml: '<p>A new temporary password will be generated for <strong>' + escapeHtml(user.full_name) +
-          '</strong> (' + escapeHtml(user.user_code || user.email) +
-          '). The previous password stops working immediately. Communicate the new value through an approved channel.</p>',
+      const password = await openModal({
+        title: 'Reset password',
+        submitLabel: 'Set password',
+        bodyHtml: '<p>Set a new password for <strong>' + escapeHtml(user.full_name) + '</strong> (' +
+          escapeHtml(user.user_code || user.email) + '). The current password is not required; ' +
+          'the new value is active immediately.</p>' +
+          '<div class="field"><label class="req">New password</label>' +
+          '<input type="password" data-value name="password" autocomplete="new-password" /></div>' +
+          '<div class="hint">At least 8 characters, including a letter, a digit and a special character.</div>',
+        onSubmit: (value, backdrop) => {
+          const field = backdrop.querySelector('[name="password"]');
+          const problem = passwordProblem(field ? field.value : '');
+          if (problem) { toast(problem, 'warn'); return false; }
+          return true;
+        },
       });
-      if (!confirmed) return;
+      if (!password) return;
       try {
-        const result = await api.post('/users/' + user.id + '/reset-password', {});
-        await openModal({
-          title: 'Temporary password', submitLabel: 'Done', cancelLabel: 'Close',
-          bodyHtml: '<div class="calc-panel"><dl><dt>User ID</dt><dd class="mono">' + escapeHtml(user.user_code || '\u2014') + '</dd>' +
-            '<dt>Name</dt><dd>' + escapeHtml(user.full_name) + '</dd>' +
-            '<dt>Temporary password</dt><dd class="mono">' + escapeHtml(result.temporary_password) + '</dd></dl></div>' +
-            '<div class="hint mt-2">' + escapeHtml(result.delivery || '') + '</div>',
-        });
+        await api.post('/users/' + user.id + '/reset-password', { password });
+        toast('Password updated. The new value is active immediately.', 'success');
       } catch (error) { toast(formatApiError(error), 'error'); }
     });
   });
@@ -197,36 +301,54 @@ async function renderLaboratories() {
     '<td>' + (lab.is_active ? '<span class="pill pill-pass">active</span>' : '<span class="pill pill-na">inactive</span>') + '</td>' +
     '<td><button class="btn-sm" data-edit-lab="' + lab.id + '">Edit</button></td></tr>').join('');
   return '<div class="card"><div class="card-title"><h3>Laboratories</h3>' +
-    '<button class="btn-primary btn-sm" id="new-lab">Create laboratory</button></div>' +
+    '<button class="btn-primary btn-sm" id="new-lab">Register laboratory</button></div>' +
     (state.labs.length ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Location</th>' +
       '<th>Accreditation</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : empty('No laboratories.')) + '</div>';
 }
 
 function labForm(lab) {
+  const current = lab ? lab.location || '' : '';
+  const states = INDIAN_STATES.map((state_) =>
+    '<option value="' + escapeHtml(state_) + '"' + (current === state_ ? ' selected' : '') + '>' +
+    escapeHtml(state_) + '</option>').join('');
   return '<div class="field"><label class="req">Name</label><input data-input name="name" value="' +
       escapeHtml(lab ? lab.name : '') + '" /></div>' +
     '<div class="field-row"><div class="field"><label class="req">Code</label><input data-input name="code" value="' +
       escapeHtml(lab ? lab.code : '') + '" /></div>' +
-    '<div class="field"><label>Location</label><input data-input name="location" value="' +
-      escapeHtml(lab ? lab.location || '' : '') + '" /></div></div>' +
-    '<div class="field"><label>Address</label><input data-input name="address" value="' +
+    '<div class="field"><label class="req">Location</label><select data-input name="location">' +
+      '<option value="">\u2014 select a state or union territory \u2014</option>' + states +
+      '</select></div></div>' +
+    '<div class="field"><label class="req">Address</label><input data-input name="address" value="' +
       escapeHtml(lab ? lab.address || '' : '') + '" /></div>' +
-    '<div class="field-row"><div class="field"><label>Contact email</label><input data-input name="contact_email" value="' +
+    '<div class="field-row"><div class="field"><label class="req">Contact email</label>' +
+      '<input data-input type="email" name="contact_email" value="' +
       escapeHtml(lab ? lab.contact_email || '' : '') + '" /></div>' +
     '<div class="field"><label>Accreditation no.</label><input data-input name="accreditation_no" value="' +
       escapeHtml(lab ? lab.accreditation_no || '' : '') + '" /></div></div>';
 }
 
+function labPayloadProblem(payload) {
+  if (!payload.name || !payload.code || !payload.location || !payload.address || !payload.contact_email) {
+    return 'Name, code, location, address and contact email are required.';
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.contact_email)) {
+    return 'Enter a valid contact email address.';
+  }
+  return null;
+}
+
 function bindLaboratories() {
   document.getElementById('new-lab')?.addEventListener('click', () => {
     openModal({
-      title: 'Create a laboratory', submitLabel: 'Create', bodyHtml: labForm(null),
+      title: 'Register a laboratory', submitLabel: 'Register', bodyHtml: labForm(null),
       onSubmit: (value, backdrop) => {
         const payload = collectModal(backdrop);
         payload.is_active = true;
+        const problem = labPayloadProblem(payload);
+        if (problem) { toast(problem, 'warn'); return false; }
         api.post('/laboratories', payload)
-          .then(() => { toast('Laboratory created.', 'success'); reloadTab(); })
+          .then(() => { toast('Laboratory registered.', 'success'); reloadTab(); })
           .catch((error) => toast(formatApiError(error), 'error'));
         return true;
       },
@@ -240,6 +362,8 @@ function bindLaboratories() {
         onSubmit: (value, backdrop) => {
           const payload = collectModal(backdrop);
           payload.is_active = lab.is_active;
+          const problem = labPayloadProblem(payload);
+          if (problem) { toast(problem, 'warn'); return false; }
           api.patch('/laboratories/' + lab.id, payload)
             .then(() => { toast('Laboratory updated.', 'success'); reloadTab(); })
             .catch((error) => toast(formatApiError(error), 'error'));
@@ -266,14 +390,66 @@ async function renderRoles() {
         state.roles.map((role) => '<td class="center">' +
           (role.permissions.includes(permission.code) ? '<span class="pill pill-pass">\u2713</span>' : '<span class="faint">\u00b7</span>') +
           '</td>').join('') + '</tr>').join('')).join('') + '</tbody></table></div>';
-  return '<div class="card"><div class="card-title"><h3>Roles</h3>' +
-    '<span class="faint small">Fixed, seeded role definitions (least privilege)</span></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Role</th><th>Description</th><th class="num">Permissions</th></tr></thead><tbody>' +
-    state.roles.map((role) => '<tr><td class="mono">' + escapeHtml(role.code) + '<div class="faint small">' +
+  const editable = can('users.manage');
+  const rows = state.roles.map((role) => {
+    const customised = role.customised && !role.locked
+      ? ' <span class="pill pill-warn">customised</span>' : '';
+    const action = role.locked
+      ? '<span class="pill pill-na">pre-set by the developer</span>'
+      : (editable
+        ? '<button class="btn-sm btn-primary" data-edit-role="' + escapeHtml(role.code) + '">Edit permissions</button>'
+        : '<span class="faint small">view only</span>');
+    return '<tr><td class="mono">' + escapeHtml(role.code) + '<div class="faint small">' +
       escapeHtml(role.name) + '</div></td><td class="small">' + escapeHtml(role.description || '') + '</td>' +
-      '<td class="num">' + role.permission_count + '</td></tr>').join('') + '</tbody></table></div>' +
+      '<td class="num">' + role.permission_count + customised + '</td><td>' + action + '</td></tr>';
+  }).join('');
+  return '<div class="card"><div class="card-title"><h3>Roles</h3>' +
+    '<span class="faint small">Least-privilege role definitions; an edit applies immediately</span></div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Role</th><th>Description</th><th class="num">Permissions</th>' +
+    '<th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     '<div class="card-title mt-4"><h3>Permission matrix</h3><span class="faint small">' +
       state.permissions.length + ' permissions</span></div>' + matrix + '</div>';
+}
+
+function roleEditorHtml(role) {
+  const categories = {};
+  state.permissions.forEach((permission) => {
+    (categories[permission.category] = categories[permission.category] || []).push(permission);
+  });
+  return '<div class="hint" style="margin-bottom:8px">Changes take effect immediately for every ' +
+    'signed-in user of this role. Super Admin permissions are pre-set and cannot be edited.</div>' +
+    Object.entries(categories).map(([category, items]) =>
+      '<fieldset style="margin:10px 0"><legend class="mono small">' + escapeHtml(category) + '</legend>' +
+      items.map((permission) => '<label class="inline" style="display:flex;gap:8px;margin:3px 0">' +
+        '<input type="checkbox" data-perm value="' + escapeHtml(permission.code) + '"' +
+        (role.permissions.includes(permission.code) ? ' checked' : '') + ' />' +
+        '<span><span class="mono small">' + escapeHtml(permission.code) + '</span> ' +
+        '<span class="faint small">' + escapeHtml(permission.description || '') + '</span></span></label>').join('') +
+      '</fieldset>').join('');
+}
+
+function bindRoles() {
+  content.querySelectorAll('[data-edit-role]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const role = state.roles.find((item) => item.code === button.dataset.editRole);
+      await openModal({
+        title: 'Edit permissions - ' + role.name,
+        submitLabel: 'Save permissions',
+        bodyHtml: roleEditorHtml(role),
+        onSubmit: (value, backdrop) => {
+          const permissions = [...backdrop.querySelectorAll('[data-perm]:checked')]
+            .map((input) => input.value);
+          api.put('/admin/roles/' + role.code + '/permissions', { permissions })
+            .then(() => {
+              toast('Permissions updated. They take effect immediately.', 'success');
+              reloadTab();
+            })
+            .catch((error) => toast(formatApiError(error), 'error'));
+          return true;
+        },
+      });
+    });
+  });
 }
 /* ------------------------------------------------- standards, rules, templates */
 
@@ -703,9 +879,21 @@ async function renderCatalogue() {
     '<td class="num">' + definition.sequence_no + '</td>' +
     '<td>' + (definition.is_active ? '<span class="pill pill-pass">active</span>' : '<span class="pill pill-na">inactive</span>') + '</td>' +
     '<td class="small mono">' + escapeHtml((definition.input_schema || {}).layout || '\u2014') + '</td></tr>').join('');
+  const active = definitions.filter((definition) => definition.is_active).length;
+  const mvp = definitions.filter((definition) => definition.phase === 'MVP').length;
+  const refreshed = new Date();
+  const stats = [
+    ['Test definitions', definitions.length],
+    ['Active', active],
+    ['MVP phase', mvp],
+    ['Phase 2', definitions.length - mvp],
+  ].map((pair) => '<div class="card tight"><div class="value">' + pair[1] + '</div>' +
+    '<div class="label">' + escapeHtml(pair[0]) + '</div></div>').join('');
   return '<div class="card"><div class="card-title"><h3>Test catalogue</h3>' +
-    '<span class="faint small">' + definitions.length + ' test definitions (versioned with the rule set)</span></div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Test</th><th>Category</th><th>Phase</th>' +
+    '<span class="faint small">Live as of ' + escapeHtml(refreshed.toLocaleString()) +
+    ' · versioned with the active rule set</span></div>' +
+    '<div class="grid cols-4">' + stats + '</div>' +
+    '<div class="table-wrap mt-2"><table><thead><tr><th>Code</th><th>Test</th><th>Category</th><th>Phase</th>' +
       '<th>Clause</th><th class="num">Seq</th><th>Status</th><th>Input</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 
@@ -739,7 +927,9 @@ async function renderEquipment() {
         : '<span class="faint">none filed</span>') + '</td>' +
       '<td class="small">' + (state_ && state_.valid_until ? escapeHtml(state_.valid_until) : '<span class="faint">\u2014</span>') + '</td>' +
       '<td>' + calibrationPill(state_) + '<div class="faint small">' + escapeHtml((state_ && state_.detail) || '') + '</div></td>' +
-      '<td><button class="btn-sm" data-calibrate="' + item.id + '">File calibration\u2026</button></td>' +
+      '<td class="nowrap"><button class="btn-sm" data-calibrate="' + item.id + '">File calibration\u2026</button> ' +
+        '<button class="btn-sm btn-danger" data-delete-equipment="' + item.id + '" data-label="' +
+        escapeHtml(item.code + ' - ' + item.name) + '">Delete</button></td>' +
       '</tr>';
   }).join('');
   return '<div class="card"><div class="card-title"><h3>Test equipment register</h3>' +
@@ -759,19 +949,31 @@ function bindEquipment() {
       submitLabel: 'Register',
       bodyHtml: '<div class="field"><label class="req">Code</label><input data-value name="code" placeholder="EQ-0001" /></div>' +
         '<div class="field"><label class="req">Name</label><input data-input name="name" placeholder="Reference weight set 1 mg ... 20 kg" /></div>' +
-        '<div class="field"><label>Type</label><input data-input name="equipment_type" value="weights" /></div>' +
-        '<div class="field"><label>Accuracy class</label><input data-input name="accuracy_class" placeholder="M1" /></div>' +
-        '<div class="field"><label>Unit</label><input data-input name="unit" value="g" /></div>' +
-        '<div class="field"><label>Serial number</label><input data-input name="serial_no" /></div>',
+        '<div class="field"><label class="req">Type</label><select data-input name="equipment_type">' +
+          EQUIPMENT_TYPES.map((pair) => '<option value="' + pair[0] + '">' + escapeHtml(pair[1]) + '</option>').join('') +
+          '</select></div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label class="req">Make / manufacturer</label><input data-input name="manufacturer" /></div>' +
+          '<div class="field"><label class="req">Model</label><input data-input name="model" /></div>' +
+        '</div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label class="req">Serial number</label><input data-input name="serial_no" /></div>' +
+          '<div class="field"><label class="req">Accuracy class</label><input data-input name="accuracy_class" placeholder="M1" /></div>' +
+        '</div>' +
+        '<div class="field"><label class="req">Measurement unit</label><input data-input name="unit" value="g" /></div>' +
+        '<div class="hint">Every field is required so the register is complete before the equipment is used on a case.</div>',
       onSubmit: async (value, backdrop) => {
-        const read = (name) => (backdrop.querySelector('[name="' + name + '"]') || {}).value;
-        const payload = { code: read('code').trim(), name: read('name').trim() };
-        ['equipment_type', 'accuracy_class', 'unit', 'serial_no'].forEach((key) => {
-          const entry = read(key);
-          if (entry && entry.trim()) payload[key] = entry.trim();
+        const read = (name) => (backdrop.querySelector('[name="' + name + '"]') || {}).value || '';
+        const keys = ['code', 'name', 'equipment_type', 'manufacturer', 'model', 'serial_no', 'accuracy_class', 'unit'];
+        const payload = {};
+        const missing = [];
+        keys.forEach((key) => {
+          const entry = read(key).trim();
+          if (!entry) missing.push(key.replace(/_/g, ' '));
+          else payload[key] = entry;
         });
-        if (!payload.code || !payload.name) {
-          toast('A code and a name are required.', 'warn');
+        if (missing.length) {
+          toast('Complete every field: ' + missing.join(', ') + '.', 'warn');
           return false;
         }
         await api.post('/equipment', payload);
@@ -779,6 +981,25 @@ function bindEquipment() {
         await reloadTab();
       },
     }));
+
+  document.querySelectorAll('[data-delete-equipment]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const confirmed = await openModal({
+        title: 'Delete this equipment?',
+        submitLabel: 'Delete permanently',
+        destructive: true,
+        bodyHtml: '<p><strong>' + escapeHtml(button.dataset.label) +
+          '</strong> will be removed from the register with its calibration history. ' +
+          'Equipment that is recorded against an evaluation case cannot be deleted.</p>',
+      });
+      if (!confirmed) return;
+      try {
+        await api.delete('/equipment/' + button.dataset.deleteEquipment);
+        toast('Equipment deleted.', 'success');
+        await reloadTab();
+      } catch (error) { toast(formatApiError(error), 'error'); }
+    });
+  });
 
   document.querySelectorAll('[data-calibrate]').forEach((button) => {
     button.addEventListener('click', () =>
@@ -819,20 +1040,50 @@ async function renderTemplates() {
     const versions = template.versions || [];
     const active = versions.find((version) => version.is_active) || versions[0] || {};
     const sections = (active.section_map || {}).sections || [];
-    return '<div class="card"><div class="card-title"><h3>' + escapeHtml(template.name) + '</h3>' +
-      '<span class="mono small">' + escapeHtml(template.code) + '</span></div>' +
-      '<div class="small muted">' + escapeHtml(template.description || '') + '</div>' +
-      '<div class="mt-3 small faint">Version ' + escapeHtml(active.version_label || '\u2014') + ' \u00b7 ' +
-        sections.length + ' sections \u00b7 ' + reviewPill(active.review_status) + '</div>' +
-      '<div class="table-wrap mt-2"><table><thead><tr><th>#</th><th>Section</th><th>Required</th></tr></thead><tbody>' +
-      sections.map((section) => '<tr><td class="mono">' + escapeHtml(section.number || '') + '</td>' +
+    const editable = can('rules.manage');
+      const sectionRows = sections.map((section) => '<tr><td class="mono">' + escapeHtml(section.number || '') + '</td>' +
         '<td>' + escapeHtml(section.title || '') + '</td>' +
-        '<td>' + (section.required ? '<span class="pill pill-warn">required</span>' : '<span class="faint small">optional</span>') + '</td></tr>').join('') +
-      '</tbody></table></div></div>';
+        '<td>' + (editable
+          ? '<label class="inline"><input type="checkbox" data-section="' + escapeHtml(String(section.number || '')) +
+            '"' + (section.required ? ' checked' : '') + ' /> required</label>'
+          : (section.required ? '<span class="pill pill-warn">required</span>' : '<span class="faint small">optional</span>')) +
+        '</td></tr>').join('');
+      return '<div class="card" data-template-card="' + template.id + '"><div class="card-title"><h3>' +
+        escapeHtml(template.name) + '</h3><span class="mono small">' + escapeHtml(template.code) + '</span></div>' +
+        '<div class="small muted">' + escapeHtml(template.description || '') + '</div>' +
+        '<div class="mt-3 small faint">Version ' + escapeHtml(active.version_label || '\u2014') + ' \u00b7 ' +
+          sections.length + ' sections \u00b7 ' + reviewPill(active.review_status) + '</div>' +
+        '<div class="table-wrap mt-2"><table><thead><tr><th>#</th><th>Section</th><th>Requirement</th></tr></thead><tbody>' +
+        sectionRows + '</tbody></table></div>' +
+        (editable ? '<div class="inline mt-2"><button class="btn-primary btn-sm" data-save-template="' + template.id +
+          '">Save section requirements</button><span class="faint small">A required section must be present in every ' +
+          'report generated from this version.</span></div>' : '') + '</div>';
   }).join('');
   return '<div class="card"><div class="card-title"><h3>Report templates</h3></div>' +
-    '<div class="faint small">Reports are generated from the frozen section map of the template version used by the case.</div></div>' +
+    '<div class="faint small">Reports are generated from the frozen section map of the template version used by the case. ' +
+    'Which sections are required and which are optional can be changed here.</div></div>' +
     '<div class="mt-3">' + (cards || empty('No templates.')) + '</div>';
+}
+
+function bindTemplates() {
+  content.querySelectorAll('[data-save-template]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const card = button.closest('[data-template-card]');
+      const sections = [...card.querySelectorAll('[data-section]')].map((input) => ({
+        number: input.dataset.section,
+        required: input.checked,
+      }));
+      button.disabled = true;
+      try {
+        await api.put('/report-templates/' + button.dataset.saveTemplate + '/sections', { sections });
+        toast('Section requirements saved.', 'success');
+        reloadTab();
+      } catch (error) {
+        toast(formatApiError(error), 'error');
+        button.disabled = false;
+      }
+    });
+  });
 }
 
 /* ---------------------------------------------------------------------- AI */
@@ -949,6 +1200,102 @@ async function renderAudit(page) {
     '<div class="hint mt-2">Audit entries are append-only. Values are captured before and after every governed change.</div></div>';
 }
 
+/* ------------------------------------------------------------ manufacturers */
+
+async function renderManufacturers() {
+  const data = await api.get('/manufacturers', { query: { page_size: 200 } });
+  state.manufacturers = data.items;
+  const rows = state.manufacturers.map((manufacturer) => '<tr>' +
+    '<td><div>' + escapeHtml(manufacturer.name) + '</div>' +
+      '<div class="faint small mono">' + escapeHtml(manufacturer.code || '') + '</div></td>' +
+    '<td class="small">' + escapeHtml(manufacturer.contact_person || '—') + '</td>' +
+    '<td class="small">' + escapeHtml(manufacturer.email || '—') + '<div class="faint small">' +
+      escapeHtml(manufacturer.phone || '') + '</div></td>' +
+    '<td class="small">' + escapeHtml([manufacturer.city, manufacturer.country].filter(Boolean).join(', ') || '—') + '</td>' +
+    '<td>' + (manufacturer.is_active
+      ? '<span class="pill pill-pass">active</span>'
+      : '<span class="pill pill-na">inactive</span>') + '</td></tr>').join('');
+  return '<div class="card"><div class="card-title"><h3>Manufacturers</h3>' +
+    '<button class="btn-primary btn-sm" id="new-manufacturer">Register manufacturer</button></div>' +
+    '<div class="hint">A manufacturer registered here is available immediately in the manufacturer ' +
+    'list when a new evaluation case is created.</div>' +
+    (state.manufacturers.length
+      ? '<div class="table-wrap mt-2"><table><thead><tr><th>Name</th><th>Contact</th><th>Email</th>' +
+        '<th>City / country</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : empty('No manufacturers registered.')) + '</div>';
+}
+
+function manufacturerFormHtml() {
+  return '<div class="field"><label class="req">Name</label><input data-value name="name" /></div>' +
+    '<div class="field-row">' +
+      '<div class="field"><label>Code</label><input data-input name="code" placeholder="MFR-0001" /></div>' +
+      '<div class="field"><label>Contact person</label><input data-input name="contact_person" /></div>' +
+    '</div>' +
+    '<div class="field-row">' +
+      '<div class="field"><label>Email</label><input data-input type="email" name="email" /></div>' +
+      '<div class="field"><label>Phone</label><input data-input name="phone" /></div>' +
+    '</div>' +
+    '<div class="field"><label>Address</label><input data-input name="address" /></div>' +
+    '<div class="field-row">' +
+      '<div class="field"><label>City</label><input data-input name="city" /></div>' +
+      '<div class="field"><label>Country</label><input data-input name="country" value="India" /></div>' +
+    '</div>';
+}
+
+function bindManufacturers() {
+  document.getElementById('new-manufacturer')?.addEventListener('click', () =>
+    openModal({
+      title: 'Register a manufacturer',
+      submitLabel: 'Register manufacturer',
+      bodyHtml: manufacturerFormHtml(),
+      onSubmit: (value, backdrop) => {
+        const payload = collectModal(backdrop);
+        if (!payload.name || !payload.name.trim()) {
+          toast('A manufacturer name is required.', 'warn');
+          return false;
+        }
+        Object.keys(payload).forEach((key) => {
+          payload[key] = typeof payload[key] === 'string' ? payload[key].trim() : payload[key];
+          if (payload[key] === '') payload[key] = null;
+        });
+        payload.is_active = true;
+        api.post('/manufacturers', payload)
+          .then(() => { toast('Manufacturer registered.', 'success'); reloadTab(); })
+          .catch((error) => toast(formatApiError(error), 'error'));
+        return true;
+      },
+    }));
+}
+
+/* ------------------------------------------------------- users work detail */
+
+async function renderWorkDetail() {
+  const rowsData = await api.get('/admin/users/work-summary');
+  state.work = rowsData;
+  const rows = rowsData.map((row) => '<tr>' +
+    '<td><div>' + escapeHtml(row.full_name) + '</div>' +
+      '<div class="faint small mono">' + escapeHtml(row.user_code || '') + '</div>' +
+      '<div class="faint small">' + escapeHtml(row.email || '') + '</div></td>' +
+    '<td class="mono small">' + escapeHtml(row.role_code) + '<div class="faint small">' +
+      escapeHtml(row.designation || '') + '</div></td>' +
+    '<td class="small">' + escapeHtml(row.laboratory_name || '—') + '</td>' +
+    '<td>' + (row.is_active ? '<span class="pill pill-pass">active</span>' : '<span class="pill pill-na">disabled</span>') + '</td>' +
+    '<td class="num">' + row.cases_as_engineer + '<div class="faint small">' + row.open_cases + ' open</div></td>' +
+    '<td class="num">' + row.cases_as_reviewer + '</td>' +
+    '<td class="num">' + row.cases_as_approver + '</td>' +
+    '<td class="num">' + row.tests_completed + ' / ' + row.tests_total + '</td>' +
+    '<td class="num">' + row.finalized_cases + '</td>' +
+    '<td class="small faint nowrap">' + fmtDate(row.last_activity_at) + '</td></tr>').join('');
+  return '<div class="card"><div class="card-title"><h3>Users work detail</h3>' +
+    '<span class="faint small">Live as of ' + escapeHtml(new Date().toLocaleString()) + '</span></div>' +
+    '<div class="hint">Case counts are held in each role: engineer, reviewer and approver. ' +
+    'Tests completed counts the live test records on the cases the user engineers.</div>' +
+    '<div class="table-wrap mt-2"><table><thead><tr><th>User</th><th>Role</th><th>Laboratory</th>' +
+      '<th>Status</th><th class="num">Engineer</th><th class="num">Reviewer</th><th class="num">Approver</th>' +
+      '<th class="num">Tests done</th><th class="num">Finalized</th><th>Last activity</th></tr></thead>' +
+    '<tbody>' + (rows || '<tr><td colspan="10" class="faint small">No users registered.</td></tr>') + '</tbody></table></div></div>';
+}
+
 /* ------------------------------------------------------------------- driver */
 
 function bindTabs() {
@@ -971,14 +1318,20 @@ async function reloadTab() {
       state.users = (await api.get('/users', { query: { page_size: 200 } })).items;
       panel.innerHTML = await renderUsers();
       bindUsers();
+    } else if (state.tab === 'work') {
+      panel.innerHTML = await renderWorkDetail();
     } else if (state.tab === 'laboratories') {
       state.labs = (await api.get('/laboratories', { query: { page_size: 200 } })).items;
       panel.innerHTML = await renderLaboratories();
       bindLaboratories();
+    } else if (state.tab === 'manufacturers') {
+      panel.innerHTML = await renderManufacturers();
+      bindManufacturers();
     } else if (state.tab === 'roles') {
       state.roles = await api.get('/admin/roles');
       state.permissions = await api.get('/admin/permissions');
       panel.innerHTML = await renderRoles();
+      bindRoles();
     } else if (state.tab === 'standards') {
       panel.innerHTML = await renderStandards();
       bindStandards();
@@ -989,6 +1342,7 @@ async function reloadTab() {
       bindEquipment();
     } else if (state.tab === 'templates') {
       panel.innerHTML = await renderTemplates();
+      bindTemplates();
     } else if (state.tab === 'ai') {
       panel.innerHTML = await renderAi();
       bindAi();

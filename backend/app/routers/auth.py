@@ -33,6 +33,7 @@ from app.security.passwords import verify_password
 from app.security.permissions import ROLE_DEFINITIONS, role_name, role_permissions
 from app.security.tokens import TokenError, create_access_token, decode_token
 from app.services.identity import ensure_user_code, find_sign_in_user
+from app.services.permission_service import effective_permissions
 
 router = APIRouter(tags=["Authentication"])
 
@@ -363,20 +364,26 @@ def demo_accounts(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/me", response_model=MeOut, summary="Current user profile and effective permissions")
-def read_me(user: User = Depends(get_current_active_user)) -> MeOut:
+def read_me(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> MeOut:
     return MeOut(
         user=UserOut.model_validate(user),
         role_name=role_name(user.role_code),
-        permissions=sorted(role_permissions(user.role_code)),
+        permissions=sorted(effective_permissions(db, user.role_code)),
         laboratory=user.laboratory,
     )
 
 
 @router.get("/me/permissions", response_model=list[PermissionOut], summary="Effective permission list")
-def read_my_permissions(user: User = Depends(get_current_active_user)) -> list[PermissionOut]:
+def read_my_permissions(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> list[PermissionOut]:
     from app.security.permissions import PERMISSION_CATALOGUE
 
-    granted = role_permissions(user.role_code)
+    granted = effective_permissions(db, user.role_code)
     return [
         PermissionOut(code=code, description=description, category=category)
         for code, description, category in PERMISSION_CATALOGUE
@@ -385,14 +392,20 @@ def read_my_permissions(user: User = Depends(get_current_active_user)) -> list[P
 
 
 @router.get("/roles", summary="Available roles and their permission sets")
-def list_roles(user: User = Depends(get_current_active_user)) -> list[dict]:
+def list_roles(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> list[dict]:
+    from app.security.permissions import SUPER_ADMIN
+
     return [
         {
             "code": definition.code,
             "name": definition.name,
             "description": definition.description,
             "rank": definition.rank,
-            "permissions": sorted(definition.permissions),
+            "locked": definition.code == SUPER_ADMIN,
+            "permissions": sorted(effective_permissions(db, definition.code)),
         }
         for definition in sorted(ROLE_DEFINITIONS.values(), key=lambda item: item.rank)
     ]

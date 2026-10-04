@@ -144,7 +144,9 @@ export function openModal({ title, bodyHtml, submitLabel = 'Save', cancelLabel =
 
 function readModalValue(backdrop) {
   const field = backdrop.querySelector('[data-value]');
-  return field ? field.value : null;
+  /* A confirmation panel has no input to read: submitting it means "yes".
+     Cancel and Escape still resolve null. */
+  return field ? field.value : true;
 }
 
 export function promptReason(title, { label = 'Reason', hint = '', minLength = 10, submitLabel = 'Confirm' } = {}) {

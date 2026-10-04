@@ -157,7 +157,7 @@ def test_super_admin_administers_every_platform_function(client, tokens, account
             "password": "Provisional@2026",
             "role_code": ENGINEER,
             "laboratory_id": accounts["laboratory_id"],
-            "designation": "Metrologist",
+            "designation": "Operator",
         },
         headers=tokens[SUPER_ADMIN],
     )
@@ -174,24 +174,29 @@ def test_super_admin_administers_every_platform_function(client, tokens, account
     assert searched.status_code == 200
     assert any(row["id"] == new_user_id for row in searched.json()["items"])
 
-    rotated = client.post(f"{API}/users/{new_user_id}/reset-password", headers=tokens[SUPER_ADMIN])
+    rotated = client.post(
+        f"{API}/users/{new_user_id}/reset-password",
+        json={"password": "Rotated@2026"},
+        headers=tokens[SUPER_ADMIN],
+    )
     assert rotated.status_code == 200, rotated.text
-    temporary = rotated.json()["temporary_password"]
-    assert temporary
+    assert rotated.json()["updated"] is True
 
-    login = client.post(f"{API}/auth/login", json={"email": email, "password": temporary})
+    login = client.post(f"{API}/auth/login", json={"email": email, "password": "Rotated@2026"})
     assert login.status_code == 200, login.text
     assert login.json()["user"]["role_code"] == ENGINEER
 
     # Laboratory lifecycle.
     lab_code = f"SLAB-{uuid.uuid4().hex[:6].upper()}"
     lab = client.post(
-        f"{API}/laboratories", json={"name": "Supervision Lab", "code": lab_code}, headers=tokens[SUPER_ADMIN]
+        f"{API}/laboratories",
+        json={"name": "Supervision Lab", "code": lab_code, "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
+        headers=tokens[SUPER_ADMIN],
     )
     assert lab.status_code == 201, lab.text
     patched = client.patch(
         f"{API}/laboratories/{lab.json()['id']}",
-        json={"name": "Supervision Laboratory", "code": lab_code},
+        json={"name": "Supervision Laboratory", "code": lab_code, "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
         headers=tokens[SUPER_ADMIN],
     )
     assert patched.status_code == 200, patched.text
@@ -296,14 +301,15 @@ def test_lab_admin_is_limited_to_its_own_laboratory(client, tokens, accounts):
     # but the update path is deliberately limited to the administrator's own lab.
     sibling = client.post(
         f"{API}/laboratories",
-        json={"name": "Sibling Lab", "code": f"SLAB-{uuid.uuid4().hex[:6].upper()}"},
+        json={"name": "Sibling Lab", "code": f"SLAB-{uuid.uuid4().hex[:6].upper()}",
+              "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
         headers=tokens[SUPER_ADMIN],
     )
     assert sibling.status_code == 201, sibling.text
     assert (
         client.patch(
             f"{API}/laboratories/{sibling.json()['id']}",
-            json={"name": "Taken Over", "code": sibling.json()["code"]},
+            json={"name": "Taken Over", "code": sibling.json()["code"], "location": "Karnataka", "address": "Plot 7, Industrial Area", "contact_email": "office@lab.example"},
             headers=tokens[LAB_ADMIN],
         ).status_code
         == 403
@@ -349,7 +355,16 @@ def test_lab_admin_manages_masters_and_can_review(client, tokens, accounts, new_
 
     equipment = client.post(
         f"{API}/equipment",
-        json={"code": f"EQ-{suffix}", "name": "Class F1 weight set", "equipment_type": "weights"},
+        json={
+            "code": f"EQ-{suffix}",
+            "name": "Class F1 weight set",
+            "equipment_type": "weights",
+            "manufacturer": "Mettler-Toledo",
+            "model": "F1-WS-20",
+            "serial_no": f"F1-{suffix}",
+            "unit": "g",
+            "accuracy_class": "F1",
+        },
         headers=tokens[LAB_ADMIN],
     )
     assert equipment.status_code == 201, equipment.text
@@ -677,7 +692,9 @@ def test_auditor_reads_everything_and_writes_nothing(client, tokens, case_factor
                                            "verification_scale_interval": "1"}}),
         ("POST", "/users", {"email": unique_email("auditor"), "full_name": "Auditor Attempt",
                             "password": "Provisional@2026", "role_code": ENGINEER}),
-        ("POST", "/laboratories", {"name": "Audit Lab", "code": "AUDIT-1"}),
+        ("POST", "/laboratories", {"name": "Audit Lab", "code": "AUDIT-1",
+                                   "location": "Karnataka", "address": "Audit Block 1",
+                                   "contact_email": "audit@lab.example"}),
         ("POST", "/manufacturers", {"name": "Audit Manufacturer"}),
         ("PUT", "/settings/auditor.key", {"value": 1}),
         ("POST", f"/cases/{case_id}/submit", {}),

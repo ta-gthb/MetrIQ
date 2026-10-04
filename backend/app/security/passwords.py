@@ -62,3 +62,32 @@ def generate_temporary_password(length: int = 14) -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"
     raw = os.urandom(length)
     return "".join(alphabet[byte % len(alphabet)] for byte in raw)
+
+
+PASSWORD_POLICY_TEXT = (
+    "at least 8 characters, including at least one letter, one digit and one special character"
+)
+
+
+def password_policy_error(password: str | None) -> str | None:
+    """Return a human-readable policy failure, or None when the value passes.
+
+    Alphanumeric means at least one letter and one digit; a special character
+    is any non-alphanumeric character other than whitespace.
+    """
+    if not password or len(password) < 8:
+        return f"Password must be {PASSWORD_POLICY_TEXT}."
+    has_letter = any(ch.isalpha() for ch in password)
+    has_digit = any(ch.isdigit() for ch in password)
+    has_special = any((not ch.isalnum()) and (not ch.isspace()) for ch in password)
+    if not (has_letter and has_digit and has_special):
+        return f"Password must be {PASSWORD_POLICY_TEXT}."
+    return None
+
+
+def validate_password_strength(password: str) -> str:
+    """Validate and return the password, raising ValueError when it fails."""
+    error = password_policy_error(password)
+    if error:
+        raise ValueError(error)
+    return password

@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.permissions import require_permission
+from app.dependencies.permissions import require_any_permission, require_permission
 from app.models import CaseStatus, TestInstance, User, utcnow
 from app.routers._helpers import get_case_or_404, require_reason
 from app.schemas.cases import CaseDetailOut, WorkflowActionRequest
-from app.security.permissions import P
+from app.security.permissions import APPROVER, LAB_ADMIN, P
 from app.services import audit_service, metrology_service
 from app.services.report_engine import generate_report
 
@@ -66,7 +66,10 @@ def submit_case(
          CaseStatus.CORRECTION_REQUIRED, CaseStatus.TESTING_COMPLETED},
         "submit",
     )
-    _assert_participant(case, user, "engineer", "submit")
+    # The laboratory manager may submit on the laboratory's behalf; an
+    # engineer must be the assigned one. Everyone else is refused here.
+    if user.role_code != LAB_ADMIN:
+        _assert_participant(case, user, "engineer", "submit")
 
     from app.services.readiness import live_tests
 
@@ -351,10 +354,18 @@ def cancel_case(
     case_id: uuid.UUID,
     payload: WorkflowActionRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission(P.CASES_ASSIGN)),
+    user: User = Depends(require_any_permission(P.CASES_ASSIGN, P.CASES_APPROVE)),
 ) -> dict:
     from app.routers._helpers import serialise_case
 
+    if user.role_code not in {LAB_ADMIN, APPROVER}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only the Laboratory Admin / Manager or the Approving Authority "
+                "may cancel an evaluation case."
+            ),
+        )
     case = get_case_or_404(db, case_id, user)
     if case.status in {CaseStatus.FINALIZED, CaseStatus.CANCELLED}:
         raise HTTPException(status_code=409, detail="A finalized or cancelled case cannot be cancelled.")

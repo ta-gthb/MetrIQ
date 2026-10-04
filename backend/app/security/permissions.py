@@ -109,6 +109,11 @@ AUDITOR = "AUDITOR"
 
 ALL_PERMISSIONS = frozenset(code for code, _, _ in PERMISSION_CATALOGUE)
 
+#: SystemSetting key prefix marking a role whose grants were edited by a Super
+#: Admin. The reference-data seeding skips such a role so the edit survives
+#: restarts; a fresh database has no marker and is seeded from ROLE_DEFINITIONS.
+CUSTOMISED_SETTING_PREFIX = "permissions.customised."
+
 ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
     SUPER_ADMIN: RoleDefinition(
         code=SUPER_ADMIN,
@@ -141,8 +146,6 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.CASES_EDIT,
                 P.CASES_SUBMIT,
                 P.CASES_REQUEST_CORRECTION,
-                P.TESTS_EDIT,
-                P.TESTS_EDIT_OWN,
                 P.TESTS_VALIDATE,
                 P.TESTS_VIEW_RESULTS,
                 P.REPORTS_GENERATE,

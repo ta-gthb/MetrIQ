@@ -44,6 +44,9 @@ class CaseUpdateRequest(BaseModel):
     standard_version_id: uuid.UUID | None = None
     template_version_id: uuid.UUID | None = None
     instrument_id: uuid.UUID | None = None
+    #: Field-level instrument edits made from the Application step. Only the
+    #: keys supplied are changed; the merged record is fully re-validated.
+    instrument: dict | None = None
     applicant_id: uuid.UUID | None = None
     manufacturer_id: uuid.UUID | None = None
 

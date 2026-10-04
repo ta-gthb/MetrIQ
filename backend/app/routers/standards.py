@@ -569,6 +569,70 @@ def list_report_templates(
     return db.execute(select(ReportTemplate).order_by(ReportTemplate.code)).scalars().all()
 
 
+class ReportSectionSpec(BaseModel):
+    number: str
+    required: bool
+
+
+class ReportSectionUpdateRequest(BaseModel):
+    sections: list[ReportSectionSpec] = Field(default_factory=list, max_length=100)
+
+
+@router.put(
+    "/report-templates/{template_id}/sections",
+    summary="Set which report sections are required and which are optional",
+)
+def update_report_sections(
+    template_id: uuid.UUID,
+    payload: ReportSectionUpdateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(P.RULES_MANAGE)),
+) -> dict:
+    template = db.get(ReportTemplate, template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Report template not found")
+    versions = sorted(template.versions, key=lambda item: item.version_no)
+    if not versions:
+        raise HTTPException(status_code=409, detail="This template has no versions to edit.")
+    version = next((item for item in reversed(versions) if item.is_active), versions[-1])
+    section_map = dict(version.section_map or {})
+    sections = [dict(section) for section in (section_map.get("sections") or [])]
+    known = {str(section.get("number")) for section in sections}
+    unknown = sorted({spec.number for spec in payload.sections} - known)
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail="Unknown section number(s): " + ", ".join(unknown),
+        )
+    wanted = {spec.number: spec.required for spec in payload.sections}
+    before = [
+        {"number": str(section.get("number")), "required": bool(section.get("required"))}
+        for section in sections
+    ]
+    for section in sections:
+        number = str(section.get("number"))
+        if number in wanted:
+            section["required"] = bool(wanted[number])
+    section_map["sections"] = sections
+    version.section_map = section_map
+    after = [
+        {"number": str(section.get("number")), "required": bool(section.get("required"))}
+        for section in sections
+    ]
+    audit_service.record(
+        db, event_type="EDIT", entity_type="report_template_version", entity_id=version.id,
+        actor=user, field_changed="sections", before={"sections": before},
+        after={"sections": after},
+    )
+    db.commit()
+    return {
+        "template_id": str(template.id),
+        "version_id": str(version.id),
+        "version_label": version.version_label,
+        "sections": after,
+    }
+
+
 # --------------------------------------------------------------- engine surface
 class MpeQuery(BaseModel):
     instrument_class: str
@@ -616,6 +680,21 @@ def resolve_mpe_endpoint(
         active = active_standard_version(db)
         version_id = active.id if active else None
     ruleset, label = ruleset_for_standard_version(db, version_id)
+    if not ruleset:
+        # The case may name a version whose rule set is no longer the active
+        # one (or no version at all). Fall back to the active rule set so the
+        # lookup keeps working instead of reporting that no bands exist.
+        active = active_standard_version(db)
+        if active is not None and str(active.id) != str(version_id):
+            ruleset, label = ruleset_for_standard_version(db, active.id)
+    if not ruleset:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No active rule set is available to resolve MPE bands. An administrator "
+                "can activate one in Administration > Standards & rules."
+            ),
+        )
     try:
         resolution = resolve_mpe(
             ruleset=ruleset,

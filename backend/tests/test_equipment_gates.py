@@ -51,7 +51,11 @@ def equipment(client, tokens):
             "code": "EQ-" + overrides.pop("code_suffix", ""),
             "name": "Reference weight set",
             "equipment_type": "weights",
+            "manufacturer": "Mettler-Toledo",
+            "model": "REF-WS-20",
+            "serial_no": "SN-" + uuid.uuid4().hex[:8].upper(),
             "unit": "g",
+            "accuracy_class": "M1",
             "is_active": active,
         }
         payload.update(overrides)

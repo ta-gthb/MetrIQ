@@ -164,8 +164,11 @@ function createForm() {
             <select id="manufacturer"><option value="">- none -</option>
               ${manufacturers.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('')}
             </select>
-            <div class="hint">Not listed? Type a new manufacturer name below.</div></div>
-          <div class="field"><label for="new-manufacturer">Create manufacturer</label><input id="new-manufacturer" /></div>
+            <div class="hint">
+              ${can('masters.manage')
+                ? '<a href="#" id="new-manufacturer-link">New Manufacturer? Click here to register</a>'
+                : 'Manufacturers are maintained by the laboratory administration.'}
+            </div></div>
           <fieldset>
             <legend>Metrological characteristics</legend>
             <div class="field-row">
@@ -224,7 +227,63 @@ function rangeEditor() {
   </div>`;
 }
 
+/* Registers a manufacturer from the case-creation page and selects it in the
+   list, without discarding anything already typed into the form. */
+function registerManufacturerInline() {
+  openModal({
+    title: 'Register a new manufacturer',
+    submitLabel: 'Register manufacturer',
+    bodyHtml: '<div class="hint">The manufacturer is added to the register and selected for this evaluation.</div>' +
+      '<div class="field"><label class="req">Name</label><input data-value name="name" /></div>' +
+      '<div class="field-row">' +
+        '<div class="field"><label>Code</label><input data-input name="code" placeholder="MFR-0001" /></div>' +
+        '<div class="field"><label>Contact person</label><input data-input name="contact_person" /></div>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field"><label>Email</label><input data-input type="email" name="email" /></div>' +
+        '<div class="field"><label>Phone</label><input data-input name="phone" /></div>' +
+      '</div>' +
+      '<div class="field"><label>Address</label><input data-input name="address" /></div>' +
+      '<div class="field-row">' +
+        '<div class="field"><label>City</label><input data-input name="city" /></div>' +
+        '<div class="field"><label>Country</label><input data-input name="country" value="India" /></div>' +
+      '</div>',
+    onSubmit: async (value, backdrop) => {
+      const read = (name) => ((backdrop.querySelector('[name="' + name + '"]') || {}).value || '').trim();
+      const payload = { name: read('name'), is_active: true };
+      if (!payload.name) {
+        toast('A manufacturer name is required.', 'warn');
+        return false;
+      }
+      ['code', 'contact_person', 'email', 'phone', 'address', 'city', 'country'].forEach((key) => {
+        const entry = read(key);
+        if (entry) payload[key] = entry;
+      });
+      try {
+        const created = await api.post('/manufacturers', payload);
+        manufacturers.push(created);
+        manufacturers.sort((left, right) => String(left.name).localeCompare(String(right.name)));
+        const select = document.getElementById('manufacturer');
+        if (select) {
+          select.innerHTML = '<option value="">- none -</option>' + manufacturers.map((item) =>
+            '<option value="' + item.id + '">' + escapeHtml(item.name) + '</option>').join('');
+          select.value = created.id;
+        }
+        toast('Manufacturer registered and selected.', 'success');
+      } catch (error) {
+        toast(formatApiError(error), 'error');
+        return false;
+      }
+      return true;
+    },
+  });
+}
+
 function bindCreate() {
+  document.getElementById('new-manufacturer-link')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    registerManufacturerInline();
+  });
   const multi = document.getElementById('multi-range');
   const host = document.getElementById('ranges');
   const sync = () => {
@@ -263,11 +322,7 @@ function bindCreate() {
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true; submit.textContent = 'Creating\u2026';
     try {
-      const manufacturerName = document.getElementById('new-manufacturer').value.trim();
-      let manufacturerId = document.getElementById('manufacturer').value || null;
-      if (!manufacturerId && manufacturerName) {
-        manufacturerId = (await api.post('/manufacturers', { name: manufacturerName })).id;
-      }
+      const manufacturerId = document.getElementById('manufacturer').value || null;
       const applicantName = document.getElementById('new-applicant').value.trim();
       let applicantId = document.getElementById('applicant').value || null;
       if (!applicantId && applicantName) {

@@ -132,18 +132,43 @@ class InstrumentOut(ORMModel, InstrumentBase):
     manufacturer: "ManufacturerOut | None" = None
 
 
+#: The equipment types the register offers. Kept in step with the frontend
+#: dropdown in frontend/js/admin.js.
+EQUIPMENT_TYPES: tuple[str, ...] = (
+    "weights",
+    "mass_comparator",
+    "balance",
+    "thermometer",
+    "hygrometer",
+    "pressure_gauge",
+    "voltmeter",
+    "timer",
+    "other",
+)
+
+
 class TestEquipmentBase(BaseModel):
     code: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=255)
-    equipment_type: str = "weights"
-    manufacturer: str | None = None
-    model: str | None = None
-    serial_no: str | None = None
+    name: str = Field(min_length=2, max_length=255)
+    equipment_type: str = Field(min_length=1, max_length=80)
+    manufacturer: str = Field(min_length=2, max_length=160)
+    model: str = Field(min_length=1, max_length=160)
+    serial_no: str = Field(min_length=1, max_length=120)
     nominal_value: str | None = None
-    unit: str | None = None
-    accuracy_class: str | None = None
+    unit: str = Field(min_length=1, max_length=16)
+    accuracy_class: str = Field(min_length=1, max_length=40)
     laboratory_id: uuid.UUID | None = None
     is_active: bool = True
+
+    @field_validator("equipment_type")
+    @classmethod
+    def _known_type(cls, value: str) -> str:
+        text = value.strip().lower().replace(" ", "_")
+        if text not in EQUIPMENT_TYPES:
+            raise ValueError(
+                "equipment type must be one of: " + ", ".join(EQUIPMENT_TYPES)
+            )
+        return text
 
 
 class TestEquipmentCreate(TestEquipmentBase):

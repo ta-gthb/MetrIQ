@@ -10,8 +10,12 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from app.models import Permission, Role, RolePermission
-from app.security.permissions import PERMISSION_CATALOGUE, ROLE_DEFINITIONS
+from app.models import Permission, Role, RolePermission, SystemSetting
+from app.security.permissions import (
+    CUSTOMISED_SETTING_PREFIX,
+    PERMISSION_CATALOGUE,
+    ROLE_DEFINITIONS,
+)
 
 
 def seed_roles_and_permissions(db) -> tuple[int, int]:
@@ -38,6 +42,16 @@ def seed_roles_and_permissions(db) -> tuple[int, int]:
             role.description = definition.description
             role.rank = definition.rank
         db.flush()
+
+        # A role whose permissions were edited by a Super Admin is left alone:
+        # otherwise a restart would silently revert the edit.
+        customised = db.execute(
+            select(SystemSetting).where(
+                SystemSetting.key == CUSTOMISED_SETTING_PREFIX + code
+            )
+        ).scalars().first()
+        if customised is not None:
+            continue
 
         existing = {
             item.permission_code

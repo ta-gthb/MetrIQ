@@ -21,8 +21,12 @@ function kpiCard(label, value, kind = '') {
 }
 
 function caseRow(item) {
+  const role = getUser()?.role_code;
+  const href = ['SUPER_ADMIN', 'AUDITOR'].includes(role)
+    ? '/reports.html'
+    : `/evaluation.html?case=${item.id}`;
   return `<tr>
-    <td><a href="/evaluation.html?case=${item.id}">${escapeHtml(item.application_no)}</a>
+    <td><a href="${href}">${escapeHtml(item.application_no)}</a>
       <div class="faint small truncate">${escapeHtml(item.title || '')}</div></td>
     <td>${escapeHtml(item.instrument_model || '\u2014')}</td>
     <td>${caseStatusPill(item.status)}</td>
@@ -46,7 +50,7 @@ const ROLE_PROFILES = {
   SUPER_ADMIN: {
     title: 'Operations overview',
     description: 'See every laboratory queue, unblock decisions and keep the evaluation service moving.',
-    action: ['/evaluations.html', 'Open evaluation register'],
+    action: ['/reports.html', 'Browse reports'],
     queueOrder: ['my_testing', 'awaiting_review', 'awaiting_approval'],
   },
   LAB_ADMIN: {

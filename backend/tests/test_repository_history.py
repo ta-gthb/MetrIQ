@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.security.permissions import APPROVER, ENGINEER, REVIEWER, SUPER_ADMIN
@@ -199,10 +200,24 @@ def test_an_export_is_scoped_to_the_callers_cases(client, tokens, case_factory, 
     """An engineer's export is scoped like the screen: their own cases only."""
     mine = case_factory()
     theirs = case_factory()
+    # Only a registered engineer may hold a case as its engineer, so the case
+    # is handed to a second engineer to move it outside the first one's list.
+    replacement = client.post(
+        f"{API}/users",
+        json={
+            "email": f"second.engineer.{uuid.uuid4().hex[:8]}@metriq.local",
+            "full_name": "Second Engineer",
+            "password": "Second@Engineer1",
+            "role_code": ENGINEER,
+            "laboratory_id": accounts["laboratory_id"],
+        },
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert replacement.status_code == 201, replacement.text
     moved = client.post(
         f"{API}/cases/{theirs['id']}/assignments",
         json={
-            "engineer_id": accounts["user_ids"][REVIEWER],
+            "engineer_id": replacement.json()["id"],
             "reason": "Reassigned so the scope check has a case outside the engineer's list.",
         },
         headers=tokens[SUPER_ADMIN],

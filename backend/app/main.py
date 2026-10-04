@@ -184,13 +184,30 @@ async def request_context(request: Request, call_next):
     return response
 
 
+def _safe_validation_errors(exc: RequestValidationError) -> list[dict]:
+    """Make pydantic error details JSON-serialisable.
+
+    A field validator raising ValueError puts the exception object itself into
+    the error context, which json.dumps cannot encode; without this the reply
+    to a malformed payload would itself fail.
+    """
+    safe: list[dict] = []
+    for error in exc.errors():
+        item = dict(error)
+        context = item.get("ctx")
+        if isinstance(context, dict):
+            item["ctx"] = {key: str(value) for key, value in context.items()}
+        safe.append(item)
+    return safe
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "detail": "The request payload failed validation.",
-            "errors": exc.errors(),
+            "errors": _safe_validation_errors(exc),
             "request_id": getattr(request.state, "request_id", None),
         },
     )
