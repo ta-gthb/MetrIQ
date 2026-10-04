@@ -201,9 +201,27 @@ def create_case(
         else _active_standard_version(db)
     )
     if standard_version is None:
+        latest_version = db.execute(
+            select(StandardVersion)
+            .join(Standard, Standard.id == StandardVersion.standard_id)
+            .where(Standard.code == "OIML R 76-1")
+            .order_by(StandardVersion.created_at.desc())
+        ).scalars().first()
+        if latest_version is not None:
+            detail = (
+                f"The seeded OIML R 76-1 ruleset '{latest_version.version_label}' is "
+                f"'{latest_version.status or 'draft'}' and is not active. A Super Admin "
+                "must complete its metrology review and activate an approved version "
+                "in Administration > Standards & rules before new evaluations can be created."
+            )
+        else:
+            detail = (
+                "No OIML R 76-1 standards version is seeded. Run the ruleset seed first, "
+                "then have a Super Admin review and activate an approved version."
+            )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No active standards version is configured. Run the ruleset seed first.",
+            detail=detail,
         )
     template_version = _active_template_version(db)
 

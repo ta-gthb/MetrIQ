@@ -264,6 +264,60 @@ def test_reinit_db_refuses_without_confirmation(tmp_path):
     assert "REINITIALISE" not in result.stdout.replace("--yes", "")
 
 
+def test_reinit_db_can_seed_demo_staff_without_overwriting_super_admin(tmp_path):
+    database = tmp_path / "reinit-with-demo-users.db"
+    env = {
+        **os.environ,
+        "ENVIRONMENT": "development",
+        "DEMO_MODE": "true",
+        "DEMO_PASSWORD": "DemoUsers@2026",
+        "DATABASE_URL": f"sqlite:///{database.as_posix()}",
+        "AUTH_PROVIDER": "local",
+        "AI_PROVIDER": "stub",
+        "JWT_SECRET": "reinit-test-secret-value",
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reinit_db.py",
+            "--yes",
+            "--seed-demo-users",
+            "--admin-email",
+            "ops@lab.example",
+            "--admin-password",
+            "RebuildPass1!",
+            "--demo-password",
+            "ExplicitDemo@2026",
+        ],
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        input="",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "4 demo users seeded" in result.stdout
+
+    with sqlite3.connect(database) as connection:
+        demo_users = connection.execute(
+            "SELECT email, role_code, is_demo, password_hash "
+            "FROM users WHERE is_demo = 1 ORDER BY role_code"
+        ).fetchall()
+        admin = connection.execute(
+            "SELECT email, role_code, is_demo FROM users WHERE email = 'ops@lab.example'"
+        ).fetchone()
+    assert [(email, role, is_demo) for email, role, is_demo, _ in demo_users] == [
+        ("approver@metriq.local", "APPROVER", 1),
+        ("engineer@metriq.local", "ENGINEER", 1),
+        ("labadmin@metriq.local", "LAB_ADMIN", 1),
+        ("reviewer@metriq.local", "REVIEWER", 1),
+    ]
+    from app.security.passwords import verify_password
+
+    assert all(verify_password("ExplicitDemo@2026", row[3]) for row in demo_users)
+    assert admin == ("ops@lab.example", SUPER_ADMIN, 0)
+
+
 def test_seeded_reference_rows_fit_their_column_widths(accounts):
     """PostgreSQL enforces VARCHAR(n); SQLite silently accepts longer values.
 
@@ -568,13 +622,18 @@ def test_reinit_db_guided_flow_never_asks_for_a_remembered_target(monkeypatch, i
         return "metriq" if label == "Schema" else "REINITIALISE"
 
     args = reinit_db.build_parser().parse_args([])
-    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
+    monkeypatch.setattr(
+        reinit_db,
+        "confirm",
+        lambda label, **kw: not label.startswith("Seed demo Lab Admin"),
+    )
     monkeypatch.setattr(reinit_db, "prompt", answer)
     monkeypatch.setattr(reinit_db, "prompt_secret", lambda label, **kw: "")
 
     assert reinit_db.collect_inputs(args) is True
     assert args.url == os.environ["DATABASE_URL"]
     assert args.schema == "metriq"
+    assert args.seed_demo_users is False
 
 
 def test_reinit_db_guided_flow_uses_deployment_database_default(monkeypatch, isolated_env):
@@ -587,7 +646,11 @@ def test_reinit_db_guided_flow_uses_deployment_database_default(monkeypatch, iso
         return {}
 
     monkeypatch.setattr(reinit_db, "read_env_file", read_env)
-    monkeypatch.setattr(reinit_db, "confirm", lambda label, **kw: True)
+    monkeypatch.setattr(
+        reinit_db,
+        "confirm",
+        lambda label, **kw: not label.startswith("Seed demo Lab Admin"),
+    )
     monkeypatch.setattr(
         reinit_db,
         "prompt",
@@ -598,6 +661,7 @@ def test_reinit_db_guided_flow_uses_deployment_database_default(monkeypatch, iso
     args = reinit_db.build_parser().parse_args([])
     assert reinit_db.collect_inputs(args) is True
     assert args.url == "sqlite:///deployment-default.db"
+    assert args.seed_demo_users is False
 
 
 def test_reinit_db_drops_only_existing_metrIQ_policies_in_the_target_schema(monkeypatch):
@@ -648,7 +712,9 @@ def test_reinit_db_guided_flow_collects_a_typed_target_and_the_account(monkeypat
     args = reinit_db.build_parser().parse_args([])
     # Decline the remembered target so the URL prompt is exercised.
     monkeypatch.setattr(
-        reinit_db, "confirm", lambda label, **kw: not label.startswith("Use this database")
+        reinit_db,
+        "confirm",
+        lambda label, **kw: not label.startswith(("Use this database", "Seed demo Lab Admin")),
     )
     monkeypatch.setattr(reinit_db, "prompt", lambda label, **kw: next(answers))
     monkeypatch.setattr(reinit_db, "prompt_secret", lambda label, **kw: "GuidedPass1!")

@@ -13,6 +13,7 @@ The flags below remain for scripted use:
     python backend/scripts/reinit_db.py --yes
     python backend/scripts/reinit_db.py --url "postgresql://...:5432/postgres" --yes
     python backend/scripts/reinit_db.py --yes --admin-email me@lab.example
+    python backend/scripts/reinit_db.py --yes --seed-demo-users
 
 DESTRUCTIVE: every MetrIQ table in the target schema is dropped, so all cases,
 users, audit history and generated report rows are deleted. Objects already in the storage bucket are
@@ -61,6 +62,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--admin-name", default="Platform Administrator")
     parser.add_argument("--admin-password", default=None)
     parser.add_argument("--no-admin", action="store_true", help="do not recreate a Super Admin")
+    parser.add_argument(
+        "--seed-demo-users",
+        action="store_true",
+        help=(
+            "also create demo Lab Admin, Engineer, Reviewer and Approver accounts; "
+            "the deployed app needs DEMO_MODE=true for local-password sign-in"
+        ),
+    )
+    parser.add_argument(
+        "--demo-password",
+        default=None,
+        help="password for demo users; defaults to the configured DEMO_PASSWORD",
+    )
     return parser
 
 
@@ -125,6 +139,14 @@ def collect_inputs(args) -> bool:
     else:
         args.no_admin = True
 
+    args.seed_demo_users = confirm(
+        "Seed demo Lab Admin, Engineer, Reviewer and Approver accounts?",
+        default=False,
+    )
+    if args.seed_demo_users:
+        args.demo_password = prompt_secret(
+            "Demo password (blank to use configured DEMO_PASSWORD)"
+        ) or None
     return True
 
 
@@ -153,6 +175,15 @@ def drop_rls_policies(connection, schema: str | None) -> int:
         )
         removed += 1
     return removed
+
+
+def seed_demo_user_accounts(db, password: str) -> int:
+    """Seed demo staff accounts without replacing reinit's Super Admin."""
+    from scripts.seed_db import seed_laboratory, seed_users
+
+    laboratory = seed_laboratory(db)
+    users = seed_users(db, laboratory, password, include_super_admin=False)
+    return sum(1 for user in users.values() if user.is_demo)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -199,6 +230,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             warn(f"ENVIRONMENT is 'production'; add --force if {target} really is the intended target")
             return 2
+    if args.seed_demo_users and settings.ENVIRONMENT == "production" and not settings.DEMO_MODE:
+        warn(
+            "demo users will be seeded, but local-password login requires DEMO_MODE=true "
+            "in the deployed application's environment"
+        )
 
     connected, detail = bootstrap.probe_connection()
     if not connected:
@@ -257,6 +293,16 @@ def main(argv: list[str] | None = None) -> int:
         if result.generated:
             print()
             print(f"  Temporary password (shown once): {result.password}")
+
+    if args.seed_demo_users:
+        with session_scope() as db:
+            demo_users = seed_demo_user_accounts(
+                db, args.demo_password or settings.DEMO_PASSWORD
+            )
+        ok(
+            f"{demo_users} demo users seeded; their password is configured by DEMO_PASSWORD. "
+            "The Super Admin keeps its separate password."
+        )
 
     print()
     ok("database reinitialised")

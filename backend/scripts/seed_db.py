@@ -183,7 +183,14 @@ def seed_laboratory(db) -> Laboratory:
     return laboratory
 
 
-def seed_users(db, laboratory: Laboratory, password: str) -> dict[str, User]:
+def seed_users(
+    db,
+    laboratory: Laboratory,
+    password: str,
+    *,
+    include_super_admin: bool = True,
+) -> dict[str, User]:
+    """Seed demo roles, optionally leaving Super Admin to the caller."""
     people = [
         (SUPER_ADMIN, "Platform Administrator", "admin@metriq.local", "Platform Owner"),
         (LAB_ADMIN, "Lakshmi Rao", "labadmin@metriq.local", "Laboratory Manager"),
@@ -191,6 +198,8 @@ def seed_users(db, laboratory: Laboratory, password: str) -> dict[str, User]:
         (REVIEWER, "Priya Nair", "reviewer@metriq.local", "Technical Reviewer"),
         (APPROVER, "Dr. Rao Krishnan", "approver@metriq.local", "Approving Authority"),
     ]
+    if not include_super_admin:
+        people = [person for person in people if person[0] != SUPER_ADMIN]
     users: dict[str, User] = {}
     for role, name, email, designation in people:
         user = db.execute(select(User).where(User.email == email)).scalars().first()

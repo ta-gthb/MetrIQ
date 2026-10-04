@@ -257,6 +257,48 @@ def test_a_report_is_released_only_after_approval(client, tokens, case_factory):
     assert download.content.startswith(b"%PDF")
 
 
+def test_case_creation_explains_when_seeded_ruleset_is_awaiting_review(
+    client, tokens, accounts
+):
+    from app.database import SessionLocal
+    from app.models import Standard, StandardVersion
+    from tests.conftest import INSTRUMENT_TEMPLATE
+
+    with SessionLocal() as db:
+        version = (
+            db.query(StandardVersion)
+            .join(Standard, Standard.id == StandardVersion.standard_id)
+            .filter(Standard.code == "OIML R 76-1")
+            .first()
+        )
+        assert version is not None
+        original_status, original_active = version.status, version.is_active
+        version.status = "draft"
+        version.is_active = False
+        db.commit()
+
+    try:
+        response = client.post(
+            f"{API}/cases",
+            json={
+                "instrument": {
+                    **INSTRUMENT_TEMPLATE,
+                    "serial_number": f"NO-RULESET-{uuid.uuid4().hex[:8]}",
+                },
+            },
+            headers=tokens[LAB_ADMIN],
+        )
+    finally:
+        with SessionLocal() as db:
+            version = db.query(StandardVersion).filter_by(id=version.id).first()
+            version.status, version.is_active = original_status, original_active
+            db.commit()
+
+    assert response.status_code == 422, response.text
+    assert "is 'draft' and is not active" in response.json()["detail"]
+    assert "Administration > Standards & rules" in response.json()["detail"]
+
+
 def test_approved_reports_download_only_for_super_admin_and_lab_manager(
     client, tokens, case_factory
 ):
