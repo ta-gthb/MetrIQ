@@ -56,7 +56,7 @@ Useful scripts:
 | `scripts/init_db.py` | Create all tables (idempotent) |
 | `scripts/reset_db.py` | Drop and recreate every table (destructive) |
 | `scripts/seed_rules.py` | Load `app/rules/data/*.json` as standards, versions, rules, test definitions, templates |
-| `scripts/seed_identity.py` | Seed the 34 permissions, 6 roles and 113 grants |
+| `scripts/seed_identity.py` | Seed the 35 permissions, 5 roles and 99 grants |
 | `scripts/seed_db.py` | Demo laboratory, manufacturer, applicant, instrument, environmental conditions, demo case |
 | `scripts/manage_admin.py` | Create and manage **only** Super Admin credentials: `create`, `list`, `set-password`, `set-email`, `enable`, `disable`, `delete` |
 | `scripts/create_admin.py` | Shortcut for `manage_admin.py create` |
@@ -219,7 +219,7 @@ is used in development and in the demonstration deployment only.
 | `REPORT_STORAGE_PATH` | `./var/reports` | Legacy: only read when a pre-existing row holds an absolute path |
 | `MAX_UPLOAD_BYTES` | `26214400` (25 MB) | |
 | `SIGNED_URL_TTL_SECONDS` | `900` | Signed download lifetime |
-| `REQUIRED_EVIDENCE_CATEGORIES` | `nameplate_photograph,test_setup_photograph` | Photographs that must be attached before submission |
+| `REQUIRED_EVIDENCE_CATEGORIES` | `nameplate_photograph` | Photographs that must be attached before submission |
 
 ### CORS
 
@@ -326,7 +326,7 @@ setup.
 4. **Create the accounts**: Authentication -> Users -> Add user, using **the same
    email address** as the MetrIQ user. This is only about the address the provider
    verifies: the MetrIQ user ID (`stmadm...`, `labadm...`, `temadm...`, `trvadm...`,
-   `apradm...`, `audadm...`) is issued by the platform when the account is created
+   `apradm...`) is issued by the platform when the account is created
    and needs no counterpart here. The first sign-in links the two and records
    the Supabase identity. A Supabase user with no MetrIQ account is refused with
    `No MetrIQ account is linked to this identity`, so open sign-ups expose no
@@ -494,7 +494,7 @@ curl -s https://<your-app>.vercel.app/health
 
 Then, in the browser, complete one full evaluation and confirm:
 
-* both mandatory photographs upload and the case becomes submittable;
+* the mandatory nameplate photograph uploads and the case becomes submittable;
 * finalizing produces a PDF and a DOCX that download successfully;
 * the objects appear in the Supabase bucket under `cases/...` and `reports/...`.
 
@@ -585,7 +585,7 @@ machine: each reads `DATABASE_URL` and also accepts
 
 `seed_db.py` creates the demo laboratory, one manufacturer, one applicant, one
 class III instrument (Max 30000 g, e = d = 10 g), environmental conditions, a
-demo case and its two mandatory photographs. All demo accounts use the password
+demo case and its mandatory nameplate photograph. All demo accounts use the password
 `MetrIQ@2026`:
 
 | Email | Role |
@@ -595,9 +595,8 @@ demo case and its two mandatory photographs. All demo accounts use the password
 | `engineer@metriq.local` | Test Engineer |
 | `reviewer@metriq.local` | Technical Reviewer |
 | `approver@metriq.local` | Approving Authority |
-| `auditor@metriq.local` | Auditor (read-only) |
 
-`seed_identity.py` seeds 34 permission codes, 6 roles and 113 role-permission
+`seed_identity.py` seeds 35 permission codes, 5 roles and 99 role-permission
 grants.
 
 ## 9. Backup and recovery

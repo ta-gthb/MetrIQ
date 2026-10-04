@@ -115,10 +115,10 @@ class Settings(BaseSettings):
     SIGNED_URL_TTL_SECONDS: int = 900
 
     # Photographic evidence that must be present before a case may be submitted
-    # for technical review ("two clear images": the instrument nameplate and the
-    # test setup). Order is preserved so the UI lists them in a stable sequence.
+    # for technical review: the instrument nameplate is mandatory. The order is
+    # preserved so the UI lists the categories in a stable sequence.
     REQUIRED_EVIDENCE_CATEGORIES: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["nameplate_photograph", "test_setup_photograph"]
+        default_factory=lambda: ["nameplate_photograph"]
     )
 
     # --- Governed rulesets (audit items 6 and 10) -------------------------

@@ -12,7 +12,6 @@ bounded, advisory layer that never decides compliance (PRD 12.5, 27.2).
 | Engineer /     | -------------------> | MetrIQ (FastAPI + static  |
 | Reviewer /     | <------------------- | frontend, same origin)    |
 | Approver /     |   JSON + PDF/DOCX    +-------------+-------------+
-| Auditor /      |                                    |
 | Lab Admin      |                                    |
 +----------------+                         +----------+----------+
                                            |                     |
@@ -154,7 +153,6 @@ Every account is named by a user ID the platform issues for it:
 | Test Engineer / Metrologist | `temadm` | `temadm2026118` |
 | Technical Reviewer / Verifier | `trvadm` | `trvadm2026053` |
 | Approving Authority / Signatory | `apradm` | `apradm2026002` |
-| Auditor / Read-only | `audadm` | `audadm2026031` |
 
 The identifier is a six-letter prefix that names the role, the four-digit year
 the account was created, and three digits drawn at random.
@@ -188,7 +186,7 @@ verifies. An identifier stays with the account if the role is changed later.
   every database role that is not the table owner, so a connection that bypasses
   the API still cannot read across laboratories. See
   `docs/architecture/row-level-security.md`.
-* Permission catalogue: 34 codes across 6 roles (`routers/admin.py` exposes the
+* Permission catalogue: 35 codes across 5 roles (`routers/admin.py` exposes the
   matrix; `scripts/seed_identity.py` seeds it).
 
 ## 5. Data model

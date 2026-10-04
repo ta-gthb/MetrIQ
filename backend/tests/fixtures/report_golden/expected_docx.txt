@@ -1,6 +1,11 @@
 MetrIQ Regional Legal Metrology Laboratory
 Type Evaluation Test Report
 Non-automatic weighing instruments - OIML R 76
+Laboratory code | LAB-001
+Location | Bengaluru
+Address | Plot 12, Industrial Estate, Bengaluru 560058
+Contact email | lab@metriq.local
+Accreditation number | NABL-LM-2026-0042
 Application number | <application-no>
 Report number | RPT-GOLDEN-00001
 Report revision | 1
@@ -20,7 +25,10 @@ address | -
 city | -
 country | -
 name | -
+code | -
 contact_person | -
+email | -
+phone | -
 address | -
 city | -
 country | -

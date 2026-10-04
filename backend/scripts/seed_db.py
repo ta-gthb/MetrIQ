@@ -53,7 +53,6 @@ from app.models import (  # noqa: E402
 from app.security.passwords import hash_password  # noqa: E402
 from app.security.permissions import (  # noqa: E402
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     REVIEWER,
@@ -191,7 +190,6 @@ def seed_users(db, laboratory: Laboratory, password: str) -> dict[str, User]:
         (ENGINEER, "Arjun Mehta", "engineer@metriq.local", "Test Engineer"),
         (REVIEWER, "Priya Nair", "reviewer@metriq.local", "Technical Reviewer"),
         (APPROVER, "Dr. Rao Krishnan", "approver@metriq.local", "Approving Authority"),
-        (AUDITOR, "Sameer Khan", "auditor@metriq.local", "Internal Auditor"),
     ]
     users: dict[str, User] = {}
     for role, name, email, designation in people:

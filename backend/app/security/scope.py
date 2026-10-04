@@ -9,7 +9,6 @@ from sqlalchemy import false, or_
 from app.models import EvaluationCase, User
 from app.security.permissions import (
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     REVIEWER,
@@ -35,8 +34,6 @@ def case_visible(user: User, case: EvaluationCase) -> bool:
         return case.reviewer_id == user.id
     if user.role_code == APPROVER:
         return case.approver_id == user.id
-    if user.role_code == AUDITOR:
-        return user.laboratory_id is not None
     return False
 
 
@@ -44,7 +41,7 @@ def case_scope_clause(user: User):
     """Return the SQL predicate for cases this user may read."""
     if user.role_code == SUPER_ADMIN:
         return None
-    if user.role_code == LAB_ADMIN or user.role_code == AUDITOR:
+    if user.role_code == LAB_ADMIN:
         return EvaluationCase.laboratory_id == user.laboratory_id if user.laboratory_id else false()
     if user.role_code == ENGINEER:
         return EvaluationCase.engineer_id == user.id

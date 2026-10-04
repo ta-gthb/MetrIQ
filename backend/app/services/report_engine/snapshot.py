@@ -165,9 +165,23 @@ def build_report_snapshot(
             "template_sections": (template_version.section_map or {}).get("sections", []) if template_version else [],
         },
         "cover": {
-            "laboratory_name": settings.REPORT_LABORATORY_NAME,
-            "laboratory_code": settings.REPORT_LABORATORY_CODE,
+            # The laboratory that performed the evaluation is printed from the
+            # case itself; the configured name is only a fallback for a case
+            # that predates laboratory records or has none attached.
+            "laboratory_name": (
+                (case.laboratory.name if case.laboratory else None)
+                or settings.REPORT_LABORATORY_NAME
+            ),
+            "laboratory_code": (
+                (case.laboratory.code if case.laboratory else None)
+                or settings.REPORT_LABORATORY_CODE
+            ),
             "laboratory_location": case.laboratory.location if case.laboratory else None,
+            "laboratory_address": case.laboratory.address if case.laboratory else None,
+            "laboratory_contact_email": case.laboratory.contact_email if case.laboratory else None,
+            "laboratory_accreditation_no": (
+                case.laboratory.accreditation_no if case.laboratory else None
+            ),
             "report_title": "Type Evaluation Test Report",
             "subtitle": "Non-automatic weighing instruments - OIML R 76",
             "case_title": case.title,
@@ -184,7 +198,10 @@ def build_report_snapshot(
         },
         "manufacturer": {
             "name": case.manufacturer.name if case.manufacturer else None,
+            "code": case.manufacturer.code if case.manufacturer else None,
             "contact_person": case.manufacturer.contact_person if case.manufacturer else None,
+            "email": case.manufacturer.email if case.manufacturer else None,
+            "phone": case.manufacturer.phone if case.manufacturer else None,
             "address": case.manufacturer.address if case.manufacturer else None,
             "city": case.manufacturer.city if case.manufacturer else None,
             "country": case.manufacturer.country if case.manufacturer else None,

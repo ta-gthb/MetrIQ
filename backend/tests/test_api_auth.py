@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.security.permissions import AUDITOR, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
+from app.security.permissions import ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
 
 API = "/api/v1"
 
@@ -104,16 +104,18 @@ def test_me_reports_the_effective_permission_set(client, tokens):
     body = client.get(f"{API}/me", headers=tokens[ENGINEER]).json()
     assert body["user"]["role_code"] == ENGINEER
     assert body["role_name"] == "Test Engineer / Metrologist"
-    assert "cases.create" in body["permissions"]
+    assert "tests.edit.own" in body["permissions"]
+    assert "cases.create" not in body["permissions"]
     assert "cases.approve" not in body["permissions"]
     assert "users.manage" not in body["permissions"]
 
 
 def test_me_lists_permission_descriptions(client, tokens):
-    rows = client.get(f"{API}/me/permissions", headers=tokens[AUDITOR]).json()
+    rows = client.get(f"{API}/me/permissions", headers=tokens[LAB_ADMIN]).json()
     codes = {row["code"] for row in rows}
-    assert "audit.view" in codes
-    assert "cases.create" not in codes
+    assert "rules.view" in codes
+    assert "cases.create" in codes
+    assert "audit.view" not in codes
     assert all(row["description"] for row in rows)
 
 
@@ -145,17 +147,17 @@ def test_engineer_cannot_manage_users_or_laboratories(client, tokens):
     assert response.status_code == 403
 
 
-def test_auditor_can_read_but_cannot_create_cases(client, tokens, new_case):
+def test_engineer_reads_cases_but_cannot_create_one(client, tokens, new_case):
     case = new_case()
-    assert client.get(f"{API}/cases", headers=tokens[AUDITOR]).status_code == 200
+    assert client.get(f"{API}/cases", headers=tokens[ENGINEER]).status_code == 200
     response = client.post(
         f"{API}/cases",
-        json={"title": "Auditor attempt", "instrument": {"model": "X", "instrument_class": "III",
-                                                        "max_capacity": "1000",
-                                                        "verification_scale_interval": "1"}},
-        headers=tokens[AUDITOR],
+        json={"title": "Engineer attempt", "instrument": {"model": "X", "instrument_class": "III",
+                                                          "max_capacity": "1000",
+                                                          "verification_scale_interval": "1"}},
+        headers=tokens[ENGINEER],
     )
-    assert response.status_code == 403
+    assert response.status_code == 403, response.text
     assert case["id"]
 
 

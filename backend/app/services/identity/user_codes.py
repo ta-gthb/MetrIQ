@@ -7,7 +7,6 @@ An identifier is ``<role prefix><four-digit year><three digits>``::
     temadm2026118   Test Engineer / Metrologist
     trvadm2026053   Technical Reviewer / Verifier
     apradm2026002   Approving Authority / Signatory
-    audadm2026031   Auditor / Read-only
 
 A Super Admin identifier is issued only by ``backend/scripts/manage_admin.py``,
 because that script is the supported way to create a platform administrator.
@@ -40,7 +39,6 @@ from sqlalchemy import select
 from app.models import User
 from app.security.permissions import (
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     REVIEWER,
@@ -54,7 +52,6 @@ PREFIXES: dict[str, str] = {
     ENGINEER: "temadm",
     REVIEWER: "trvadm",
     APPROVER: "apradm",
-    AUDITOR: "audadm",
 }
 
 SERIAL_DIGITS = 3

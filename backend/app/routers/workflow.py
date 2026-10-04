@@ -115,13 +115,17 @@ def submit_case(
     evidence = evidence_requirements(db, case)
     if not evidence["satisfied"]:
         missing_labels = [category.replace("_", " ") for category in evidence["missing"]]
+        missing_labels += [
+            f"{item['test_code']} ({item['category'].replace('_', ' ')})"
+            for item in evidence["missing_per_test"]
+        ]
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "message": (
-                    "At least two clear photographs are required before submission: "
+                    "Mandatory evidence must be attached before submission: "
                     + " and ".join(missing_labels)
-                    + ". Attach them in the instrument or execution step of the evaluation."
+                    + ". Attach it in the instrument or execution step of the evaluation."
                 ),
                 "missing_evidence": evidence["missing"],
                 "evidence_requirements": evidence,
@@ -172,6 +176,13 @@ def review_case(
 
     if decision not in {"verify", "request_correction"}:
         raise HTTPException(status_code=422, detail="decision must be 'verify' or 'request_correction'")
+    if payload.target_test_instance_id is not None:
+        target_test = db.get(TestInstance, payload.target_test_instance_id)
+        if target_test is None or target_test.case_id != case.id:
+            raise HTTPException(
+                status_code=422,
+                detail="target_test_instance_id must reference a test of this case.",
+            )
 
     previous = case.status
     if decision == "verify":
@@ -185,7 +196,11 @@ def review_case(
         case.last_correction_reason = reason
         case.revision_no += 1
         event = "CORRECTION_REQUEST"
-        note = f"Corrections requested on {case.application_no}: {reason}"
+        # A reviewer who is not satisfied returns the case to the assigned
+        # Test Engineer / Metrologist for a retest; the case must be resolved
+        # and submitted again before it can reach approval.
+        target_label = "retest" if user.role_code == "REVIEWER" else "corrections"
+        note = f"{case.application_no} returned for {target_label}: {reason}"
 
     audit_service.log_workflow(
         db, case=case, action=event, actor=user, from_status=previous, to_status=case.status,

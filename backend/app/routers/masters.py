@@ -13,7 +13,9 @@ from app.dependencies.auth import get_current_active_user
 from app.dependencies.permissions import require_any_permission, require_permission
 from app.models import (
     Applicant,
+    CaseStatus,
     EquipmentCalibration,
+    EvaluationCase,
     Instrument,
     InstrumentRange,
     Manufacturer,
@@ -35,11 +37,35 @@ from app.schemas.masters import (
     TestEquipmentCreate,
     TestEquipmentOut,
 )
-from app.security.permissions import P
+from app.security.permissions import LAB_ADMIN, P
 from app.security.scope import laboratory_filter
 from app.services import audit_service, equipment_service
 
 router = APIRouter(tags=["Masters"])
+
+
+def _require_lab_admin(user: User, action: str) -> None:
+    """The equipment register is maintained by the Laboratory Admin / Manager.
+
+    Every other role - the platform administrator included - keeps read-only
+    access to the register.
+    """
+    if user.role_code != LAB_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"{action} is available to the Laboratory Admin / Manager only. "
+                "Your role has view-only access to the test equipment register."
+            ),
+        )
+
+
+def _approved_instrument_scope():
+    """Instruments published in the register, i.e. those of approved evaluations."""
+    return select(EvaluationCase.instrument_id).where(
+        EvaluationCase.instrument_id.is_not(None),
+        EvaluationCase.status.in_((CaseStatus.APPROVED, CaseStatus.FINALIZED)),
+    )
 
 
 # ---------------------------------------------------------------- manufacturers
@@ -152,7 +178,11 @@ def list_instruments(
     page: int = 1,
     page_size: int = Query(25, le=200),
 ) -> Paginated[InstrumentOut]:
-    statement = select(Instrument).order_by(Instrument.model)
+    statement = (
+        select(Instrument)
+        .where(Instrument.id.in_(_approved_instrument_scope()))
+        .order_by(Instrument.model)
+    )
     if search:
         statement = statement.where(
             Instrument.model.ilike(f"%{search}%") | Instrument.serial_number.ilike(f"%{search}%")
@@ -199,8 +229,25 @@ def get_instrument(
     user: User = Depends(get_current_active_user),
 ) -> Instrument:
     record = db.get(Instrument, instrument_id)
+    if record is not None:
+        approved_cases = db.execute(
+            select(func.count())
+            .select_from(EvaluationCase)
+            .where(
+                EvaluationCase.instrument_id == record.id,
+                EvaluationCase.status.in_((CaseStatus.APPROVED, CaseStatus.FINALIZED)),
+            )
+        ).scalar_one()
+        if not approved_cases:
+            record = None
     if record is None:
-        raise HTTPException(status_code=404, detail="Instrument not found")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Instrument not found. Only instruments from approved, verified "
+                "evaluations are published in the instrument register."
+            ),
+        )
     return record
 
 
@@ -265,6 +312,7 @@ def create_equipment(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.EQUIPMENT_MANAGE)),
 ) -> TestEquipment:
+    _require_lab_admin(user, "Registering test equipment")
     data = payload.model_dump()
     if data.get("laboratory_id") is None:
         data["laboratory_id"] = user.laboratory_id
@@ -294,6 +342,7 @@ def delete_equipment(
     user: User = Depends(require_permission(P.EQUIPMENT_MANAGE)),
 ) -> None:
     """Remove equipment that has never been recorded against a case."""
+    _require_lab_admin(user, "Deleting test equipment")
     equipment = db.get(TestEquipment, equipment_id)
     if equipment is None:
         raise HTTPException(status_code=404, detail="Test equipment not found")
@@ -332,6 +381,7 @@ def add_calibration(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.EQUIPMENT_MANAGE)),
 ) -> EquipmentCalibration:
+    _require_lab_admin(user, "Filing a calibration record")
     equipment = db.get(TestEquipment, equipment_id)
     if equipment is None:
         raise HTTPException(status_code=404, detail="Test equipment not found")

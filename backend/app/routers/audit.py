@@ -4,20 +4,30 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies.auth import get_current_active_user
-from app.dependencies.permissions import require_any_permission
 from app.models import AuditLog, EvaluationCase, Notification, User, WorkflowAction, utcnow
 from app.routers._helpers import get_case_or_404, paginate
 from app.schemas.common import AuditEntryOut, NotificationOut, Paginated
-from app.security.permissions import P
-from app.security.scope import laboratory_filter
+from app.security.permissions import SUPER_ADMIN
 
 router = APIRouter(tags=["Audit"])
+
+
+def _require_super_admin(user: User) -> None:
+    """The audit trail is readable by the platform administrator alone."""
+    if user.role_code != SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Audit logs are visible to the Super Admin only. "
+                "Your role keeps the evaluation record itself: the case workflow history."
+            ),
+        )
 
 
 @router.get("/cases/{case_id}/audit-logs", response_model=list[AuditEntryOut], summary="Case audit trail")
@@ -26,6 +36,7 @@ def case_audit_logs(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_active_user),
 ) -> list[AuditLog]:
+    _require_super_admin(user)
     case = get_case_or_404(db, case_id, user)
     return db.execute(
         select(AuditLog).where(AuditLog.case_id == case.id).order_by(AuditLog.occurred_at.desc())
@@ -63,24 +74,15 @@ def case_workflow_actions(
 @router.get("/audit-logs", response_model=Paginated[AuditEntryOut], summary="Search audit logs")
 def audit_logs(
     db: Session = Depends(get_db),
-    user: User = Depends(require_any_permission(P.AUDIT_VIEW, P.AUDIT_VIEW_SCOPE, P.AUDIT_VIEW_LIMITED)),
+    user: User = Depends(get_current_active_user),
     event_type: str | None = None,
     entity_type: str | None = None,
     case_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = Query(50, le=200),
 ) -> Paginated[AuditEntryOut]:
+    _require_super_admin(user)
     statement = select(AuditLog).order_by(AuditLog.occurred_at.desc())
-    granted = {code for code in (P.AUDIT_VIEW, P.AUDIT_VIEW_SCOPE) if code in user.permissions}
-    if P.AUDIT_VIEW not in granted:
-        # Scoped roles (and roles limited to case-level entries) only see their own laboratory.
-        laboratory_id = laboratory_filter(user)
-        if laboratory_id is None:
-            statement = statement.where(AuditLog.actor_id == user.id)
-        else:
-            statement = statement.where(
-                (AuditLog.laboratory_id == laboratory_id) | (AuditLog.actor_id == user.id)
-            )
     if event_type:
         statement = statement.where(AuditLog.event_type == event_type)
     if entity_type:

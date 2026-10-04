@@ -10,11 +10,12 @@ from app.security.permissions import APPROVER, ENGINEER, REVIEWER, SUPER_ADMIN
 API = "/api/v1"
 
 
-def run_lifecycle(client, tokens, case: dict) -> dict:
+def run_lifecycle(client, tokens, case: dict, *, engineer: dict | None = None) -> dict:
     """Drive a fully recorded case through submit -> verify -> approve -> finalize."""
     case_id = case["id"]
+    engineer = engineer or tokens[ENGINEER]
 
-    submitted = client.post(f"{API}/cases/{case_id}/submit", json={}, headers=tokens[ENGINEER])
+    submitted = client.post(f"{API}/cases/{case_id}/submit", json={}, headers=engineer)
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["status"] == "TESTING_COMPLETED"
 
@@ -233,30 +234,35 @@ def test_a_waiver_unblocks_submission(client, tokens, case_factory):
     assert submitted.json()["status"] == "TESTING_COMPLETED"
 
 
-def test_submission_is_blocked_without_the_two_mandatory_photographs(client, tokens, case_factory):
-    """A new evaluation needs the nameplate and test-setup images (PRD 19.3)."""
+def test_submission_is_blocked_without_the_mandatory_nameplate_photograph(
+    client, tokens, case_factory
+):
+    """The instrument nameplate is the one mandatory photograph."""
     case = case_factory(evidence=False)
     response = client.post(
         f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
     )
     assert response.status_code == 422, response.text
     detail = response.json()["detail"]
-    assert detail["missing_evidence"] == ["nameplate_photograph", "test_setup_photograph"]
-    assert "two clear photographs" in detail["message"]
+    assert detail["missing_evidence"] == ["nameplate_photograph"]
+    assert "nameplate photograph" in detail["message"]
     assert detail["evidence_requirements"]["satisfied"] is False
 
 
-def test_one_photograph_is_not_enough(client, tokens, case_factory, attach_evidence):
+def test_the_nameplate_photograph_is_the_only_mandatory_evidence(
+    client, tokens, case_factory, attach_evidence
+):
     case = case_factory(evidence=False)
-    attach_evidence(case["id"], categories=("nameplate_photograph",))
 
+    # Optional evidence on its own does not satisfy the requirement.
+    attach_evidence(case["id"], categories=("test_setup_photograph",))
     response = client.post(
         f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
     )
     assert response.status_code == 422, response.text
-    assert response.json()["detail"]["missing_evidence"] == ["test_setup_photograph"]
+    assert response.json()["detail"]["missing_evidence"] == ["nameplate_photograph"]
 
-    attach_evidence(case["id"], categories=("test_setup_photograph",))
+    attach_evidence(case["id"], categories=("nameplate_photograph",))
     accepted = client.post(
         f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
     )
@@ -265,22 +271,19 @@ def test_one_photograph_is_not_enough(client, tokens, case_factory, attach_evide
 
 def test_a_non_image_does_not_satisfy_the_photograph_requirement(client, tokens, case_factory):
     case = case_factory(evidence=False)
-    for category in ("nameplate_photograph", "test_setup_photograph"):
-        uploaded = client.post(
-            f"{API}/cases/{case['id']}/attachments",
-            files={"file": (f"{category}.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf")},
-            data={"category": category, "auto_classify": "false"},
-            headers=tokens[ENGINEER],
-        )
-        assert uploaded.status_code == 201, uploaded.text
+    uploaded = client.post(
+        f"{API}/cases/{case['id']}/attachments",
+        files={"file": ("nameplate_photograph.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf")},
+        data={"category": "nameplate_photograph", "auto_classify": "false"},
+        headers=tokens[ENGINEER],
+    )
+    assert uploaded.status_code == 201, uploaded.text
 
     response = client.post(
         f"{API}/cases/{case['id']}/submit", json={}, headers=tokens[ENGINEER]
     )
     assert response.status_code == 422, response.text
-    assert set(response.json()["detail"]["missing_evidence"]) == {
-        "nameplate_photograph", "test_setup_photograph"
-    }
+    assert response.json()["detail"]["missing_evidence"] == ["nameplate_photograph"]
 
 
 def test_evidence_requirements_endpoint_reports_progress(client, tokens, case_factory, attach_evidence):
@@ -290,21 +293,30 @@ def test_evidence_requirements_endpoint_reports_progress(client, tokens, case_fa
     )
     assert empty.status_code == 200, empty.text
     assert empty.json() == {
-        "required": ["nameplate_photograph", "test_setup_photograph"],
+        "required": ["nameplate_photograph"],
         "present": [],
-        "missing": ["nameplate_photograph", "test_setup_photograph"],
+        "missing": ["nameplate_photograph"],
         "satisfied": False,
         "per_test": [],
         "missing_per_test": [],
     }
 
+    # An optional photograph is stored but does not count as required evidence.
     attach_evidence(case["id"], categories=("test_setup_photograph",))
     partial = client.get(
         f"{API}/cases/{case['id']}/evidence-requirements", headers=tokens[ENGINEER]
     ).json()
-    assert partial["present"] == ["test_setup_photograph"]
+    assert partial["present"] == []
     assert partial["missing"] == ["nameplate_photograph"]
     assert partial["satisfied"] is False
+
+    attach_evidence(case["id"], categories=("nameplate_photograph",))
+    complete = client.get(
+        f"{API}/cases/{case['id']}/evidence-requirements", headers=tokens[ENGINEER]
+    ).json()
+    assert complete["present"] == ["nameplate_photograph"]
+    assert complete["missing"] == []
+    assert complete["satisfied"] is True
 
 
 def test_correction_request_returns_the_case_to_the_engineer(client, tokens, case_factory):
@@ -454,7 +466,9 @@ def test_every_workflow_step_is_recorded_in_the_audit_trail(client, tokens, case
         assert expected in sequence, sequence
     assert sequence.index("SUBMIT") < sequence.index("VERIFY") < sequence.index("APPROVE")
 
-    logs = client.get(f"{API}/cases/{case_id}/audit-logs", headers=tokens[APPROVER]).json()
+    # The case audit trail is reserved for the Super Admin; the workflow
+    # actions above are what the evaluation workspace itself may read.
+    logs = client.get(f"{API}/cases/{case_id}/audit-logs", headers=tokens[SUPER_ADMIN]).json()
     assert logs
     assert all(row["occurred_at"] for row in logs)
 

@@ -20,7 +20,7 @@ const content = renderShell({
 /* Super Admin accounts are created only through manage_admin.py, so they are
    never offered here. A laboratory administrator may not create platform or
    laboratory administrators either - the backend enforces the same rule. */
-const CREATABLE_ROLES = ['LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER', 'AUDITOR'];
+const CREATABLE_ROLES = ['LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER'];
 const DESIGNATIONS = ['Officer', 'Operator', 'Assistant'];
 const EQUIPMENT_TYPES = [
   ['weights', 'Weights'],
@@ -48,6 +48,22 @@ const state = {
   equipment: [], manufacturers: [], work: [],
 };
 
+function isSuperAdmin() {
+  return (getUser() || {}).role_code === 'SUPER_ADMIN';
+}
+
+/* Test equipment is maintained by the Laboratory Admin / Manager. Every other
+   role - the Super Admin included - reads the register without write controls. */
+function managesEquipment() {
+  return (getUser() || {}).role_code === 'LAB_ADMIN';
+}
+
+/* Activating or deactivating a ruleset is reserved for the Super Admin; every
+   other role, the Laboratory Admin included, sees Standards & rules read-only. */
+function mayApproveRuleset() {
+  return can('rules.approve') && isSuperAdmin();
+}
+
 function creatableRoles() {
   const me = getUser() || {};
   if (me.role_code === 'SUPER_ADMIN') return CREATABLE_ROLES;
@@ -65,11 +81,11 @@ function tabs() {
     ['roles', 'Roles & permissions', canAny('users.manage', 'users.manage.scoped')],
     ['standards', 'Standards & rules', can('rules.view')],
     ['catalogue', 'Test catalogue', can('rules.view')],
-    ['equipment', 'Test equipment', can('equipment.manage')],
+    ['equipment', 'Test equipment', can('dashboard.view')],
     ['templates', 'Report templates', can('rules.view')],
     ['ai', 'AI features', canAny('ai.manage', 'ai.view')],
     ['settings', 'System settings', can('settings.manage')],
-    ['audit', 'Audit logs', canAny('audit.view', 'audit.view.scope', 'audit.view.limited')],
+    ['audit', 'Audit logs', isSuperAdmin() && can('audit.view')],
   ];
   // The Laboratory Admin / Manager administers its own laboratory, not the
   // platform: users, role permissions, templates, AI and audit stay with the
@@ -514,21 +530,21 @@ function rulesetActions(ruleset) {
   if (can('rules.manage') && state === 'draft') {
     buttons.push('<button class="btn-sm" data-submit="' + id + '">Submit for review</button>');
   }
-  if (can('rules.approve') && state === 'under_review') {
+  if (mayApproveRuleset() && state === 'under_review') {
     buttons.push('<button class="btn-sm" data-reject="' + id + '">Reject</button>');
     buttons.push('<button class="btn-sm btn-primary" data-approve="' + id + '">Approve</button>');
   }
-  if (can('rules.approve') && state === 'approved') {
+  if (mayApproveRuleset() && state === 'approved') {
     buttons.push('<button class="btn-sm" data-schedule="' + id + '">Schedule</button>');
   }
-  if (can('rules.approve') && (state === 'approved' || state === 'scheduled')) {
+  if (mayApproveRuleset() && (state === 'approved' || state === 'scheduled')) {
     const blocked = ruleset.can_activate
       ? ''
       : ' disabled title="Every rule needs a current metrology review first"';
     buttons.push('<button class="btn-sm btn-primary" data-activate="' + id + '"' + blocked +
       '>Activate</button>');
   }
-  if (can('rules.approve') && (state === 'active' || state === 'scheduled')) {
+  if (mayApproveRuleset() && (state === 'active' || state === 'scheduled')) {
     buttons.push('<button class="btn-sm btn-danger" data-deactivate="' + id + '">Deactivate</button>');
   }
   return buttons.length ? buttons.join(' ') : '<span class="faint small">\u2014</span>';
@@ -927,15 +943,22 @@ async function renderEquipment() {
         : '<span class="faint">none filed</span>') + '</td>' +
       '<td class="small">' + (state_ && state_.valid_until ? escapeHtml(state_.valid_until) : '<span class="faint">\u2014</span>') + '</td>' +
       '<td>' + calibrationPill(state_) + '<div class="faint small">' + escapeHtml((state_ && state_.detail) || '') + '</div></td>' +
-      '<td class="nowrap"><button class="btn-sm" data-calibrate="' + item.id + '">File calibration\u2026</button> ' +
-        '<button class="btn-sm btn-danger" data-delete-equipment="' + item.id + '" data-label="' +
-        escapeHtml(item.code + ' - ' + item.name) + '">Delete</button></td>' +
+      '<td class="nowrap">' + (managesEquipment()
+        ? '<button class="btn-sm" data-calibrate="' + item.id + '">File calibration\u2026</button> ' +
+          '<button class="btn-sm btn-danger" data-delete-equipment="' + item.id + '" data-label="' +
+          escapeHtml(item.code + ' - ' + item.name) + '">Delete</button>'
+        : '<span class="faint small">view only</span>') + '</td>' +
       '</tr>';
   }).join('');
   return '<div class="card"><div class="card-title"><h3>Test equipment register</h3>' +
-    '<button class="btn-primary btn-sm" id="add-equipment">Register equipment</button></div>' +
+    (managesEquipment()
+      ? '<button class="btn-primary btn-sm" id="add-equipment">Register equipment</button>'
+      : '<span class="pill pill-info">view only</span>') + '</div>' +
     '<div class="hint">The calibration state is computed when the page is read: a certificate that expires ' +
-      'stops the equipment being recorded against a case, and stops a test that names it being calculated.</div>' +
+      'stops the equipment being recorded against a case, and stops a test that names it being calculated.' +
+      (managesEquipment()
+        ? ''
+        : ' The register is maintained by the Laboratory Admin / Manager.') + '</div>' +
     '<div class="table-wrap mt-2"><table><thead><tr><th>Code</th><th>Equipment</th><th>Make / model / serial</th>' +
       '<th>Latest certificate</th><th>Valid to</th><th>State</th><th></th></tr></thead><tbody>' +
     (rows || '<tr><td colspan="7" class="faint small">No equipment registered.</td></tr>') +
@@ -943,6 +966,7 @@ async function renderEquipment() {
 }
 
 function bindEquipment() {
+  if (!managesEquipment()) return;
   document.getElementById('add-equipment')?.addEventListener('click', () =>
     openModal({
       title: 'Register test equipment',

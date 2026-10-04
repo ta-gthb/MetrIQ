@@ -26,6 +26,7 @@ from app.models.identity import (
     User,
 )
 from app.models.instrument import Instrument, InstrumentRange
+from app.models.messaging import CaseMessage, SupportMessage
 from app.models.org import Applicant, EquipmentCalibration, Manufacturer, TestEquipment
 from app.models.report import GeneratedReport, ReportRevision, ReportSignature
 from app.models.standards import (
@@ -61,6 +62,7 @@ __all__ = [
     "Base",
     "CalculationRun",
     "CaseAssignment",
+    "CaseMessage",
     "CaseStatus",
     "ComplianceResult",
     "EnvironmentalCondition",
@@ -86,6 +88,7 @@ __all__ = [
     "RuleVersion",
     "Standard",
     "StandardVersion",
+    "SupportMessage",
     "SystemSetting",
     "TestDefinition",
     "TestImplementationStatus",

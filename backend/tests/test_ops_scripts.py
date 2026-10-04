@@ -145,7 +145,7 @@ def test_bootstrap_seeding_is_idempotent(accounts):
         assert bootstrap.reference_data_present(db) is True
         counts = bootstrap.seed_reference_data(db)
         assert bootstrap.reference_data_present(db) is True
-    assert counts["roles"] == 6
+    assert counts["roles"] == 5
     assert counts["test_definitions"] >= 11
 
 
@@ -232,7 +232,7 @@ def test_reinit_db_rebuilds_a_deployment_ready_database(tmp_path):
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert {"users", "roles", "role_permissions", "test_definitions", "evaluation_cases"} <= tables
-        assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 6
+        assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 5
         assert connection.execute("SELECT COUNT(*) FROM test_definitions").fetchone()[0] >= 11
         rows = connection.execute("SELECT email, role_code, is_active FROM users").fetchall()
     assert rows == [("ops@lab.example", SUPER_ADMIN, 1)]
@@ -243,7 +243,7 @@ def test_reinit_db_rebuilds_a_deployment_ready_database(tmp_path):
     )
     assert second.returncode == 0, second.stdout + second.stderr
     with sqlite3.connect(database) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 6
+        assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 5
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
 
 

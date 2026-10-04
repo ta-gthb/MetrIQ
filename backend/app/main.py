@@ -28,6 +28,7 @@ from app.routers import (
     cases,
     dashboard,
     masters,
+    messaging,
     platform,
     reports,
     standards,
@@ -290,7 +291,7 @@ def api_index() -> dict:
 
 PREFIX = settings.API_V1_PREFIX
 for module in (auth, dashboard, masters, cases, tests, workflow, reports, attachments, audit,
-               standards, ai, admin, platform, verification):
+               standards, ai, admin, platform, verification, messaging):
     app.include_router(module.router, prefix=PREFIX)
 
 

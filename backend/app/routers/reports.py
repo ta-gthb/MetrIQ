@@ -45,11 +45,24 @@ CONTENT_TYPES = {
 }
 
 
-def _load_report(db: Session, report_id: uuid.UUID, user: User) -> GeneratedReport:
+APPROVED_STATUSES = {CaseStatus.APPROVED, CaseStatus.FINALIZED}
+
+
+def _load_report(
+    db: Session, report_id: uuid.UUID, user: User, *, require_approved: bool = False
+) -> GeneratedReport:
     report = db.get(GeneratedReport, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    get_case_or_404(db, report.case_id, user)
+    case = get_case_or_404(db, report.case_id, user)
+    if require_approved and case.status not in APPROVED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This evaluation has not been approved by the Approving Authority, so its "
+                "report cannot be downloaded. A report is released only after final approval."
+            ),
+        )
     return report
 
 
@@ -66,10 +79,13 @@ def generate(
     user: User = Depends(require_permission(P.REPORTS_GENERATE)),
 ) -> GeneratedReport:
     case = get_case_or_404(db, case_id, user)
-    if case.status in {CaseStatus.DRAFT, CaseStatus.CANCELLED}:
+    if case.status not in APPROVED_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A report can only be generated once the case has entered the review workflow.",
+            detail=(
+                "A report can only be generated after the Approving Authority has approved "
+                f"the evaluation. The case is currently in status {case.status}."
+            ),
         )
     formats = tuple(dict.fromkeys(fmt.lower() for fmt in payload.formats))
     if not formats:
@@ -456,7 +472,7 @@ def download_report(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.REPORTS_DOWNLOAD)),
 ) -> Response:
-    report = _load_report(db, report_id, user)
+    report = _load_report(db, report_id, user, require_approved=True)
     fmt = fmt.lower()
     if fmt not in CONTENT_TYPES:
         raise HTTPException(status_code=422, detail="fmt must be 'pdf' or 'docx'")

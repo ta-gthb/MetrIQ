@@ -47,7 +47,7 @@ from app.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
 from app.services.reference_data import bootstrap  # noqa: E402
-from app.security.permissions import ENGINEER  # noqa: E402
+from app.security.permissions import ENGINEER, LAB_ADMIN  # noqa: E402
 from app.security.permissions import REVIEWER, SUPER_ADMIN  # noqa: E402
 from scripts.seed_db import (  # noqa: E402
     DEFAULT_PASSWORD,
@@ -251,9 +251,13 @@ def new_case(client, tokens, accounts):
                 **INSTRUMENT_TEMPLATE,
                 "serial_number": f"TEST-{number:05d}",
             },
+            # The Test Engineer who drives the case in these tests is assigned
+            # by the Laboratory Admin / Manager who opens it.
+            "engineer_id": accounts["user_ids"][ENGINEER],
         }
         payload.update(overrides)
-        response = client.post(f"{API}/cases", json=payload, headers=tokens[ENGINEER])
+        # Case creation is the Laboratory Admin / Manager step.
+        response = client.post(f"{API}/cases", json=payload, headers=tokens[LAB_ADMIN])
         assert response.status_code == 201, response.text
         return response.json()
 
@@ -305,7 +309,7 @@ def fill_case(client, tokens):
 def attach_evidence(client, tokens):
     """Upload the mandatory photographs (or a chosen subset) to a case."""
 
-    def _attach(case_id: str, categories=("nameplate_photograph", "test_setup_photograph"), role=ENGINEER):
+    def _attach(case_id: str, categories=("nameplate_photograph",), role=ENGINEER):
         uploaded = []
         for category in categories:
             response = client.post(

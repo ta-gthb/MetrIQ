@@ -1,6 +1,6 @@
 /* Evaluation register and case creation (PRD 15.1, 15.2 steps 14-18). */
 
-import { api, requireSession, formatApiError, can } from './api.js';
+import { api, requireSession, formatApiError, can, getUser } from './api.js';
 import {
   renderShell, caseStatusPill, resultPill, fmt, fmtDate, escapeHtml,
   empty, loading, toast, openModal,
@@ -23,12 +23,18 @@ let tab = (window.location.hash || '').replace('#', '') || 'all';
 /* ------------------------------------------------------------------ tabs */
 
 function tabs() {
-  const items = [
-    ['all', 'All evaluations'],
-    ['mine', 'My evaluations'],
-  ];
-  if (can('cases.create')) items.push(['create', 'Create']);
-  items.push(['instruments', 'Instruments']);
+  const items = [];
+  if ((getUser() || {}).role_code === 'SUPER_ADMIN') {
+    // The platform administrator reads the approved instrument register and
+    // the report repository; the evaluation workspace itself stays with the
+    // laboratory team.
+    items.push(['instruments', 'Instruments']);
+  } else {
+    items.push(['all', 'All evaluations']);
+    items.push(['mine', 'My evaluations']);
+    if (can('cases.create')) items.push(['create', 'Create']);
+    items.push(['instruments', 'Instruments']);
+  }
   return `<div class="inline" style="gap:6px;margin-bottom:14px">
     ${items.map(([key, label]) =>
       `<button class="btn-sm ${tab === key ? 'btn-primary' : ''}" data-tab="${key}">${escapeHtml(label)}</button>`).join('')}
@@ -101,10 +107,15 @@ async function renderInstruments() {
   } catch (error) {
     return `<div class="banner fail"><div>${escapeHtml(formatApiError(error))}</div></div>`;
   }
-  if (!data.items.length) return `<div class="card">${empty('No instruments registered yet.')}</div>`;
+  if (!data.items.length) {
+    return `<div class="card">${empty('No approved instruments yet.',
+      'The register publishes an instrument once its evaluation is approved.')}</div>`;
+  }
   return `<div class="card">
-    <div class="card-title"><h3>Instrument register</h3>
+    <div class="card-title"><h3>Approved instrument register</h3>
       <span class="faint small">${data.meta.total} record(s)</span></div>
+    <div class="hint">Every user may read this register. It lists only instruments whose
+      evaluation has been approved and verified; drafts and open cases are never shown here.</div>
     <div class="table-wrap"><table>
       <thead><tr><th>Model</th><th>Serial</th><th>Class</th><th class="num">Max</th>
         <th class="num">Min</th><th class="num">e</th><th class="num">d</th><th>Manufacturer</th></tr></thead>
@@ -199,15 +210,13 @@ function createForm() {
         </div>
       </div>
       <div class="card mt-3">
-        <h3>Mandatory photographs</h3>
-        <div class="hint">Two clear photographs are required before this evaluation can be
-          submitted for technical review: the instrument nameplate and the test setup. Attach them
-          here, or later in the Instrument or Execution step of the evaluation.</div>
+        <h3>Mandatory photograph</h3>
+        <div class="hint">A clear photograph of the instrument nameplate is required before this
+          evaluation can be submitted for technical review. Attach it here, or later in the
+          Instrument step of the evaluation.</div>
         <div class="grid cols-2">
-          <div class="field"><label for="create-nameplate">Instrument nameplate</label>
+          <div class="field"><label class="req" for="create-nameplate">Instrument nameplate</label>
             <input type="file" id="create-nameplate" accept="image/*" /></div>
-          <div class="field"><label for="create-test-setup">Test setup</label>
-            <input type="file" id="create-test-setup" accept="image/*" /></div>
         </div>
       </div>
       <div class="inline mt-3">
@@ -366,7 +375,6 @@ function bindCreate() {
 
       const photographs = [
         ['nameplate_photograph', 'Instrument nameplate', document.getElementById('create-nameplate').files[0]],
-        ['test_setup_photograph', 'Test setup', document.getElementById('create-test-setup').files[0]],
       ].filter(([, , file]) => file);
       let evidenceWarning = '';
       if (photographs.length) submit.textContent = 'Attaching photographs\u2026';
@@ -383,11 +391,11 @@ function bindCreate() {
         }
       }
 
-      const outstanding = photographs.length < 2 || Boolean(evidenceWarning);
+      const outstanding = photographs.length < 1 || Boolean(evidenceWarning);
       toast(
         outstanding
-          ? 'Evaluation created. Two clear photographs are still required before submission.'
-          : 'Evaluation created, test plan generated and photographs attached.',
+          ? 'Evaluation created. The instrument nameplate photograph is still required before submission.'
+          : 'Evaluation created, test plan generated and nameplate photograph attached.',
         outstanding ? 'warn' : 'success',
       );
       // Land on the step that carries the mandatory-photograph panel whenever the
@@ -409,6 +417,7 @@ async function render() {
   bindTabs();
   const panel = document.getElementById('panel');
 
+  if ((getUser() || {}).role_code === 'SUPER_ADMIN') tab = 'instruments';
   if (tab === 'create') {
     if (!can('cases.create')) { panel.innerHTML = '<div class="banner fail"><div>Not permitted.</div></div>'; return; }
     panel.innerHTML = createForm();

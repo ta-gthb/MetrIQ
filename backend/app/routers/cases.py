@@ -43,7 +43,7 @@ from app.schemas.cases import (
 )
 from app.schemas.common import Paginated
 from app.schemas.masters import EquipmentUsageCreate, InstrumentBase, InstrumentCreate
-from app.security.permissions import APPROVER, ENGINEER, P, REVIEWER, SUPER_ADMIN
+from app.security.permissions import APPROVER, ENGINEER, LAB_ADMIN, P, REVIEWER, SUPER_ADMIN
 from app.security.scope import case_editable_by, case_scope_clause
 from app.services import audit_service, equipment_service, readiness
 from app.services.test_engine import generate_and_persist_plan
@@ -74,6 +74,38 @@ def _require_case_engineer_role(user: User, action: str) -> None:
                 f"{action} is recorded by the assigned Test Engineer / Metrologist. "
                 "Your role has view-only access to this step."
             ),
+        )
+
+
+ASSIGNMENT_FIELDS = {
+    "engineer_id": ENGINEER,
+    "reviewer_id": REVIEWER,
+    "approver_id": APPROVER,
+}
+
+
+def _validate_case_assignee(db: Session, field: str, value, laboratory_id) -> None:
+    """An assignment must name an active holder of the right role in the case laboratory.
+
+    This keeps personnel from being mixed between laboratories: a case may only
+    be staffed from the register of the laboratory that owns it.
+    """
+    target = db.get(User, value)
+    if target is None or not target.is_active:
+        raise HTTPException(status_code=422, detail=f"{field} must reference an active user")
+    expected = ASSIGNMENT_FIELDS[field]
+    if target.role_code != expected:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{field} must reference a registered user whose role is {expected}; "
+                f"{target.full_name} holds the {target.role_code} role."
+            ),
+        )
+    if target.laboratory_id != laboratory_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{field} must reference a user assigned to the case laboratory.",
         )
 
 
@@ -115,6 +147,17 @@ def create_case(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.CASES_CREATE)),
 ) -> dict:
+    # Case creation is the Laboratory Admin / Manager's step; the platform
+    # administrator sees every evaluation record but does not open one.
+    if user.role_code != LAB_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Only the Laboratory Admin / Manager may create an evaluation case. "
+                "Create the case, then assign the Test Engineer / Metrologist, "
+                "Reviewer and Approving Authority to it."
+            ),
+        )
     laboratory_id = payload.laboratory_id or user.laboratory_id
     if laboratory_id is None:
         raise HTTPException(
@@ -123,6 +166,11 @@ def create_case(
         )
     if user.role_code != SUPER_ADMIN and user.laboratory_id and laboratory_id != user.laboratory_id:
         raise HTTPException(status_code=403, detail="You cannot create cases outside your laboratory.")
+
+    for field in ASSIGNMENT_FIELDS:
+        value = getattr(payload, field)
+        if value is not None:
+            _validate_case_assignee(db, field, value, laboratory_id)
 
     instrument = db.get(Instrument, payload.instrument_id) if payload.instrument_id else None
     if instrument is None and payload.instrument:
@@ -166,7 +214,7 @@ def create_case(
         applicant_id=applicant.id if applicant else None,
         manufacturer_id=manufacturer.id if manufacturer else None,
         laboratory_id=laboratory_id,
-        engineer_id=payload.engineer_id or (user.id if user.role_code == ENGINEER else None),
+        engineer_id=payload.engineer_id,
         reviewer_id=payload.reviewer_id,
         approver_id=payload.approver_id,
         standard_version_id=standard_version.id,
@@ -365,31 +413,24 @@ def assign_case(
     if case.status in CaseStatus.IMMUTABLE:
         raise HTTPException(status_code=409, detail="A finalized case cannot be reassigned.")
     changes: dict[str, uuid.UUID | None] = {}
-    required_role = {
-        "engineer_id": ENGINEER,
-        "reviewer_id": REVIEWER,
-        "approver_id": APPROVER,
-    }
-    for field in ("engineer_id", "reviewer_id", "approver_id"):
+    for field in ASSIGNMENT_FIELDS:
         value = getattr(payload, field)
         if value is not None:
-            target = db.get(User, value)
-            if target is None or not target.is_active:
-                raise HTTPException(status_code=422, detail=f"{field} must reference an active user")
-            if user.role_code != SUPER_ADMIN and target.laboratory_id != case.laboratory_id:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{field} must reference a user in the case laboratory.",
-                )
-            expected = required_role[field]
-            if target.role_code != expected:
-                raise HTTPException(
-                    status_code=422,
-                    detail=(
-                        f"{field} must reference a registered user whose role is {expected}; "
-                        f"{target.full_name} holds the {target.role_code} role."
-                    ),
-                )
+            if user.role_code == SUPER_ADMIN:
+                target = db.get(User, value)
+                if target is None or not target.is_active:
+                    raise HTTPException(status_code=422, detail=f"{field} must reference an active user")
+                expected = ASSIGNMENT_FIELDS[field]
+                if target.role_code != expected:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"{field} must reference a registered user whose role is {expected}; "
+                            f"{target.full_name} holds the {target.role_code} role."
+                        ),
+                    )
+            else:
+                _validate_case_assignee(db, field, value, case.laboratory_id)
             setattr(case, field, value)
             changes[field] = value
 

@@ -15,7 +15,6 @@ import uuid
 from app.security.permissions import (
     ALL_PERMISSIONS,
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     P,
@@ -27,38 +26,7 @@ from app.security.permissions import (
 
 API = "/api/v1"
 
-#: Every catalogue permission that mutates state. The Auditor must hold none.
-WRITE_PERMISSIONS = frozenset(
-    {
-        P.USERS_MANAGE,
-        P.USERS_MANAGE_SCOPED,
-        P.LABS_MANAGE,
-        P.MASTERS_MANAGE,
-        P.EQUIPMENT_MANAGE,
-        P.RULES_MANAGE,
-        P.RULES_REVIEW,
-        P.RULES_APPROVE,
-        P.CASES_CREATE,
-        P.CASES_ASSIGN,
-        P.CASES_EDIT,
-        P.CASES_SUBMIT,
-        P.CASES_REVIEW,
-        P.CASES_REQUEST_CORRECTION,
-        P.CASES_APPROVE,
-        P.CASES_FINALIZE,
-        P.TESTS_EDIT,
-        P.TESTS_EDIT_OWN,
-        P.TESTS_VALIDATE,
-        P.REPORTS_GENERATE,
-        P.OVERRIDE_REQUEST,
-        P.OVERRIDE_APPROVE,
-        P.AI_USE,
-        P.AI_MANAGE,
-        P.SETTINGS_MANAGE,
-    }
-)
-
-PINNED_ROLE_ORDER = [SUPER_ADMIN, LAB_ADMIN, ENGINEER, REVIEWER, APPROVER, AUDITOR]
+PINNED_ROLE_ORDER = [SUPER_ADMIN, LAB_ADMIN, ENGINEER, REVIEWER, APPROVER]
 
 
 def unique_email(prefix: str) -> str:
@@ -90,9 +58,18 @@ def test_the_role_matrix_is_a_consistent_hierarchy():
     ranks = [ROLE_DEFINITIONS[code].rank for code in PINNED_ROLE_ORDER]
     assert ranks == sorted(ranks), "role ranks must order from most to least privileged"
 
-    # The read-only role must be exactly that.
-    assert not (ROLE_DEFINITIONS[AUDITOR].permissions & WRITE_PERMISSIONS)
-    assert P.AUDIT_VIEW in ROLE_DEFINITIONS[AUDITOR].permissions
+    # The audit trail is readable by the platform administrator alone.
+    for code, definition in ROLE_DEFINITIONS.items():
+        if code == SUPER_ADMIN:
+            assert P.AUDIT_VIEW in definition.permissions
+        else:
+            assert P.AUDIT_VIEW not in definition.permissions, code
+
+    # Case creation is the Laboratory Admin / Manager step; no other role opens
+    # an evaluation record for itself.
+    creators = {code for code, definition in ROLE_DEFINITIONS.items()
+                if P.CASES_CREATE in definition.permissions}
+    assert creators == {SUPER_ADMIN, LAB_ADMIN}
 
     # Separation of duties: the engineer cannot review or approve, the reviewer
     # cannot approve or finalize, and the approver cannot perform technical review.
@@ -354,7 +331,12 @@ def test_lab_admin_manages_masters_and_can_review(client, tokens, accounts, new_
     )
     assert instrument.status_code == 201, instrument.text
     instrument_id = instrument.json()["id"]
-    assert client.get(f"{API}/instruments/{instrument_id}", headers=tokens[LAB_ADMIN]).status_code == 200
+    # The instrument register publishes only instruments carried by an approved
+    # evaluation, so an instrument still in progress is not readable yet.
+    assert (
+        client.get(f"{API}/instruments/{instrument_id}", headers=tokens[LAB_ADMIN]).status_code
+        == 404
+    )
 
     equipment = client.post(
         f"{API}/equipment",
@@ -445,22 +427,23 @@ def test_engineer_runs_the_complete_evaluation_cycle(client, tokens, new_case, o
         assert completed.status_code == 200, completed.text
         assert completed.json()["status"] == "COMPLETED"
 
-    # Two clear photographs are mandatory before submission.
+    # The instrument nameplate photograph is the mandatory evidence before
+    # submission; the test-setup photograph is no longer required.
     blocked = client.post(f"{API}/cases/{case_id}/submit", json={}, headers=tokens[ENGINEER])
     assert blocked.status_code == 422, blocked.text
-    assert set(blocked.json()["detail"]["missing_evidence"]) == {
-        "nameplate_photograph",
-        "test_setup_photograph",
-    }
+    assert blocked.json()["detail"]["missing_evidence"] == ["nameplate_photograph"]
 
-    for category in ("nameplate_photograph", "test_setup_photograph"):
-        uploaded = client.post(
-            f"{API}/cases/{case_id}/attachments",
-            files={"file": (f"{category}.png", png_factory(), "image/png")},
-            data={"category": category, "caption": category, "auto_classify": "false"},
-            headers=tokens[ENGINEER],
-        )
-        assert uploaded.status_code == 201, uploaded.text
+    uploaded = client.post(
+        f"{API}/cases/{case_id}/attachments",
+        files={"file": ("nameplate_photograph.png", png_factory(), "image/png")},
+        data={
+            "category": "nameplate_photograph",
+            "caption": "Instrument nameplate",
+            "auto_classify": "false",
+        },
+        headers=tokens[ENGINEER],
+    )
+    assert uploaded.status_code == 201, uploaded.text
 
     requirements = client.get(f"{API}/cases/{case_id}/evidence-requirements", headers=tokens[ENGINEER])
     assert requirements.status_code == 200, requirements.text
@@ -468,7 +451,7 @@ def test_engineer_runs_the_complete_evaluation_cycle(client, tokens, new_case, o
 
     attachments = client.get(f"{API}/cases/{case_id}/attachments", headers=tokens[ENGINEER])
     assert attachments.status_code == 200
-    assert len(attachments.json()) == 2
+    assert len(attachments.json()) == 1
 
     submitted = submit(client, tokens, case_id)
     assert submitted["status"] == "TESTING_COMPLETED"
@@ -564,13 +547,13 @@ def test_approver_approves_finalizes_and_downloads_the_report(client, tokens, ca
     submit(client, tokens, case_id)
     verify(client, tokens, case_id)
 
-    generated = client.post(
+    # A report is released only after the Approving Authority approves.
+    blocked = client.post(
         f"{API}/cases/{case_id}/reports/generate",
         json={"formats": ["pdf", "docx"], "lock": False},
         headers=tokens[APPROVER],
     )
-    assert generated.status_code == 201, generated.text
-    report_id = generated.json()["id"]
+    assert blocked.status_code == 409, blocked.text
 
     approved = client.post(
         f"{API}/cases/{case_id}/approve",
@@ -579,6 +562,14 @@ def test_approver_approves_finalizes_and_downloads_the_report(client, tokens, ca
     )
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "APPROVED"
+
+    generated = client.post(
+        f"{API}/cases/{case_id}/reports/generate",
+        json={"formats": ["pdf", "docx"], "lock": False},
+        headers=tokens[APPROVER],
+    )
+    assert generated.status_code == 201, generated.text
+    report_id = generated.json()["id"]
 
     finalized = client.post(f"{API}/cases/{case_id}/finalize", json={}, headers=tokens[APPROVER])
     assert finalized.status_code == 200, finalized.text
@@ -641,95 +632,37 @@ def test_approver_approves_finalizes_and_downloads_the_report(client, tokens, ca
     )
 
 
-# ------------------------------------------------------------------ auditor
-def test_auditor_reads_everything_and_writes_nothing(client, tokens, case_factory, accounts):
+# ------------------------------------------------- audit trail is SA-only
+def test_only_the_super_admin_reads_the_audit_trail(client, tokens, case_factory):
     case = case_factory()
     case_id = case["id"]
-    submit(client, tokens, case_id)
-    verify(client, tokens, case_id)
-
-    readable = (
-        "/cases",
-        f"/cases/{case_id}",
-        f"/cases/{case_id}/tests",
-        f"/cases/{case_id}/audit-logs",
-        f"/cases/{case_id}/workflow-actions",
-        f"/cases/{case_id}/attachments",
-        f"/cases/{case_id}/evidence-requirements",
-        f"/cases/{case_id}/reports",
-        f"/cases/{case_id}/test-plan",
-        f"/cases/{case_id}/conditions",
-        "/audit-logs",
-        "/reports",
-        "/reports?only_final=false",
-        "/laboratories",
-        "/manufacturers",
-        "/applicants",
-        "/instruments",
-        "/equipment",
-        "/standards",
-        "/rules",
-        "/rulesets",
-        "/test-definitions",
-        "/report-templates",
-        "/dashboard/summary",
-        "/dashboard/pending",
-        "/dashboard/ai-review",
-        "/notifications",
-        "/ai/features",
-    )
-    for path in readable:
-        response = client.get(f"{API}{path}", headers=tokens[AUDITOR])
-        assert response.status_code == 200, f"auditor GET {path}: {response.status_code} {response.text}"
-
-    # User administration is an administrative function, not an auditor read.
-    assert client.get(f"{API}/users", headers=tokens[AUDITOR]).status_code == 403
-
-    # The auditor holds the platform-wide audit view.
-    audit = client.get(f"{API}/audit-logs", headers=tokens[AUDITOR])
+    for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
+        assert client.get(f"{API}/audit-logs", headers=tokens[role]).status_code == 403, role
+        response = client.get(f"{API}/cases/{case_id}/audit-logs", headers=tokens[role])
+        assert response.status_code == 403, role
+    audit = client.get(f"{API}/audit-logs", headers=tokens[SUPER_ADMIN])
+    assert audit.status_code == 200, audit.text
     assert audit.json()["meta"]["total"] > 0
+    case_trail = client.get(f"{API}/cases/{case_id}/audit-logs", headers=tokens[SUPER_ADMIN])
+    assert case_trail.status_code == 200, case_trail.text
 
-    test_id = client.get(f"{API}/cases/{case_id}", headers=tokens[AUDITOR]).json()["tests"][0]["id"]
-    blocked = (
-        ("POST", "/cases", {"instrument": {"model": "X", "instrument_class": "III", "max_capacity": "1000",
-                                           "verification_scale_interval": "1"}}),
-        ("POST", "/users", {"email": unique_email("auditor"), "full_name": "Auditor Attempt",
-                            "password": "Provisional@2026", "role_code": ENGINEER}),
-        ("POST", "/laboratories", {"name": "Audit Lab", "code": "AUDIT-1",
-                                   "location": "Karnataka", "address": "Audit Block 1",
-                                   "contact_email": "audit@lab.example"}),
-        ("POST", "/manufacturers", {"name": "Audit Manufacturer"}),
-        ("PUT", "/settings/auditor.key", {"value": 1}),
-        ("POST", f"/cases/{case_id}/submit", {}),
-        ("POST", f"/cases/{case_id}/review", {"decision": "verify"}),
-        ("POST", f"/cases/{case_id}/verify", {}),
-        ("POST", f"/cases/{case_id}/approve", {}),
-        ("POST", f"/cases/{case_id}/request-correction", {"reason": "Auditor tampering attempt"}),
-        ("POST", f"/cases/{case_id}/finalize", {}),
-        ("POST", f"/cases/{case_id}/cancel", {"reason": "Auditor tampering attempt"}),
-        ("POST", f"/cases/{case_id}/assignments", {"engineer_id": accounts["user_ids"][ENGINEER]}),
-        ("POST", f"/cases/{case_id}/test-plan", {}),
-        ("POST", f"/cases/{case_id}/conditions", {}),
-        ("PATCH", f"/cases/{case_id}", {"title": "Auditor tampering attempt"}),
-        ("PATCH", f"/tests/{test_id}", {"mark_complete": True}),
-        ("PUT", f"/tests/{test_id}/observations", {"observations": []}),
-        ("POST", f"/tests/{test_id}/calculate", {}),
-        ("POST", f"/tests/{test_id}/validate", {}),
-        ("POST", f"/tests/{test_id}/anomaly-check", {}),
-        ("POST", f"/tests/{test_id}/override", {"reason": "Auditor tampering attempt"}),
-        ("POST", f"/cases/{case_id}/reports/generate", {"formats": ["pdf"]}),
-        ("POST", "/rulesets/00000000-0000-4000-8000-000000000001/activate", {}),
-        ("PATCH", "/ai/features/nameplate_extraction", {"enabled": True}),
-    )
-    for method, path, payload in blocked:
-        response = client.request(method, f"{API}{path}", json=payload, headers=tokens[AUDITOR])
-        assert response.status_code == 403, f"auditor {method} {path}: {response.status_code} {response.text}"
 
-    # Photograph upload requires a write permission.
-    upload = client.post(
-        f"{API}/cases/{case_id}/attachments",
-        files={"file": ("audit.png", b"\x89PNG\r\n\x1a\n", "image/png")},
-        data={"category": "nameplate_photograph"},
-        headers=tokens[AUDITOR],
-    )
-    assert upload.status_code == 403, upload.text
+# ------------------------------------------------- ruleset lifecycle is SA-only
+def test_only_the_super_admin_changes_a_ruleset_lifecycle(client, tokens):
+    unknown = "00000000-0000-4000-8000-000000000001"
+    for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
+        for action in ("activate", "deactivate", "schedule"):
+            response = client.post(
+                f"{API}/rulesets/{unknown}/{action}",
+                json={"reason": "Lifecycle attempt"},
+                headers=tokens[role],
+            )
+            assert response.status_code == 403, (role, action, response.text)
+
+
+# ------------------------------------------------- the Auditor role is retired
+def test_the_auditor_role_is_gone_from_the_catalogue(client, tokens):
+    assert "AUDITOR" not in ROLE_DEFINITIONS
+    roles = client.get(f"{API}/admin/roles", headers=tokens[SUPER_ADMIN]).json()
+    assert "AUDITOR" not in {row["code"] for row in roles}
+    assert [row["code"] for row in roles] == PINNED_ROLE_ORDER

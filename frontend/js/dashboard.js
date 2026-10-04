@@ -22,7 +22,7 @@ function kpiCard(label, value, kind = '') {
 
 function caseRow(item) {
   const role = getUser()?.role_code;
-  const href = ['SUPER_ADMIN', 'AUDITOR'].includes(role)
+  const href = role === 'SUPER_ADMIN'
     ? '/reports.html'
     : `/evaluation.html?case=${item.id}`;
   return `<tr>
@@ -76,12 +76,6 @@ const ROLE_PROFILES = {
     description: 'Make accountable approval decisions on verified type-evaluation records.',
     action: ['/evaluations.html', 'Open approval queue'],
     queueOrder: ['awaiting_approval'],
-  },
-  AUDITOR: {
-    title: 'Audit and traceability',
-    description: 'Follow finalized reports, evidence and the recorded history of every decision.',
-    action: ['/reports.html', 'Browse reports'],
-    queueOrder: [],
   },
 };
 

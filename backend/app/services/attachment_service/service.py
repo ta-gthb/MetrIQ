@@ -61,7 +61,7 @@ def validate_upload(*, filename: str, size: int, content_type: str | None) -> st
     if content_type:
         guessed, _ = mimetypes.guess_type(safe)
         if guessed and content_type.split(";")[0] not in {guessed, "application/octet-stream"}:
-            # Store the declared type but record the mismatch for the auditor.
+            # Store the declared type but record the mismatch so it stays visible.
             return content_type
     return content_type or mimetypes.guess_type(safe)[0] or "application/octet-stream"
 

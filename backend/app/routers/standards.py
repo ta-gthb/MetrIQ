@@ -31,7 +31,7 @@ from app.schemas.reports import (
     StandardOut,
 )
 from app.schemas.tests import TestDefinitionOut
-from app.security.permissions import P
+from app.security.permissions import SUPER_ADMIN, P
 from app.services import audit_service, ruleset_diff, ruleset_lifecycle
 from app.services.ruleset_lifecycle import LifecycleError
 from app.services.calculation_engine import ENGINE_VERSION, CalcContext, evaluate
@@ -39,6 +39,22 @@ from app.services.calculation_engine.engine import build_observation, supported_
 from app.services.calculation_engine.mpe import MpeResolutionError, resolve_mpe
 
 router = APIRouter(tags=["Standards and rules"])
+
+
+def _require_super_admin(user: User, action: str) -> None:
+    """Lifecycle changes to a ruleset are reserved for the platform administrator.
+
+    Every other role - including the Laboratory Admin / Manager - keeps
+    view-only access to standards and rulesets.
+    """
+    if user.role_code != SUPER_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Only the Super Admin may {action} a rule set or standard. "
+                "Your role has view-only access to Standards & rules."
+            ),
+        )
 
 
 @router.get("/standards", response_model=list[StandardOut], summary="List standards and versions")
@@ -480,6 +496,7 @@ def schedule_ruleset(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
+    _require_super_admin(user, "schedule")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.schedule(
@@ -504,6 +521,7 @@ def activate_ruleset(
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
     """Make this the active ruleset. Refused unless every rule is reviewed.\n\n"""
+    _require_super_admin(user, "activate")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.activate(
@@ -532,6 +550,7 @@ def deactivate_ruleset(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
+    _require_super_admin(user, "deactivate")
     version = _ruleset_or_404(db, standard_version_id)
     try:
         ruleset_lifecycle.deactivate(db, version, actor=user, reason=payload.reason)

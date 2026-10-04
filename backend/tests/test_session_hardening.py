@@ -113,7 +113,7 @@ def test_reuse_is_recorded_in_the_audit_trail(client, accounts):
         rows = db.execute(
             select(AuditLog).where(AuditLog.event_type == "TOKEN_REUSE")
         ).scalars().all()
-    assert rows, "the revoked session must be visible to an auditor"
+    assert rows, "the revoked session must be visible in the audit trail"
 
 
 def test_the_refresh_flow_works_through_the_cookie_alone(client, accounts):

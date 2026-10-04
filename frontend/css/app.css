@@ -655,6 +655,19 @@ html[data-splash="off"] .splash { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .splash { display: none; } }
 
+/* Case and support discussion threads */
+.msg-list {
+  max-height: 320px; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 8px; margin-top: 8px;
+}
+.msg {
+  background: var(--bg-inset); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px;
+}
+.msg .small { margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+.thread-list { display: flex; flex-direction: column; gap: 6px; }
+.thread-item { display: block; width: 100%; text-align: left; }
+
 @media print {
   .splash, .sidebar, .topbar, .wizard-footer, .rail, .aside, button, .btn { display: none !important; }
   body { background: #fff; color: #000; }

@@ -101,6 +101,9 @@
     "laboratory_name": "MetrIQ Regional Legal Metrology Laboratory",
     "laboratory_code": "LAB-001",
     "laboratory_location": "Bengaluru",
+    "laboratory_address": "Plot 12, Industrial Estate, Bengaluru 560058",
+    "laboratory_contact_email": "lab@metriq.local",
+    "laboratory_accreditation_no": "NABL-LM-2026-0042",
     "report_title": "Type Evaluation Test Report",
     "subtitle": "Non-automatic weighing instruments - OIML R 76",
     "case_title": "Golden fixture - multi-range class III bench evaluation",
@@ -117,7 +120,10 @@
   },
   "manufacturer": {
     "name": null,
+    "code": null,
     "contact_person": null,
+    "email": null,
+    "phone": null,
     "address": null,
     "city": null,
     "country": null

@@ -174,7 +174,7 @@ export function promptReason(title, { label = 'Reason', hint = '', minLength = 1
 const ICONS = {
   home: '\u2302', dashboard: '\u25a6', evaluations: '\u2637', reports: '\u25a4',
   admin: '\u2699', audit: '\u2691', standards: '\u00a7', instruments: '\u2696',
-  assistant: '\u2726',
+  assistant: '\u2726', support: '\u2709',
 };
 
 function navItems() {
@@ -187,18 +187,22 @@ function navItems() {
     { href: '/dashboard.html', label: 'Dashboard', icon: ICONS.dashboard, show: can('dashboard.view'), key: 'dashboard' },
     { href: '/evaluations.html', label: is('REVIEWER') ? 'Review queue' : is('APPROVER') ? 'Approval queue' : is('ENGINEER') ? 'My evaluations' : 'Evaluations', icon: ICONS.evaluations, show: canAny('cases.view', 'cases.view.scope') && !is('SUPER_ADMIN'), key: 'evaluations' },
     { href: '/evaluation.html?new=1', label: 'New evaluation', icon: '\uff0b', show: can('cases.create') && !is('SUPER_ADMIN'), key: 'new' },
-    { href: '/evaluations.html#instruments', label: 'Instruments', icon: ICONS.instruments, show: canAny('cases.view', 'cases.view.scope') && !is('SUPER_ADMIN'), key: 'instruments' },
+    { href: '/evaluations.html#instruments', label: 'Instruments', icon: ICONS.instruments, show: canAny('cases.view', 'cases.view.scope'), key: 'instruments' },
     { href: '/reports.html', label: 'Reports', icon: ICONS.reports, show: can('reports.download'), key: 'reports' },
-    { href: '/assistant.html', label: 'R 76 assistant', icon: ICONS.assistant, show: can('ai.view') && !is('AUDITOR', 'APPROVER'), key: 'assistant' },
+    { href: '/assistant.html', label: 'R 76 assistant', icon: ICONS.assistant, show: can('ai.view') && !is('APPROVER'), key: 'assistant' },
+    { href: '/support.html', label: 'Contact Super Admin', icon: ICONS.support, show: !is('SUPER_ADMIN'), key: 'support' },
+    { href: '/support.html', label: 'Support inbox', icon: ICONS.support, show: is('SUPER_ADMIN'), key: 'support' },
   ];
   return items.filter((item) => item.show);
 }
 
 function adminItems() {
+  const isSuperAdmin = getUser()?.role_code === 'SUPER_ADMIN';
   return [
     { href: '/admin.html', label: 'Administration', icon: ICONS.admin, show: canAny('users.manage', 'users.manage.scoped', 'laboratories.manage', 'settings.manage'), key: 'admin' },
     { href: '/admin.html#standards', label: 'Standards & rules', icon: ICONS.standards, show: can('rules.view'), key: 'standards' },
-    { href: '/admin.html#audit', label: 'Audit logs', icon: ICONS.audit, show: canAny('audit.view', 'audit.view.scope', 'audit.view.limited'), key: 'audit' },
+    { href: '/admin.html#equipment', label: 'Test equipment', icon: ICONS.instruments, show: can('dashboard.view'), key: 'equipment' },
+    { href: '/admin.html#audit', label: 'Audit logs', icon: ICONS.audit, show: isSuperAdmin && can('audit.view'), key: 'audit' },
   ].filter((item) => item.show);
 }
 

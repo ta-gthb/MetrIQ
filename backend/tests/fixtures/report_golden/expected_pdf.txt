@@ -3,6 +3,16 @@ Page 1
  MetrIQ Regional Legal Metrology Laboratory
  Type Evaluation Test Report
  Non-automatic weighing instruments - OIML R 76
+Laboratory code
+LAB-001
+Location
+Bengaluru
+Address
+Plot 12, Industrial Estate, Bengaluru 560058
+Contact email
+lab@metriq.local
+Accreditation number
+NABL-LM-2026-0042
 Application number
 <application-no>
 Report number
@@ -43,7 +53,13 @@ country
 -
 name
 -
+code
+-
 contact_person
+-
+email
+-
+phone
 -
 address
 -
@@ -103,15 +119,15 @@ g
 g
 3. Laboratory and test conditions
 Condition set 1
- label
+
+RPT-GOLDEN-00001 - revision 1
+Page 3
+label
 Ambient
 test_code
 -
 temperature_c
 21.5
-
-RPT-GOLDEN-00001 - revision 1
-Page 3
 max_temperature_c
 -
 end_temperature_c

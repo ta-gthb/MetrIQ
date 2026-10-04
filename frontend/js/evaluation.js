@@ -53,8 +53,8 @@ const state = {
   tests: [],
   plan: null,
   conditions: [],
-  audit: [],
   workflow: [],
+  messages: [],
   attachments: [],
   evidenceReq: null,
   reports: [],
@@ -134,13 +134,13 @@ function caseStepStatus(stepKey) {
 /* ---------------------------------------------------------------- loading */
 
 async function loadAll() {
-  const [kase, tests, plan, conditions, audit, workflow, attachments, evidenceReq, reports, readiness, equipment] = await Promise.all([
+  const [kase, tests, plan, conditions, workflow, messages, attachments, evidenceReq, reports, readiness, equipment] = await Promise.all([
     api.get('/cases/' + caseId),
     api.get('/cases/' + caseId + '/tests'),
     api.get('/cases/' + caseId + '/test-plan'),
     api.get('/cases/' + caseId + '/conditions'),
-    api.get('/cases/' + caseId + '/audit-logs'),
     api.get('/cases/' + caseId + '/workflow-actions'),
+    api.get('/cases/' + caseId + '/messages').catch(() => []),
     api.get('/cases/' + caseId + '/attachments'),
     api.get('/cases/' + caseId + '/evidence-requirements').catch(() => null),
     api.get('/cases/' + caseId + '/reports').catch(() => []),
@@ -153,8 +153,8 @@ async function loadAll() {
   state.tests = tests;
   state.plan = plan;
   state.conditions = conditions;
-  state.audit = audit;
   state.workflow = workflow;
+  state.messages = messages || [];
   state.attachments = attachments;
   state.evidenceReq = evidenceReq;
   state.reports = reports || [];
@@ -396,7 +396,48 @@ function asideHtml() {
       '<div class="small faint mt-2">Report template</div><div class="mono small">' + escapeHtml(c.template_version_label || '\u2014') + '</div>' +
       '<div class="small faint mt-2">Revision</div><div class="mono">' + c.revision_no + '</div>' +
       '<div class="small faint mt-2">Updated</div><div class="small">' + fmtDate(c.updated_at) + '</div></div>' +
+    discussionCard() +
     '</div>';
+}
+
+/* -------------------------------------------------- case discussion (aside) */
+
+function discussionCard() {
+  const messages = state.messages || [];
+  const rows = messages.length
+    ? messages.slice(-40).map((message) => '<div class="msg">' +
+        '<div class="inline" style="justify-content:space-between">' +
+          '<span class="small"><strong>' + escapeHtml(message.sender_name || 'User') + '</strong> ' +
+            '<span class="faint">' + escapeHtml(message.sender_role || '') + '</span></span>' +
+          '<span class="faint" style="font-size:0.68rem">' + fmtDate(message.created_at) + '</span></div>' +
+        '<div class="small">' + escapeHtml(message.body) + '</div></div>').join('')
+    : '<div class="faint small">No messages yet.</div>';
+  return '<div class="card tight"><div class="card-title"><h3>Case discussion</h3>' +
+    '<span class="pill pill-info">' + messages.length + '</span></div>' +
+    '<div class="hint">Visible to the laboratory team and the people assigned to this case.</div>' +
+    '<div class="msg-list">' + rows + '</div>' +
+    '<div class="field mt-2"><textarea id="msg-body" rows="2" placeholder="Write a message\u2026"></textarea></div>' +
+    '<button class="btn-sm btn-primary" id="msg-send">Send</button></div>';
+}
+
+function bindDiscussion() {
+  const button = document.getElementById('msg-send');
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    const input = document.getElementById('msg-body');
+    const body = (input && input.value ? input.value : '').trim();
+    if (!body) { toast('Write a message first.', 'warn'); return; }
+    button.disabled = true;
+    try {
+      const message = await api.post('/cases/' + caseId + '/messages', { body });
+      state.messages = [...(state.messages || []), message];
+      render();
+      toast('Message sent.', 'success');
+    } catch (error) {
+      toast(formatApiError(error), 'error');
+      button.disabled = false;
+    }
+  });
 }
 
 /* -------------------------------------------------------- step 14: application */
@@ -536,7 +577,8 @@ function stepParties() {
   const canAssign = can('cases.assign') && !['FINALIZED', 'CANCELLED'].includes(c.status);
   const assignForm = canAssign
     ? '<div class="card mt-3"><div class="card-title"><h3>Assignments</h3>' +
-        '<span class="faint small">Engineer \u2192 reviewer \u2192 approver separation of duties</span></div>' +
+        '<span class="faint small">Engineer \u2192 reviewer \u2192 approver separation of duties. ' +
+        'Only registered users assigned to this case\u2019s laboratory are listed.</span></div>' +
         '<div class="field-row">' +
           '<div class="field"><label>Engineer</label><select id="a-engineer">' + userOptions(c.engineer_id, 'ENGINEER') + '</select></div>' +
           '<div class="field"><label>Reviewer</label><select id="a-reviewer">' + userOptions(c.reviewer_id, 'REVIEWER') + '</select></div>' +
@@ -563,7 +605,18 @@ function stepParties() {
 }
 
 function userOptions(selected, roleCode) {
-  const users = (state.labUsers || []).filter((user) => !roleCode || user.role_code === roleCode);
+  const caseLaboratory = state.case && state.case.laboratory_id;
+  const me = getUser() || {};
+  const users = (state.labUsers || []).filter((user) => {
+    if (!roleCode || user.role_code !== roleCode) return false;
+    if (user.is_active === false) return false;
+    /* A laboratory may only draw its personnel from its own register, so
+       assignments never mix people between laboratories. */
+    if (me.role_code !== 'SUPER_ADMIN' && caseLaboratory && user.laboratory_id !== caseLaboratory) {
+      return false;
+    }
+    return true;
+  });
   return '<option value="">\u2014 unassigned \u2014</option>' + users.map((user) =>
     '<option value="' + user.id + '"' + (user.id === selected ? ' selected' : '') + '>' +
     escapeHtml(user.full_name) + ' (' + escapeHtml(user.role_code) + ')</option>').join('');
@@ -1301,8 +1354,8 @@ function requiredEvidencePanel() {
     (req.satisfied
       ? '<span class="pill pill-pass">complete</span>'
       : '<span class="pill pill-warn">' + outstanding + ' outstanding</span>') + '</div>' +
-    '<div class="hint">Two clear photographs are required before this evaluation can be submitted ' +
-    'for technical review: the instrument nameplate and the test setup.</div>' +
+    '<div class="hint">A clear photograph of the instrument nameplate is required before this ' +
+    'evaluation can be submitted for technical review.</div>' +
     rows +
     (testRows
       ? '<div class="mt-3"><div class="card-title"><h3>Procedure evidence</h3>' +
@@ -1797,9 +1850,9 @@ function stepSummary() {
   // Shown alongside the test banner: the two blockers are independent and the
   // engineer can clear the photographs while the tests are still running.
   if (!evidenceReady) {
-    banner += '<div class="banner warn"><div><strong>Mandatory photographs outstanding</strong>' +
+    banner += '<div class="banner warn"><div><strong>Mandatory evidence outstanding</strong>' +
       'Attach ' + state.evidenceReq.missing.map((c) => escapeHtml(statusLabel(c))).join(' and ') +
-      ' before submitting. They can be uploaded in the instrument or execution step.</div></div>';
+      ' before submitting. It can be uploaded in the instrument or execution step.</div></div>';
   }
   return '<div class="card"><div class="step-head"><span class="step-no">21</span>' +
     '<div style="flex:1"><h2>Validation and summary</h2>' +
@@ -1812,10 +1865,10 @@ function stepSummary() {
       '<tbody>' + rows + '</tbody></table></div>' +
     readinessCardHtml() +
     (canSubmit ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-submit"' +
-      (evidenceReady ? '' : ' disabled title="Attach the mandatory photographs first"') + '>Submit for technical review</button>' +
+      (evidenceReady ? '' : ' disabled title="Attach the mandatory nameplate photograph first"') + '>Submit for technical review</button>' +
       '<span class="faint small">' + (evidenceReady
         ? 'Blocked until every applicable test is complete and no test has failed.'
-        : 'Attach the mandatory nameplate and test-setup photographs before submitting.') + '</span></div>' : '') +
+        : 'Attach the mandatory instrument nameplate photograph before submitting.') + '</span></div>' : '') +
     '</div>';
 }
 
@@ -1842,22 +1895,15 @@ function bindSummary() {
 /* ------------------------------------------------------------ step 22: review */
 
 function timelineHtml() {
-  if (!state.workflow.length && !state.audit.length) return '<div class="faint small">No history yet.</div>';
-  const actions = state.workflow.map((action) => '<div class="card tight" style="margin-bottom:8px">' +
+  if (!state.workflow.length) return '<div class="faint small">No history yet.</div>';
+  return '<div class="card-title"><h3>Workflow history</h3>' +
+    '<span class="faint small">every recorded decision on this case</span></div>' +
+    state.workflow.map((action) => '<div class="card tight" style="margin-bottom:8px">' +
     '<div class="inline" style="justify-content:space-between"><span class="mono small">' + escapeHtml(action.action) + '</span>' +
     '<span class="faint small">' + fmtDate(action.acted_at) + '</span></div>' +
     '<div class="small">' + escapeHtml(action.from_status || '\u2014') + ' \u2192 ' + escapeHtml(action.to_status || '\u2014') + '</div>' +
     (action.reason ? '<div class="small mt-2">' + escapeHtml(action.reason) + '</div>' : '') +
     '<div class="faint small">' + escapeHtml(action.actor_role || '') + '</div></div>').join('');
-  const entries = state.audit.slice(0, 25).map((entry) => '<tr>' +
-    '<td class="small faint nowrap">' + fmtDate(entry.occurred_at) + '</td>' +
-    '<td class="mono small">' + escapeHtml(entry.event_type) + '</td>' +
-    '<td class="small">' + escapeHtml(entry.actor_email || '\u2014') + '</td>' +
-    '<td class="small">' + escapeHtml(entry.field_changed || entry.entity_type || '') + '</td>' +
-    '<td class="small faint">' + escapeHtml(entry.reason || '') + '</td></tr>').join('');
-  return '<div class="grid cols-2"><div><div class="card-title"><h3>Workflow actions</h3></div>' + (actions || '<div class="faint small">None.</div>') + '</div>' +
-    '<div><div class="card-title"><h3>Audit trail</h3><span class="faint small">most recent first</span></div>' +
-    '<div class="table-wrap"><table><tbody>' + entries + '</tbody></table></div></div></div>';
 }
 
 function stepReview() {
@@ -1865,7 +1911,9 @@ function stepReview() {
   const canReview = can('cases.review') && ['TESTING_COMPLETED', 'UNDER_REVIEW', 'CORRECTION_REQUIRED'].includes(c.status);
   const actions = canReview
     ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-verify">Verify (pass review)</button>' +
-      '<button class="btn-sm" id="btn-correction">Request correction\u2026</button></div>'
+      '<button class="btn-sm" id="btn-correction">Return for retest\u2026</button>' +
+      '<span class="faint small">Returning the case sends it back to the assigned Test Engineer / ' +
+      'Metrologist. It must be resolved and submitted again before it can reach approval.</span></div>'
     : '';
   const correction = c.last_correction_reason
     ? '<div class="banner warn"><div><strong>Corrections were requested</strong>' + escapeHtml(c.last_correction_reason) + '</div></div>' : '';
@@ -1944,7 +1992,10 @@ function bindReview() {
     } catch (error) { toast(formatApiError(error), 'error'); }
   });
   document.getElementById('btn-correction')?.addEventListener('click', async () => {
-    const reason = await promptReason('Request correction', {
+    const reason = await promptReason('Return this case for retest?', {
+      label: 'Reason for the return',
+      hint: 'Recorded in the audit trail and sent to the assigned Test Engineer / Metrologist. ' +
+        'Describe the re-test or correction required.',
       label: 'Correction required', submitLabel: 'Return to engineer',
       hint: 'The engineer sees this reason; the case revision number is incremented.',
     });
@@ -1977,7 +2028,8 @@ async function downloadReport(reportId, fmt) {
 
 function reportPanel() {
   const reports = state.reports || [];
-  const canGenerate = can('reports.generate') && !['DRAFT', 'CANCELLED'].includes(state.case.status);
+  const released = ['APPROVED', 'FINALIZED'].includes(state.case.status);
+  const canGenerate = can('reports.generate') && released;
   const finalReport = reports.find((item) => item.is_immutable) || reports[0];
   const rows = reports.length
     ? '<div class="table-wrap mt-2"><table><thead><tr><th>Report</th><th>Rev</th><th>Status</th><th>Generated</th><th></th></tr></thead><tbody>' +
@@ -1986,10 +2038,14 @@ function reportPanel() {
         '<td class="mono">' + report.revision_no + '</td>' +
         '<td>' + (report.is_immutable ? '<span class="pill pill-pass">locked</span>' : '<span class="pill pill-info">draft</span>') + '</td>' +
         '<td class="small faint">' + fmtDate(report.generated_at) + '</td>' +
-        '<td class="nowrap"><button class="btn-sm" data-download="' + report.id + '" data-fmt="pdf">PDF</button> ' +
-          '<button class="btn-sm" data-download="' + report.id + '" data-fmt="docx">DOCX</button></td></tr>').join('') +
+        '<td class="nowrap">' + (released
+          ? '<button class="btn-sm" data-download="' + report.id + '" data-fmt="pdf">PDF</button> ' +
+            '<button class="btn-sm" data-download="' + report.id + '" data-fmt="docx">DOCX</button>'
+          : '<span class="faint small">awaiting final approval</span>') + '</td></tr>').join('') +
       '</tbody></table></div>'
-    : '<div class="faint small mt-2">No report generated yet.</div>';
+    : '<div class="faint small mt-2">' + (released
+        ? 'No report generated yet.'
+        : 'The report is generated and released only after the Approving Authority\u2019s final approval.') + '</div>';
   return '<div class="card tight mt-3"><div class="card-title"><h3>Generated report</h3>' +
     (finalReport && finalReport.verification_code ? '<span class="mono small">' + escapeHtml(finalReport.verification_code) + '</span>' : '') + '</div>' +
     (finalReport ? '<div class="calc-panel"><dl>' +
@@ -2159,6 +2215,7 @@ function render() {
   document.getElementById('step-prev')?.addEventListener('click', goRelative(-1));
   document.getElementById('step-next')?.addEventListener('click', goRelative(1));
   (STEP_BINDERS[state.step] || (() => {}))();
+  bindDiscussion();
 }
 
 function goRelative(delta) {

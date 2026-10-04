@@ -16,7 +16,6 @@ from datetime import date, timedelta
 from app.database import SessionLocal
 from app.security.permissions import (
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     REVIEWER,
@@ -71,7 +70,7 @@ def equipment_payload(prefix: str = "eq") -> dict:
 
 def calibrated_equipment(client, tokens, prefix: str = "cal") -> dict:
     created = client.post(
-        f"{API}/equipment", json=equipment_payload(prefix), headers=tokens[SUPER_ADMIN]
+        f"{API}/equipment", json=equipment_payload(prefix), headers=tokens[LAB_ADMIN]
     )
     assert created.status_code == 201, created.text
     record = created.json()
@@ -83,7 +82,7 @@ def calibrated_equipment(client, tokens, prefix: str = "cal") -> dict:
             "issue_date": (date.today() - timedelta(days=30)).isoformat(),
             "valid_until": (date.today() + timedelta(days=365)).isoformat(),
         },
-        headers=tokens[SUPER_ADMIN],
+        headers=tokens[LAB_ADMIN],
     )
     assert calibration.status_code == 201, calibration.text
     return record
@@ -243,7 +242,7 @@ def test_view_users_work_detail_reports_every_registered_user(client, tokens, ac
         assert field in row, field
 
     assert (
-        client.get(f"{API}/admin/users/work-summary", headers=tokens[AUDITOR]).status_code
+        client.get(f"{API}/admin/users/work-summary", headers=tokens[REVIEWER]).status_code
         == 403
     )
 
@@ -302,12 +301,12 @@ def test_role_permissions_are_editable_and_apply_immediately(client, tokens):
 
 def test_a_customised_role_survives_reference_data_seeding(client, tokens):
     rows = {row["code"]: row for row in client.get(f"{API}/admin/roles", headers=tokens[SUPER_ADMIN]).json()}
-    baseline = set(rows[AUDITOR]["permissions"])
+    baseline = set(rows[APPROVER]["permissions"])
     assert "ai.view" in baseline
 
     reduced = sorted(baseline - {"ai.view"})
     response = client.put(
-        f"{API}/admin/roles/{AUDITOR}/permissions",
+        f"{API}/admin/roles/{APPROVER}/permissions",
         json={"permissions": reduced},
         headers=tokens[SUPER_ADMIN],
     )
@@ -321,11 +320,11 @@ def test_a_customised_role_survives_reference_data_seeding(client, tokens):
         db.close()
 
     after = {row["code"]: row for row in client.get(f"{API}/admin/roles", headers=tokens[SUPER_ADMIN]).json()}
-    assert after[AUDITOR]["customised"] is True
-    assert set(after[AUDITOR]["permissions"]) == set(reduced), "the edit must survive a reseed"
+    assert after[APPROVER]["customised"] is True
+    assert set(after[APPROVER]["permissions"]) == set(reduced), "the edit must survive a reseed"
 
     client.put(
-        f"{API}/admin/roles/{AUDITOR}/permissions",
+        f"{API}/admin/roles/{APPROVER}/permissions",
         json={"permissions": sorted(baseline)},
         headers=tokens[SUPER_ADMIN],
     )
@@ -374,23 +373,34 @@ def test_equipment_registration_requires_every_field_and_supports_deletion(
 ):
     incomplete = equipment_payload("incomplete")
     incomplete.pop("manufacturer")
-    response = client.post(f"{API}/equipment", json=incomplete, headers=tokens[SUPER_ADMIN])
+    response = client.post(f"{API}/equipment", json=incomplete, headers=tokens[LAB_ADMIN])
     assert response.status_code == 422, response.text
 
     wrong_type = equipment_payload("badtype")
     wrong_type["equipment_type"] = "banana"
-    response = client.post(f"{API}/equipment", json=wrong_type, headers=tokens[SUPER_ADMIN])
+    response = client.post(f"{API}/equipment", json=wrong_type, headers=tokens[LAB_ADMIN])
     assert response.status_code == 422, response.text
 
     created = client.post(
-        f"{API}/equipment", json=equipment_payload("disposable"), headers=tokens[SUPER_ADMIN]
+        f"{API}/equipment", json=equipment_payload("disposable"), headers=tokens[LAB_ADMIN]
     )
     assert created.status_code == 201, created.text
     equipment_id = created.json()["id"]
 
-    removed = client.delete(f"{API}/equipment/{equipment_id}", headers=tokens[SUPER_ADMIN])
+    # Equipment is written by the laboratory that owns it; every other role,
+    # including the Super Admin, only reads the register.
+    denied = client.post(
+        f"{API}/equipment", json=equipment_payload("sa-denied"), headers=tokens[SUPER_ADMIN]
+    )
+    assert denied.status_code == 403, denied.text
+    assert (
+        client.delete(f"{API}/equipment/{equipment_id}", headers=tokens[SUPER_ADMIN]).status_code
+        == 403
+    )
+
+    removed = client.delete(f"{API}/equipment/{equipment_id}", headers=tokens[LAB_ADMIN])
     assert removed.status_code == 204, removed.text
-    gone = client.delete(f"{API}/equipment/{equipment_id}", headers=tokens[SUPER_ADMIN])
+    gone = client.delete(f"{API}/equipment/{equipment_id}", headers=tokens[LAB_ADMIN])
     assert gone.status_code == 404, gone.text
 
     in_use = calibrated_equipment(client, tokens, "inuse")
@@ -401,7 +411,7 @@ def test_equipment_registration_requires_every_field_and_supports_deletion(
         headers=tokens[ENGINEER],
     )
     assert attached.status_code == 201, attached.text
-    refused = client.delete(f"{API}/equipment/{in_use['id']}", headers=tokens[SUPER_ADMIN])
+    refused = client.delete(f"{API}/equipment/{in_use['id']}", headers=tokens[LAB_ADMIN])
     assert refused.status_code == 409, refused.text
 
 

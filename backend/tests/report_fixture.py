@@ -142,6 +142,11 @@ def build_golden_case(client, tokens, db, observations: dict[str, list[dict]]) -
         "purpose": "Golden report fixture: clause-to-report mapping check",
         "instrument": GOLDEN_INSTRUMENT,
     }
+    # Case creation is the Laboratory Admin / Manager step; the engineer who
+    # records the observations is named when the case is opened.
+    engineer = client.get(f"{API}/me", headers=tokens["ENGINEER"])
+    assert engineer.status_code == 200, engineer.text
+    payload["engineer_id"] = engineer.json()["user"]["id"]
     applicant = client.get(f"{API}/masters/applicants?page_size=1", headers=tokens["ENGINEER"])
     if applicant.status_code == 200:
         items = applicant.json().get("items") or []
@@ -153,7 +158,7 @@ def build_golden_case(client, tokens, db, observations: dict[str, list[dict]]) -
         if items:
             payload["manufacturer_id"] = items[0]["id"]
 
-    created = client.post(f"{API}/cases", json=payload, headers=tokens["ENGINEER"])
+    created = client.post(f"{API}/cases", json=payload, headers=tokens["LAB_ADMIN"])
     assert created.status_code == 201, created.text
     case_id = created.json()["id"]
 

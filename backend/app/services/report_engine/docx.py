@@ -137,6 +137,21 @@ def render_docx(snapshot: dict[str, Any]) -> bytes:
     _key_values(
         document,
         [
+            (key, value)
+            for key, value in [
+                ("Laboratory code", cover.get("laboratory_code")),
+                ("Location", cover.get("laboratory_location")),
+                ("Address", cover.get("laboratory_address")),
+                ("Contact email", cover.get("laboratory_contact_email")),
+                ("Accreditation number", cover.get("laboratory_accreditation_no")),
+            ]
+            if value
+        ],
+    )
+
+    _key_values(
+        document,
+        [
             ("Application number", meta.get("application_no")),
             ("Report number", meta.get("report_no")),
             ("Report revision", meta.get("revision_no")),

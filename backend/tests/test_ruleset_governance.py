@@ -26,7 +26,7 @@ from copy import deepcopy
 import pytest
 from sqlalchemy import select
 
-from app.security.permissions import APPROVER, AUDITOR, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
+from app.security.permissions import APPROVER, ENGINEER, LAB_ADMIN, REVIEWER, SUPER_ADMIN
 
 API = "/api/v1"
 
@@ -397,7 +397,7 @@ def test_drafting_reviewing_and_approving_are_different_permissions(client, toke
     rule_version_id = fixture["rule_version_ids"][0]
     review_body = {**REVIEW_FIXTURE, "decision": "approved"}
 
-    for role in (ENGINEER, LAB_ADMIN, REVIEWER, APPROVER, AUDITOR):
+    for role in (ENGINEER, LAB_ADMIN, REVIEWER, APPROVER):
         response = client.post(
             f"{API}/rulesets/{version_id}/rules/{rule_version_id}/review",
             json=review_body, headers=tokens[role],

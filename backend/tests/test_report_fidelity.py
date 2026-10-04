@@ -52,14 +52,19 @@ def snapshot(client, tokens, observations) -> dict:
         case_id = build_golden_case(client, tokens, db, observations)
     finally:
         db.close()
-    for category in ("nameplate_photograph", "test_setup_photograph"):
-        uploaded = client.post(
-            f"/api/v1/cases/{case_id}/attachments",
-            files={"file": (f"{category}.png", fixture_png(), "image/png")},
-            data={"category": category, "caption": f"{category} fixture", "auto_classify": "false"},
-            headers=tokens["ENGINEER"],
-        )
-        assert uploaded.status_code == 201, uploaded.text
+    # The instrument nameplate is the mandatory evidence; it is also the
+    # photograph the generated report has to list.
+    uploaded = client.post(
+        f"/api/v1/cases/{case_id}/attachments",
+        files={"file": ("nameplate_photograph.png", fixture_png(), "image/png")},
+        data={
+            "category": "nameplate_photograph",
+            "caption": "nameplate_photograph fixture",
+            "auto_classify": "false",
+        },
+        headers=tokens["ENGINEER"],
+    )
+    assert uploaded.status_code == 201, uploaded.text
 
     db = SessionLocal()
     try:

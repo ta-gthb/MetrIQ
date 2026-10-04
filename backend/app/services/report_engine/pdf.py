@@ -263,6 +263,15 @@ def render_pdf(snapshot: dict[str, Any]) -> bytes:
     story.append(Paragraph(cover.get("laboratory_name") or "Laboratory", styles["subtitle"]))
     story.append(Paragraph(cover.get("report_title") or "Type Evaluation Test Report", styles["title"]))
     story.append(Paragraph(cover.get("subtitle") or "", styles["subtitle"]))
+    laboratory_rows = [
+        ("Laboratory code", cover.get("laboratory_code")),
+        ("Location", cover.get("laboratory_location")),
+        ("Address", cover.get("laboratory_address")),
+        ("Contact email", cover.get("laboratory_contact_email")),
+        ("Accreditation number", cover.get("laboratory_accreditation_no")),
+    ]
+    story.append(_kv_table([(key, value) for key, value in laboratory_rows if value], styles, width))
+    story.append(Spacer(1, 3 * mm))
     story.append(
         _kv_table(
             [

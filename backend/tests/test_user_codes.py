@@ -21,7 +21,6 @@ from app.database import SessionLocal
 from app.models import User
 from app.security.permissions import (
     APPROVER,
-    AUDITOR,
     ENGINEER,
     LAB_ADMIN,
     REVIEWER,
@@ -41,7 +40,6 @@ EXPECTED_PREFIXES = {
     ENGINEER: "temadm",
     REVIEWER: "trvadm",
     APPROVER: "apradm",
-    AUDITOR: "audadm",
 }
 
 
@@ -263,7 +261,7 @@ def test_the_operator_script_issues_a_super_admin_identifier(db):
 def test_an_administrator_creating_an_account_has_the_id_issued_for_it(
     client, accounts, tokens, db
 ):
-    for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER, AUDITOR):
+    for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
         email = f"issued-{role.lower()}-{uuid.uuid4().hex[:8]}@lab.example"
         response = client.post(
             f"{API}/users",
@@ -300,7 +298,12 @@ def test_the_migration_tree_froze_the_same_prefixes():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    assert dict(module.PREFIXES) == user_codes.PREFIXES
+    frozen = dict(module.PREFIXES)
+    for role, prefix in user_codes.PREFIXES.items():
+        assert frozen[role] == prefix, role
+    # Revision 0008 also names the Auditor prefix; revision 0012 retires the
+    # role, so the frozen map keeps one entry the module no longer issues.
+    assert frozen["AUDITOR"] == "audadm"
 
 
 def test_the_pattern_and_the_composer_agree():

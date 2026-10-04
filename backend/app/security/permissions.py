@@ -23,8 +23,6 @@ class P:
     RULES_REVIEW = "rules.review"
     RULES_APPROVE = "rules.approve"
     AUDIT_VIEW = "audit.view"
-    AUDIT_VIEW_LIMITED = "audit.view.limited"
-    AUDIT_VIEW_SCOPE = "audit.view.scope"
     CASES_VIEW = "cases.view"
     CASES_VIEW_SCOPE = "cases.view.scope"
     CASES_WORKSPACE = "cases.workspace"
@@ -62,9 +60,7 @@ PERMISSION_CATALOGUE: list[tuple[str, str, str]] = [
     (P.RULES_VIEW, "View standards, rulesets and templates", "standards"),
     (P.RULES_REVIEW, "Record a metrology review of a rule or ruleset", "standards"),
     (P.RULES_APPROVE, "Approve and activate a ruleset", "standards"),
-    (P.AUDIT_VIEW, "View audit logs (all laboratories)", "governance"),
-    (P.AUDIT_VIEW_SCOPE, "View audit logs within own laboratory", "governance"),
-    (P.AUDIT_VIEW_LIMITED, "View case-level audit entries", "governance"),
+    (P.AUDIT_VIEW, "View audit logs and case audit trails", "governance"),
     (P.CASES_VIEW, "View all evaluation cases", "cases"),
     (P.CASES_VIEW_SCOPE, "View cases within authorized scope", "cases"),
     (P.CASES_WORKSPACE, "Enter the evaluation workspace", "cases"),
@@ -105,7 +101,6 @@ LAB_ADMIN = "LAB_ADMIN"
 ENGINEER = "ENGINEER"
 REVIEWER = "REVIEWER"
 APPROVER = "APPROVER"
-AUDITOR = "AUDITOR"
 
 ALL_PERMISSIONS = frozenset(code for code, _, _ in PERMISSION_CATALOGUE)
 
@@ -136,8 +131,6 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.MASTERS_MANAGE,
                 P.EQUIPMENT_MANAGE,
                 P.RULES_VIEW,
-                P.AUDIT_VIEW_SCOPE,
-                P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
                 P.CASES_WORKSPACE,
@@ -166,10 +159,8 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.DASHBOARD_VIEW,
                 P.LABS_VIEW,
                 P.RULES_VIEW,
-                P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW_SCOPE,
                 P.CASES_WORKSPACE,
-                P.CASES_CREATE,
                 P.TESTS_EDIT_OWN,
                 P.TESTS_VALIDATE,
                 P.TESTS_VIEW_RESULTS,
@@ -192,8 +183,6 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.DASHBOARD_VIEW,
                 P.LABS_VIEW,
                 P.RULES_VIEW,
-                P.AUDIT_VIEW_SCOPE,
-                P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
                 P.CASES_WORKSPACE,
@@ -218,8 +207,6 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.DASHBOARD_VIEW,
                 P.LABS_VIEW,
                 P.RULES_VIEW,
-                P.AUDIT_VIEW_SCOPE,
-                P.AUDIT_VIEW_LIMITED,
                 P.CASES_VIEW,
                 P.CASES_VIEW_SCOPE,
                 P.CASES_WORKSPACE,
@@ -231,26 +218,6 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
                 P.REPORTS_DOWNLOAD,
                 P.OVERRIDE_APPROVE,
                 P.AI_USE,
-                P.AI_VIEW,
-            }
-        ),
-    ),
-    AUDITOR: RoleDefinition(
-        code=AUDITOR,
-        name="Auditor / Read-only",
-        description="Independent read-only access to history and audit trails",
-        rank=60,
-        permissions=frozenset(
-            {
-                P.DASHBOARD_VIEW,
-                P.LABS_VIEW,
-                P.RULES_VIEW,
-                P.AUDIT_VIEW,
-                P.AUDIT_VIEW_LIMITED,
-                P.CASES_VIEW,
-                P.CASES_WORKSPACE,
-                P.TESTS_VIEW_RESULTS,
-                P.REPORTS_DOWNLOAD,
                 P.AI_VIEW,
             }
         ),

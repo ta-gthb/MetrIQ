@@ -62,7 +62,6 @@ Demo accounts all use the password `MetrIQ@2026`:
 | `engineer@metriq.local` | Test Engineer / Metrologist |
 | `reviewer@metriq.local` | Technical Reviewer / Verifier |
 | `approver@metriq.local` | Approving Authority (approves the report) |
-| `auditor@metriq.local` | Auditor (read-only) |
 
 Every account also carries the user ID the platform issues for its role, and
 either the user ID or the address signs in. The identifier is the six-letter
@@ -76,7 +75,6 @@ three digits drawn at random:
 | Test Engineer / Metrologist | `temadm<year><nnn>` |
 | Technical Reviewer / Verifier | `trvadm<year><nnn>` |
 | Approving Authority / Signatory | `apradm<year><nnn>` |
-| Auditor / Read-only | `audadm<year><nnn>` |
 
 An administrator never types one: `manage_admin.py` issues it for a Super Admin
 when the account is created, and **Administration -> Users** issues it for every
@@ -85,15 +83,16 @@ account's user ID.
 
 ## Five-minute demo (SIH script)
 
-1. Sign in as `engineer@metriq.local` and open **Evaluations -> Create** (or the
-   seeded case `NAWI-2026-000001`).
+1. Sign in as `labadmin@metriq.local` and open **Evaluations -> New evaluation**
+   to open a case and assign the Test Engineer, Reviewer and Approving Authority
+   from the laboratory's register (or open the seeded case `NAWI-2026-000001`).
 2. Register a class III instrument: model, Max/Min, verification scale interval
    `e`, actual scale interval `d`, unit. The test plan is generated from the
    active rule set and the instrument characteristics.
-3. In **Instrument**, attach the two mandatory photographs (nameplate and test setup)
-   and run the AI nameplate extraction; compare
-   the AI reading with the recorded values side by side (advisory, nothing is
-   written).
+3. Sign in as `engineer@metriq.local`, open the case and, in **Instrument**,
+   attach the mandatory nameplate photograph and run the AI nameplate extraction;
+   compare the AI reading with the recorded values side by side (advisory, nothing
+   is written).
 4. In **Execution**, enter weighing-performance observations. The engine shows
    the formula `P = I + 0.5e - dL`, `E = P - L`, `E_c = E - E0`, the per-row
    error, the applicable MPE band and the margin - and the governing rule id and
@@ -108,8 +107,8 @@ account's user ID.
    The content hash and verification code are frozen.
 9. Open **Reports**, search by application number, and download the PDF and DOCX.
    The repository shows the hash, verification code and revision history.
-10. Open **Administration -> Audit logs** to show the full history with the
-    rule-set and template versions used.
+10. Sign in as `admin@metriq.local` and open **Administration -> Audit logs** to
+    show the full history with the rule-set and template versions used.
 
 ## Features
 
@@ -129,15 +128,27 @@ decimal arithmetic, comparators `abs_lte`/`lte`/`gte`/`eq`/`range`, statuses
 `PASS`, `FAIL`, `NOT_APPLICABLE`, `INCOMPLETE`, `INVALID`, `WAIVED`, `PENDING`.
 See `docs/calculations/`.
 
-**Governance** - role-based access control over 34 permissions and 6 roles,
+**Governance** - role-based access control over 35 permissions and 5 roles,
 laboratory and record scope, a reviewer-correction loop, an exceptional
 override mechanism that can never set `PASS`/`FAIL`, and an append-only audit
 trail with before/after values and reasons.
 
-**Evidence** - two photographs are mandatory for every new evaluation (the instrument
-nameplate and the test setup); submission is blocked until both are attached. All
-uploads are validated (extension, MIME, size), SHA-256 recorded,
-signed download URLs, and advisory AI classification.
+**Evidence** - the instrument nameplate photograph is mandatory for every new
+evaluation; submission is blocked until it is attached. All uploads are validated
+(extension, MIME, size), SHA-256 recorded, signed download URLs, and advisory AI
+classification.
+
+**Laboratory-scoped teams** - the Super Admin registers every account against a
+laboratory. A case is opened by that laboratory's manager and is staffed only
+from its register, so personnel from different laboratories are never mixed.
+
+**Approval-gated reports** - a report is generated and released only after the
+Approving Authority approves the case. Each laboratory sees its own report
+register; the Super Admin sees every laboratory.
+
+**Case discussion and support** - every case carries a discussion for its
+manager, engineer, reviewer and approver, and every account can raise a private
+support thread with the Super Admin.
 
 **Reports** - a frozen JSON snapshot of versions, results, rules and evidence
 rendered to PDF (reportlab) and DOCX (python-docx), with a content hash,

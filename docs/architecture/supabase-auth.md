@@ -96,7 +96,7 @@ sign-ups in the project do not, by themselves, grant access to anything.
 
 The address is only the provider's own sign-in name. The account itself is named
 by the user ID the platform issued it (`stmadm...`, `labadm...`, `temadm...`,
-`trvadm...`, `apradm...`, `audadm...`; see
+`trvadm...`, `apradm...`; see
 `docs/architecture/README.md#one-sign-in-one-identifier-per-role`), which is what
 the sign-in form asks for and what every screen shows. A user ID is resolved by
 this application, which holds the account and therefore its role; the form sends

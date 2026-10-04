@@ -19,14 +19,28 @@ from tests.test_api_workflow import failing_view, run_lifecycle
 API = "/api/v1"
 
 
-def _generate(client, tokens, case_id: str) -> dict:
-    response = client.post(
-        f"{API}/cases/{case_id}/reports/generate",
-        json={"formats": ["pdf"]},
-        headers=tokens[APPROVER],
-    )
-    assert response.status_code == 201, response.text
-    return response.json()
+def _record_revision(case_id: str) -> dict:
+    """Record a report revision through the report service.
+
+    The API releases a report only for an approved evaluation; the repository
+    has to read every stored revision regardless of how it was produced, so
+    these tests record the revisions directly. The release gate itself is
+    covered by the workflow and role tests.
+    """
+    from app.database import SessionLocal
+    from app.models import EvaluationCase
+    from app.services.report_engine.service import generate_report
+
+    with SessionLocal() as db:
+        case = db.get(EvaluationCase, uuid.UUID(case_id))
+        assert case is not None, case_id
+        report, _artefacts = generate_report(db, case=case, formats=("pdf",))
+        db.commit()
+        return {
+            "id": str(report.id),
+            "report_no": report.report_no,
+            "revision_no": report.revision_no,
+        }
 
 
 def _test_by_code(client, tokens, case_id: str, code: str) -> dict:
@@ -46,9 +60,11 @@ def test_the_repository_filters_by_instrument_result_and_date(client, tokens, ca
     passing = run_lifecycle(client, tokens, case_factory())
     run_lifecycle(client, tokens, case_factory())
 
+    # A failed evaluation is never released through the API, but the
+    # repository still filters on the result of every stored report.
     failing_case = case_factory()
     failing_view(client, tokens, failing_case["id"])
-    _generate(client, tokens, failing_case["id"])
+    _record_revision(failing_case["id"])
 
     instrument_id = passing["instrument"]["id"]
     by_instrument = client.get(
@@ -160,11 +176,11 @@ def test_a_retested_test_keeps_its_revision_chain(client, tokens, case_factory):
 def test_an_earlier_report_revision_still_reads_its_own_snapshot(client, tokens, case_factory):
     case = case_factory()
     case_id = case["id"]
-    first = _generate(client, tokens, case_id)
+    first = _record_revision(case_id)
     before = client.get(f"{API}/cases/{case_id}", headers=tokens[ENGINEER]).json()
 
     failing_view(client, tokens, case_id)
-    second = _generate(client, tokens, case_id)
+    second = _record_revision(case_id)
     assert second["revision_no"] == 2
     after = client.get(f"{API}/cases/{case_id}", headers=tokens[ENGINEER]).json()
     assert _result_status(after, "T-WP") == "FAIL"
@@ -202,10 +218,11 @@ def test_an_export_is_scoped_to_the_callers_cases(client, tokens, case_factory, 
     theirs = case_factory()
     # Only a registered engineer may hold a case as its engineer, so the case
     # is handed to a second engineer to move it outside the first one's list.
+    email = f"second.engineer.{uuid.uuid4().hex[:8]}@metriq.local"
     replacement = client.post(
         f"{API}/users",
         json={
-            "email": f"second.engineer.{uuid.uuid4().hex[:8]}@metriq.local",
+            "email": email,
             "full_name": "Second Engineer",
             "password": "Second@Engineer1",
             "role_code": ENGINEER,
@@ -224,8 +241,16 @@ def test_an_export_is_scoped_to_the_callers_cases(client, tokens, case_factory, 
         headers=tokens[SUPER_ADMIN],
     )
     assert moved.status_code == 200, moved.text
-    _generate(client, tokens, mine["id"])
-    _generate(client, tokens, theirs["id"])
+
+    login = client.post(
+        f"{API}/auth/login", json={"email": email, "password": "Second@Engineer1"}
+    )
+    assert login.status_code == 200, login.text
+    second_engineer = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    # Both reports are released the regular way: the case must be approved.
+    run_lifecycle(client, tokens, mine)
+    run_lifecycle(client, tokens, theirs, engineer=second_engineer)
 
     def export(headers) -> list[dict]:
         response = client.get(f"{API}/reports/export.csv", headers=headers)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import io
 
-from app.security.permissions import APPROVER, AUDITOR, ENGINEER, REVIEWER, SUPER_ADMIN
+from app.security.permissions import APPROVER, ENGINEER, REVIEWER, SUPER_ADMIN
 
 API = "/api/v1"
 
@@ -283,7 +283,7 @@ def test_an_ai_action_is_recorded_with_its_disposition(client, tokens, new_case)
     assert "items" in pending
 
     events = client.get(f"{API}/audit-logs", params={"event_type": "AI_ACTION"},
-                        headers=tokens[AUDITOR]).json()
+                        headers=tokens[SUPER_ADMIN]).json()
     assert events["items"], "every AI action must be traceable in the audit log"
     assert all(item["event_type"] == "AI_ACTION" for item in events["items"])
 

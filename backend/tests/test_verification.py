@@ -135,6 +135,14 @@ def issued_report(client, tokens, case_factory):
     case_id = case_factory()["id"]
     submitted = client.post(f"{API}/cases/{case_id}/submit", json={}, headers=tokens["ENGINEER"])
     assert submitted.status_code == 200, submitted.text
+    verified = client.post(f"{API}/cases/{case_id}/verify", json={}, headers=tokens["REVIEWER"])
+    assert verified.status_code == 200, verified.text
+    approved = client.post(
+        f"{API}/cases/{case_id}/approve",
+        json={"reason": "Conforming evaluation released for the verification fixture."},
+        headers=tokens[APPROVER],
+    )
+    assert approved.status_code == 200, approved.text
     response = client.post(
         f"{API}/cases/{case_id}/reports/generate",
         json={"formats": ["pdf"]},
