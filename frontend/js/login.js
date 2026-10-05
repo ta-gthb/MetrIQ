@@ -23,6 +23,7 @@ async function renderDemoAccounts() {
   const panel = document.getElementById('demo-panel');
   const label = document.getElementById('demo-label');
   const list = document.getElementById('demo-accounts');
+  const superAdminCredential = document.getElementById('demo-super-admin-credential');
 
   let payload;
   try {
@@ -34,10 +35,15 @@ async function renderDemoAccounts() {
 
   const accounts = payload.accounts || [];
   const password = payload.password || '';
+  const superAdmin = accounts.find((account) => account.role_code === 'SUPER_ADMIN');
   panel.hidden = false;
   label.innerHTML = '<span class="pill pill-warn">Demo mode</span> Demonstration accounts' +
     (password ? '.' : ' - the password is supplied separately.') +
     ' Selecting one fills the form; each role sees a different slice of the workflow.';
+  if (superAdmin && password) {
+    superAdminCredential.textContent = `Super Admin demo sign-in: ${superAdmin.email} / ${password}`;
+    superAdminCredential.hidden = false;
+  }
 
   list.innerHTML = accounts.map((account) => `
     <button type="button" class="demo-account" data-user-id="${escapeHtml(account.user_id)}">
