@@ -113,7 +113,7 @@ def test_the_diff_names_the_changed_rule_and_the_procedures_that_read_it(
     impacted = {item["test_code"]: item for item in body["impact"]["tests"]}
     assert "T-ZR" in impacted
     assert any("R76-ZERO-RETURN" in reason for reason in impacted["T-ZR"]["reasons"])
-    assert body["ruleset"]["can_activate"] is False
+    assert body["ruleset"]["is_active"] is False
     assert body["against"]["version_label"] == SEEDED_LABEL
     assert body["ruleset"]["rule_count"] == body["against"]["rule_count"]
 

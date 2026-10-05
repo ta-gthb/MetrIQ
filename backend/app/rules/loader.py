@@ -9,14 +9,6 @@ from typing import Any
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
-RULESET_FILES = {
-    "r76-1-2006-v1": "r76-1-2006-v1.json",
-}
-
-TEST_CATALOGUE_FILES = {
-    "r76-1-2006-v1": "test-catalogue-r76-1-2006-v1.json",
-}
-
 REPORT_TEMPLATE_FILES = {
     "r76-2-2007-v1": "r76-2-2007-v1.json",
 }
@@ -30,14 +22,36 @@ def _read(filename: str) -> dict[str, Any]:
         return json.load(handle)
 
 
+def _ruleset_files() -> dict[str, str]:
+    files = {}
+    for path in DATA_DIR.glob("*.json"):
+        if path.name.startswith("test-catalogue-"):
+            continue
+        try:
+            payload = _read(path.name)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if payload.get("version_label") and payload.get("standard") and any(
+            key in payload for key in ("mpe", "tolerances", "rules")
+        ):
+            files[payload["version_label"]] = path.name
+    return files
+
+
 @lru_cache
 def load_ruleset(version_label: str = "r76-1-2006-v1") -> dict[str, Any]:
-    return _read(RULESET_FILES[version_label])
+    try:
+        filename = _ruleset_files()[version_label]
+    except KeyError as exc:
+        raise FileNotFoundError(f"ruleset version not found: {version_label}") from exc
+    return _read(filename)
 
 
 @lru_cache
 def load_test_catalogue(version_label: str = "r76-1-2006-v1") -> dict[str, Any]:
-    return _read(TEST_CATALOGUE_FILES[version_label])
+    filename = f"test-catalogue-{version_label}.json"
+    path = DATA_DIR / filename
+    return _read(filename) if path.exists() else {"tests": []}
 
 
 @lru_cache
@@ -55,6 +69,22 @@ def flatten_rules(payload: dict[str, Any]) -> list[dict[str, Any]]:
     version_label = payload.get("version_label", "unversioned")
     clause = ((payload.get("mpe") or {}).get("clause_reference")) or ""
     entries: list[dict[str, Any]] = []
+
+    for rule in payload.get("rules") or []:
+        entries.append(
+            {
+                "code": rule["code"],
+                "name": rule.get("name") or rule["code"],
+                "category": rule.get("category", "rule"),
+                "clause_reference": rule.get("clause_reference") or clause,
+                "definition": rule.get("definition") or {},
+                "formula": rule.get("formula"),
+                "threshold": rule.get("threshold"),
+                "unit": rule.get("unit"),
+                "applicability": rule.get("applicability"),
+                "rounding_policy": rule.get("rounding_policy"),
+            }
+        )
 
     mpe = payload.get("mpe") or {}
     for stage, key in (("verification", "bands"), ("in_service", "in_service_bands")):
@@ -110,9 +140,8 @@ def flatten_rules(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
     for entry in entries:
         entry["version_label"] = version_label
-        entry["review_status"] = payload.get("review_status", "pending_domain_review")
     return entries
 
 
 def available_rulesets() -> list[str]:
-    return sorted(RULESET_FILES)
+    return sorted(_ruleset_files())

@@ -227,12 +227,7 @@ function readinessCardHtml() {
     (outside.length
       ? '<details class="mt-3"><summary class="small faint">Procedures outside this plan (' + outside.length + ')</summary>' +
         outside.map((item) => '<div class="small mt-2"><span class="mono">' + escapeHtml(item.code) + '</span> \u2014 ' +
-          escapeHtml(item.reason) +
-          ((item.proposed_limits || []).length
-            ? '<div class="hint">Limit still a proposal, pending metrology review: ' +
-              item.proposed_limits.map((limit) => escapeHtml(limit.key + ' \u2014 ' + (limit.clause_reference || 'no clause reference'))).join('; ') +
-              '</div>'
-            : '') + '</div>').join('') + '</details>'
+          escapeHtml(item.reason) + '</div>').join('') + '</details>'
       : '') +
     '</div>';
 }

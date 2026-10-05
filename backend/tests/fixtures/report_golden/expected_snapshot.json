@@ -1160,7 +1160,7 @@
             "elapsed_seconds": null,
             "temperature_c": null,
             "rule_id": "R76-ZR-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1"
           }
         },
         {
@@ -1184,7 +1184,7 @@
             "elapsed_seconds": null,
             "temperature_c": null,
             "rule_id": "R76-ZR-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1"
           }
         }
       ],
@@ -1196,7 +1196,7 @@
         "unit": "g",
         "rule_id": "R76-ZR-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1",
         "explanation": "Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3."
       },
       "calculation": {
@@ -1216,7 +1216,7 @@
             "unit": "e",
             "comparator": "abs_lte",
             "rule_id": "R76-ZR-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 4.5.4 / T.3.2.1",
             "description": "Deviation of the zero indication after unloading shall not exceed 0.5 e."
           },
           "comparator": "abs_lte",
@@ -1427,7 +1427,7 @@
             "elapsed_seconds": "0",
             "temperature_c": null,
             "rule_id": "R76-CREEP-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3"
           }
         },
         {
@@ -1451,7 +1451,7 @@
             "elapsed_seconds": "1800",
             "temperature_c": null,
             "rule_id": "R76-CREEP-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3"
           }
         }
       ],
@@ -1463,7 +1463,7 @@
         "unit": "g",
         "rule_id": "R76-CREEP-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3",
         "explanation": "Governing deviation 2.00000000 g at row 2 against the limit 5.000000000 g that applies to it. PASS: measured 2 against limit 5 (abs_lte), margin 3."
       },
       "calculation": {
@@ -1483,7 +1483,7 @@
             "unit": "e",
             "comparator": "abs_lte",
             "rule_id": "R76-CREEP-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 4.5.5 / T.3.3",
             "description": "Change in indication under constant load over the observation period."
           },
           "comparator": "abs_lte",
@@ -1677,7 +1677,7 @@
             "elapsed_seconds": null,
             "temperature_c": "20",
             "rule_id": "R76-TEMP-NL-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2"
           }
         },
         {
@@ -1701,7 +1701,7 @@
             "elapsed_seconds": null,
             "temperature_c": "40",
             "rule_id": "R76-TEMP-NL-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2"
           }
         }
       ],
@@ -1713,7 +1713,7 @@
         "unit": "g",
         "rule_id": "R76-TEMP-NL-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2",
         "explanation": "Governing deviation 3.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 3 against limit 10 (abs_lte), margin 7."
       },
       "calculation": {
@@ -1733,7 +1733,7 @@
             "unit": "e",
             "comparator": "abs_lte",
             "rule_id": "R76-TEMP-NL-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 4.5.2 / T.3.4.2",
             "description": "Effect of temperature on the no-load indication."
           },
           "comparator": "abs_lte",
@@ -1950,7 +1950,7 @@
         "unit": "g",
         "rule_id": "R76-SENS-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5",
         "explanation": "Indication changed by 12.00000000 g for a load change of 10.00000000 g; response error 2.00000000 g against limit 10.000000000 g. PASS: measured 2 against limit 10 (abs_lte), margin 8."
       },
       "calculation": {
@@ -1966,7 +1966,7 @@
             "unit": "e",
             "comparator": "abs_lte",
             "rule_id": "R76-SENS-01",
-            "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 A.4.4.2 / T.3.5",
             "description": "Response of the instrument to a defined change of load."
           },
           "engine_version": "2.0.0"
@@ -2161,7 +2161,7 @@
         "unit": "g",
         "rule_id": "R76-DISC-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6",
         "explanation": "Smallest indication change 10.00000000 g against the required minimum 10.000000000 g. PASS: measured 10 against limit 10 (gte), margin 0."
       },
       "calculation": {
@@ -2176,7 +2176,7 @@
             "unit": "d",
             "comparator": "gte",
             "rule_id": "R76-DISC-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 4.5.6 / T.3.6",
             "description": "Indication shall change by at least one d for an additional load of 1.4 d."
           },
           "engine_version": "2.0.0"
@@ -2344,7 +2344,7 @@
             "elapsed_seconds": null,
             "temperature_c": null,
             "rule_id": "R76-STAB-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7"
           }
         },
         {
@@ -2368,7 +2368,7 @@
             "elapsed_seconds": null,
             "temperature_c": null,
             "rule_id": "R76-STAB-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED"
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7"
           }
         }
       ],
@@ -2380,7 +2380,7 @@
         "unit": "g",
         "rule_id": "R76-STAB-01",
         "rule_version": "r76-1-2006-v1",
-        "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
+        "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7",
         "explanation": "Governing deviation 4.00000000 g at row 2 against the limit 10.000000000 g that applies to it. PASS: measured 4 against limit 10 (abs_lte), margin 6."
       },
       "calculation": {
@@ -2400,7 +2400,7 @@
             "unit": "e",
             "comparator": "abs_lte",
             "rule_id": "R76-STAB-01",
-            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7 - REVIEW REQUIRED",
+            "clause_reference": "OIML R 76-1:2006 4.5.3 / T.3.7",
             "description": "Variation of the indication during the stability observation period."
           },
           "comparator": "abs_lte",

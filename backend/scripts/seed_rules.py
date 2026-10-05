@@ -18,38 +18,32 @@ if __package__ in (None, ""):
 from scripts._bootstrap import banner, ok, warn  # noqa: E402
 
 from app.database import session_scope  # noqa: E402
-from app.services.reference_data.bootstrap import (  # noqa: E402
-    activate_seeded_ruleset,
-)
+from app.models import StandardVersion, TestDefinition  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 from app.services.reference_data.rules import (  # noqa: E402
     seed_report_template,
+    seed_new_rulesets,
     seed_ruleset,
     seed_test_catalogue,
 )
 
-__all__ = ["seed_report_template", "seed_ruleset", "seed_test_catalogue", "main"]
+__all__ = ["seed_report_template", "seed_new_rulesets", "seed_ruleset", "seed_test_catalogue", "main"]
 
 
 def main() -> int:
     banner("MetrIQ - seed standards, rules and test catalogue")
     with session_scope() as db:
-        standard_version = seed_ruleset(db)
+        versions = seed_new_rulesets(db)
+        standard_version = db.execute(
+            select(StandardVersion).where(StandardVersion.version_label == "r76-1-2006-v1")
+        ).scalars().one()
         template_version = seed_report_template(db, standard_version)
-        definitions = seed_test_catalogue(db, standard_version)
-        activation = activate_seeded_ruleset(db, standard_version)
-    ok(f"standard version {standard_version.version_label}: {activation['state']}")
+        definitions = db.execute(select(func.count()).select_from(TestDefinition)).scalar_one()
+    ok(f"rulesets discovered: {len(versions)} new version(s)")
+    ok(f"standard version {standard_version.version_label}: {'active' if standard_version.is_active else 'inactive'}")
     ok(f"report template {template_version.version_label}: {template_version.id}")
     ok(f"test catalogue: {definitions} definitions")
-    print()
-    if activation.get("provisional"):
-        warn("Activated provisionally: the bootstrap may do that outside production,")
-        warn("and every surface labels it. It is not a metrology sign-off.")
-    else:
-        warn("The ruleset is not active. Record a review for every rule, then approve")
-        warn("and activate it, before any evaluation case can be created.")
-    warn("Every seeded rule carries review_status='pending_domain_review'.")
-    warn("A qualified metrology authority must verify the bands, tolerances and clause")
-    warn("references against the controlled standard before production use (PRD 25).")
+    warn("New rulesets remain inactive until a System Administrator activates them.")
     return 0
 
 

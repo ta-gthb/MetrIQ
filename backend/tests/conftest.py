@@ -242,7 +242,7 @@ def new_case(client, tokens, accounts):
     """Factory that creates a fresh evaluation case through the public API."""
     counter = itertools.count(1)
 
-    def _create(**overrides) -> dict:
+    def _create(_expected_status: int = 201, **overrides) -> dict:
         number = next(counter)
         payload = {
             "title": f"Test bench evaluation #{number}",
@@ -258,7 +258,7 @@ def new_case(client, tokens, accounts):
         payload.update(overrides)
         # Case creation is the Laboratory Admin / Manager step.
         response = client.post(f"{API}/cases", json=payload, headers=tokens[LAB_ADMIN])
-        assert response.status_code == 201, response.text
+        assert response.status_code == _expected_status, response.text
         return response.json()
 
     return _create

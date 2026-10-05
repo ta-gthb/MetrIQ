@@ -82,6 +82,23 @@ def test_the_role_matrix_is_a_consistent_hierarchy():
     assert P.CASES_REQUEST_CORRECTION in ROLE_DEFINITIONS[APPROVER].permissions
 
 
+def test_seed_removes_legacy_ruleset_review_permissions(accounts):
+    from app.database import SessionLocal
+    from app.models import Permission, RolePermission
+    from app.services.reference_data.identity import seed_roles_and_permissions
+
+    with SessionLocal() as db:
+        for code in ("rules.review", "rules.approve"):
+            db.add(Permission(code=code, description="legacy", category="standards"))
+            db.add(RolePermission(role_code=SUPER_ADMIN, permission_code=code))
+        db.commit()
+
+        seed_roles_and_permissions(db)
+
+        assert db.get(Permission, "rules.review") is None
+        assert db.get(Permission, "rules.approve") is None
+
+
 def test_every_role_reaches_its_dashboard_and_profile(client, tokens, accounts):
     seen_roles = set()
     for role in PINNED_ROLE_ORDER:
@@ -658,13 +675,20 @@ def test_only_the_super_admin_reads_the_audit_trail(client, tokens, case_factory
 def test_only_the_super_admin_changes_a_ruleset_lifecycle(client, tokens):
     unknown = "00000000-0000-4000-8000-000000000001"
     for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
-        for action in ("activate", "deactivate", "schedule"):
+        for action in ("activate", "deactivate"):
             response = client.post(
                 f"{API}/rulesets/{unknown}/{action}",
                 json={"reason": "Lifecycle attempt"},
                 headers=tokens[role],
             )
             assert response.status_code == 403, (role, action, response.text)
+
+    schedule = client.post(
+        f"{API}/rulesets/{unknown}/schedule",
+        json={"reason": "Lifecycle attempt"},
+        headers=tokens[SUPER_ADMIN],
+    )
+    assert schedule.status_code in {404, 405}
 
 
 # ------------------------------------------------- the Auditor role is retired

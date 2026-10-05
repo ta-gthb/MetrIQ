@@ -180,13 +180,7 @@ def require_schema(bind: Engine | None = None) -> None:
 
 
 def reference_data_present(db) -> bool:
-    """True when the roles and the shipped catalogue are already here.
-
-    Activation is deliberately *not* part of this test. Seeding and activation
-    are separate steps now (audit items 6 and 10), so a database whose ruleset
-    is still waiting for a metrology review must not look un-seeded and be
-    re-seeded on every start-up.
-    """
+    """True when the core role and test catalogues have been seeded."""
     if db.execute(select(func.count()).select_from(Role)).scalar_one() == 0:
         return False
     return db.execute(select(func.count()).select_from(TestDefinition)).scalar_one() > 0
@@ -206,112 +200,43 @@ def active_ruleset_state(db) -> dict:
     ).scalars().first()
     if active is not None:
         return {
-            "state": active.status,
+            "state": "active",
             "version_label": active.version_label,
             "is_active": True,
-            "activation_basis": active.activation_basis,
-            "provisional": active.activation_basis == "provisional",
         }
     latest = db.execute(
         select(StandardVersion).order_by(StandardVersion.created_at.desc())
     ).scalars().first()
     if latest is None:
-        return {"state": "none", "version_label": None, "is_active": False,
-                "activation_basis": None, "provisional": False}
+        return {"state": "none", "version_label": None, "is_active": False}
     return {
-        "state": latest.status or "draft",
+        "state": "inactive",
         "version_label": latest.version_label,
         "is_active": False,
-        "activation_basis": latest.activation_basis,
-        "provisional": False,
-    }
-
-
-def activate_seeded_ruleset(db, standard_version) -> dict:
-    """Move the shipped ruleset out of draft, without bypassing the gate.
-
-    Seeding creates a catalogue; it does not make it usable. A fresh instance
-    needs an active ruleset or no evaluation case can be created at all, so the
-    bootstrap asks the lifecycle to activate the shipped version.
-
-    Outside production that is a **provisional** activation: the version is
-    recorded with ``activation_basis='provisional'``, never with a fabricated
-    reviewer, and the API, the UI and the report footer label it. In production
-    the version is left in draft - an unreviewed rule cannot become a production
-    rule, which is the whole point of the gate (audit item 6).
-    """
-    from app.services import ruleset_lifecycle
-
-    if standard_version.is_active:
-        return {
-            "state": "already active",
-            "basis": standard_version.activation_basis,
-            "provisional": standard_version.activation_basis
-            == ruleset_lifecycle.BASIS_PROVISIONAL,
-        }
-
-    if not settings.allow_provisional_ruleset:
-        logger.warning(
-            "RULESET AWAITING DOMAIN REVIEW: the seeded ruleset %s is present but "
-            "not active. No evaluation case can be created until a qualified "
-            "metrology reviewer records a review for every rule and an approver "
-            "activates the version (POST /api/v1/rulesets/%s/submit-review, then "
-            "/approve and /activate). Set ALLOW_PROVISIONAL_RULESET_ACTIVATION=true "
-            "only for a deliberate demonstration deployment.",
-            standard_version.version_label,
-            standard_version.id,
-        )
-        return {
-            "state": "draft: awaiting domain review",
-            "basis": None,
-            "provisional": False,
-        }
-
-    try:
-        ruleset_lifecycle.activate(
-            db,
-            standard_version,
-            actor=None,
-            basis=ruleset_lifecycle.BASIS_PROVISIONAL,
-            reason="development/demo bootstrap",
-            force_provisional=True,
-        )
-    except ruleset_lifecycle.LifecycleError as exc:
-        logger.error("PROVISIONAL RULESET ACTIVATION FAILED: %s", exc.message)
-        return {"state": f"refused: {exc.message}", "basis": None, "provisional": False}
-
-    logger.warning(
-        "RULESET PROVISIONALLY ACTIVE: %s was activated by the bootstrap without a "
-        "metrology review. Its rules are the shipped reference values, not a "
-        "verified set. Run the review workflow before relying on its results.",
-        standard_version.version_label,
-    )
-    return {
-        "state": "active (provisional)",
-        "basis": ruleset_lifecycle.BASIS_PROVISIONAL,
-        "provisional": True,
     }
 
 
 def seed_reference_data(db) -> dict:
-    """Upsert roles, permissions and the full R76 catalogue. Idempotent."""
+    """Upsert roles and seed every shipped ruleset without activating it."""
     from app.services.reference_data.identity import seed_roles_and_permissions
     from app.services.reference_data.rules import (
         seed_report_template,
-        seed_ruleset,
-        seed_test_catalogue,
+        seed_new_rulesets,
     )
 
     roles, grants = seed_roles_and_permissions(db)
-    standard_version = seed_ruleset(db)
+    seeded_rulesets = seed_new_rulesets(db)
+    standard_version = db.execute(
+        select(StandardVersion).where(StandardVersion.version_label == "r76-1-2006-v1")
+    ).scalars().one()
     seed_report_template(db, standard_version)
-    definitions = seed_test_catalogue(db, standard_version)
-    activation = activate_seeded_ruleset(db, standard_version)
+    definitions = db.execute(select(func.count()).select_from(TestDefinition)).scalar_one()
     return {
         "roles": roles,
         "new_grants": grants,
         "test_definitions": definitions,
-        "ruleset_activation": activation,
+        "rulesets_seeded": len(seeded_rulesets),
+        "ruleset_activation": "requires System Administrator action",
     }
 
 
@@ -363,6 +288,16 @@ def initialise_database() -> dict:
         try:
             with session_scope() as db:
                 if reference_data_present(db):
+                    from app.services.reference_data.identity import seed_roles_and_permissions
+                    from app.services.reference_data.rules import seed_new_rulesets
+
+                    roles, new_grants = seed_roles_and_permissions(db)
+                    new_rulesets = seed_new_rulesets(db)
+                    report["seeded"] = {
+                        "roles": roles,
+                        "new_grants": new_grants,
+                        "rulesets": [version.version_label for version in new_rulesets],
+                    }
                     report["reference_data"] = "present"
                 else:
                     report["seeded"] = seed_reference_data(db)
@@ -432,8 +367,7 @@ def health_summary() -> dict:
         "schema_problems": len(_LAST_REPORT.get("schema_problems") or []),
         "reference_data": _LAST_REPORT.get("reference_data", "unknown"),
         # Which ruleset this instance would actually evaluate against, and
-        # whether it holds a metrology review or was only provisionally
-        # activated by the development/demo bootstrap (audit items 6 and 10).
+        # whether a System Administrator has activated a ruleset.
         "ruleset": _LAST_REPORT.get("ruleset") or {"state": "unknown"},
         # The migration revision this deployment booted at. Without it, a
         # schema that is behind the code looks identical to one that is not.

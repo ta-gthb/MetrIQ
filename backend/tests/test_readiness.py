@@ -145,10 +145,8 @@ def test_the_explanation_names_missing_inputs_before_a_calculation(client, token
 def test_procedures_outside_the_plan_are_named_with_their_reason(client, tokens, new_case):
     """A procedure that is defined but not run must be visible, with the reason.
 
-    The plan covers the active catalogue entries; the catalogue also defines
-    procedures whose limits are still proposals pending metrology review. They
-    stay out of the plan until that review is recorded, and the readiness view
-    says so instead of leaving a silent gap in the scope of the evaluation.
+    The plan covers active catalogue entries; disabled procedures remain visible
+    with their inactive state instead of leaving a silent gap in evaluation scope.
     """
     case_id = new_case()["id"]
     payload = _readiness(client, tokens, case_id)
@@ -159,8 +157,8 @@ def test_procedures_outside_the_plan_are_named_with_their_reason(client, tokens,
 
     tilt = outside["T-TILT"]
     assert tilt["implementation_status"] == "implemented"
-    assert [item["key"] for item in tilt["proposed_limits"]] == ["tilt"]
-    assert "REVIEW REQUIRED" in tilt["proposed_limits"][0]["clause_reference"]
+    assert tilt["reason"] == "Implemented, but disabled in this ruleset version."
+    assert "proposed_limits" not in tilt
     in_plan = {item["code"] for item in payload["plan_scope"]["in_plan"]}
     assert "T-WP" in in_plan
     assert not ({"T-TILT", "T-VOLT"} & in_plan)

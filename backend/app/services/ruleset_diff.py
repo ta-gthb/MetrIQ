@@ -65,7 +65,6 @@ def _comparable(version) -> dict:
         "threshold": version.threshold,
         "unit": version.unit,
         "applicability": version.applicability,
-        "review_status": version.review_status,
         "rounding_policy": version.rounding_policy,
     }
 
@@ -152,8 +151,8 @@ def _version_summary(db: Session, version: StandardVersion) -> dict:
         "id": version.id,
         "version_label": version.version_label,
         "edition": version.edition,
-        "status": version.status,
-        "lifecycle_state": version.status,
+        "status": "active" if version.is_active else "inactive",
+        "is_active": version.is_active,
         "source_reference": version.source_reference,
         "rule_count": len(rows),
         "fingerprint": ruleset_lifecycle.ruleset_fingerprint(rows),
@@ -219,10 +218,7 @@ def diff_rulesets(db: Session, version: StandardVersion, against: StandardVersio
             }
         )
 
-    can, gate = ruleset_lifecycle.can_activate(db, version)
     candidate = _version_summary(db, version)
-    candidate["can_activate"] = can
-    candidate["activation_gate"] = gate
     return {
         "ruleset": candidate,
         "against": _version_summary(db, against),

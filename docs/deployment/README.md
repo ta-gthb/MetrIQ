@@ -86,9 +86,9 @@ cd backend
 python -m pytest -q
 ```
 
-The suite (538 tests) covers the calculation engine boundaries, the API
-contract, authentication/authorization, the review workflow, artefact storage
-and the AI fallback behaviour. It runs against a throwaway SQLite database; no
+The suite covers calculation boundaries, the API contract,
+authentication/authorization, evaluation-case review, ruleset activation,
+artefact storage and AI fallback behavior. It runs against a throwaway SQLite database; no
 external services are needed.
 
 Two optional layers are run on demand:

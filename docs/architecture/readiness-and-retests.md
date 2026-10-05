@@ -108,28 +108,16 @@ entries the plan does not run, each with a reason:
 
 * `implementation_status = not_implemented` - defined but not executable in this
   release;
-* `is_active = false` - implemented and carried in the catalogue, but not active
-  in this ruleset version: its formula, limit and clause reference are project
-  proposals and are pending metrology review (item 9);
+* `is_active = false` - implemented and carried in the catalogue, but disabled
+  in this ruleset version;
 * anything else - the stored plan was generated from a different set of
   definitions, which the reader should see rather than infer.
 
-Each outside-plan entry also carries `proposed_limits`: the tolerance keys that
-apply to it and whose `review_status` is still `pending_domain_review`, with the
-clause reference a reviewer follows. The coverage matrix in
-`docs/architecture/oiml-coverage-matrix.md` records the same status per rule.
+Only active ruleset versions are available for new evaluations. A System
+Administrator activates or deactivates a version in Standards & rules; the
+readiness view explains when an individual catalogue procedure is disabled.
 
-## 5. Where a proposed limit is visible when it is used
-
-Any limit whose ruleset entry carries `review_status =
-pending_domain_review` is surfaced in three places, never silently applied:
-
-* the stored calculation run's `warnings` (the engine adds it, so it reaches the
-  readiness warnings, the report snapshot and the rendered report);
-* `pending_review_limits` in the explanation of the test that uses it;
-* `proposed_limits` in the plan scope of every case whose ruleset defines it.
-
-## 6. Automated coverage
+## 5. Automated coverage
 
 `tests/test_readiness.py` covers the whole contract: a fresh case reports what
 it is waiting for; a fully recorded case reports ready with 100 percent; the

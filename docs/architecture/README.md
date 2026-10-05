@@ -303,7 +303,7 @@ router -> get_ai_service(db, actor) -> AIProvider protocol
 | Artefact | Purpose |
 | --- | --- |
 | `docs/architecture/oiml-coverage-matrix.md` | Generated traceability matrix: clause -> test -> rule -> formula -> limit -> PASS/FAIL logic -> report section -> automated test. Regenerate with `python -m scripts.build_coverage_matrix` from `backend/`; `tests/test_coverage_matrix.py` fails if it drifts from the rule data. |
-| `docs/architecture/ruleset-governance.md` | The ruleset lifecycle, the review records a metrology reviewer signs, and the activation gate. |
+| `docs/architecture/ruleset-governance.md` | Ruleset file discovery at deployment and the active/inactive System Administrator controls. |
 | `docs/architecture/report-mapping.md` | How clause-to-report mapping is validated, and the golden report fixtures that pin the rendered output. |
 | `docs/architecture/supabase-auth.md` | Supabase Auth as the production identity provider: the token exchange, what is verified before a token is trusted, how a Supabase identity is linked to a MetrIQ user, password reset, and what is deliberately out of scope. |
 | `docs/architecture/readiness-and-retests.md` | Case readiness, the "why this result" explanation, the plan scope (including what the plan does not run), and the controlled re-test workflow: what is superseded, what the replacement carries, and how each consumer treats a superseded record. |

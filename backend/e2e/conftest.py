@@ -15,6 +15,7 @@ so the browser exercises the same wiring a deployment uses.
 from __future__ import annotations
 
 import os
+import json
 import socket
 import subprocess
 import sys
@@ -74,6 +75,31 @@ def _wait_for(url: str, *, timeout: float = 120.0) -> None:
     raise RuntimeError(f"the server did not answer {url}: {last_error}")
 
 
+def _activate_seeded_ruleset(server_url: str) -> None:
+    login = urllib.request.Request(
+        f"{server_url}/api/v1/auth/login",
+        data=json.dumps({"email": ADMIN_ACCOUNT, "password": DEFAULT_PASSWORD}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(login) as response:
+        access_token = json.load(response)["access_token"]
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    with urllib.request.urlopen(
+        urllib.request.Request(f"{server_url}/api/v1/rulesets", headers=headers)
+    ) as response:
+        rulesets = json.load(response)
+    baseline = next(row for row in rulesets if row["version_label"] == "r76-1-2006-v1")
+    activate = urllib.request.Request(
+        f"{server_url}/api/v1/rulesets/{baseline['standard_version_id']}/activate",
+        data=json.dumps({"reason": "E2E fixture setup"}).encode(),
+        headers={**headers, "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(activate) as response:
+        if response.status != 200:
+            raise RuntimeError(f"ruleset activation failed: {response.status}")
+
+
 @pytest.fixture(scope="session")
 def server() -> str:
     """A live uvicorn process serving the application with demo data."""
@@ -95,7 +121,7 @@ def server() -> str:
     try:
         _wait_for(f"{url}/health")
         seeded = subprocess.run(
-            [sys.executable, "scripts/seed_db.py", "--password", DEFAULT_PASSWORD],
+            [sys.executable, "scripts/seed_db.py", "--password", DEFAULT_PASSWORD, "--no-demo-case"],
             cwd=BACKEND_DIR,
             env=os.environ.copy(),
             capture_output=True,
@@ -105,6 +131,19 @@ def server() -> str:
         if seeded.returncode != 0:
             raise RuntimeError(
                 f"demo seeding failed ({seeded.returncode}):\n{seeded.stdout}\n{seeded.stderr}"
+            )
+        _activate_seeded_ruleset(url)
+        seeded = subprocess.run(
+            [sys.executable, "scripts/seed_db.py", "--password", DEFAULT_PASSWORD],
+            cwd=BACKEND_DIR,
+            env=os.environ.copy(),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if seeded.returncode != 0:
+            raise RuntimeError(
+                f"demo case seeding failed ({seeded.returncode}):\n{seeded.stdout}\n{seeded.stderr}"
             )
         yield url
     finally:

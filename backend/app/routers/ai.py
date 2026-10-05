@@ -250,7 +250,6 @@ def _build_assistant_sources(db: Session, standard_version_id: uuid.UUID | None)
                 ),
                 "version_label": version.version_label,
                 "standard": standard_version.version_label,
-                "review_status": version.review_status,
             }
         )
 

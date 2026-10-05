@@ -257,7 +257,7 @@ def test_a_report_is_released_only_after_approval(client, tokens, case_factory):
     assert download.content.startswith(b"%PDF")
 
 
-def test_case_creation_explains_when_seeded_ruleset_is_awaiting_review(
+def test_case_creation_explains_when_ruleset_is_inactive(
     client, tokens, accounts
 ):
     from app.database import SessionLocal
@@ -295,7 +295,7 @@ def test_case_creation_explains_when_seeded_ruleset_is_awaiting_review(
             db.commit()
 
     assert response.status_code == 422, response.text
-    assert "is 'draft' and is not active" in response.json()["detail"]
+    assert "is inactive" in response.json()["detail"]
     assert "Administration > Standards & rules" in response.json()["detail"]
 
 

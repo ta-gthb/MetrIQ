@@ -17,11 +17,6 @@ class P:
     EQUIPMENT_MANAGE = "equipment.manage"
     RULES_MANAGE = "rules.manage"
     RULES_VIEW = "rules.view"
-    # Metrology/domain review of a rule and lifecycle approval of a ruleset
-    # (audit items 6 and 10). Deliberately separate from rules.manage: the
-    # person who drafts or edits a rule must not be able to sign it off alone.
-    RULES_REVIEW = "rules.review"
-    RULES_APPROVE = "rules.approve"
     AUDIT_VIEW = "audit.view"
     CASES_VIEW = "cases.view"
     CASES_VIEW_SCOPE = "cases.view.scope"
@@ -56,10 +51,8 @@ PERMISSION_CATALOGUE: list[tuple[str, str, str]] = [
     (P.LABS_VIEW, "View laboratory information", "administration"),
     (P.MASTERS_MANAGE, "Manage manufacturer and applicant masters", "masters"),
     (P.EQUIPMENT_MANAGE, "Manage test equipment and calibrations", "masters"),
-    (P.RULES_MANAGE, "Manage standards, rulesets and templates", "standards"),
+    (P.RULES_MANAGE, "Manage standards, rulesets, templates, and activation", "standards"),
     (P.RULES_VIEW, "View standards, rulesets and templates", "standards"),
-    (P.RULES_REVIEW, "Record a metrology review of a rule or ruleset", "standards"),
-    (P.RULES_APPROVE, "Approve and activate a ruleset", "standards"),
     (P.AUDIT_VIEW, "View audit logs and case audit trails", "governance"),
     (P.CASES_VIEW, "View all evaluation cases", "cases"),
     (P.CASES_VIEW_SCOPE, "View cases within authorized scope", "cases"),

@@ -43,16 +43,14 @@ class StandardVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     version_label: Mapped[str] = mapped_column(String(80), nullable=False)
     effective_from: Mapped[date | None] = mapped_column(Date)
     effective_to: Mapped[date | None] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String(32), default="draft")
+    status: Mapped[str] = mapped_column(String(32), default="inactive")
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     source_reference: Mapped[str | None] = mapped_column(String(255))
     notes: Mapped[str | None] = mapped_column(Text)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     activated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
 
-    # --- Governed lifecycle (audit items 6 and 10) -------------------------
-    # draft -> under_review -> approved -> scheduled -> active, plus the
-    # terminal states a superseded or withdrawn version ends in.
+    # Legacy lifecycle metadata remains for existing database records only.
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     review_reference: Mapped[str | None] = mapped_column(String(120))
@@ -65,10 +63,7 @@ class StandardVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deactivated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     deactivation_reason: Mapped[str | None] = mapped_column(Text)
-    # sha256 over the reviewed content. Recomputed at activation, so a rule that
-    # changes after sign-off cannot ride in under the old approval.
     approved_fingerprint: Mapped[str | None] = mapped_column(String(72))
-    # "domain_review" or "provisional" - how this version came to be active.
     activation_basis: Mapped[str | None] = mapped_column(String(32))
 
     standard: Mapped[Standard] = relationship(back_populates="versions", lazy="joined")
@@ -92,7 +87,7 @@ class Rule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 
 class RuleVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    """A concrete, immutable-once-approved definition of a rule."""
+    """A versioned definition of a rule attached to one standard version."""
 
     __tablename__ = "rule_versions"
     __table_args__ = (UniqueConstraint("rule_id", "version_label", name="uq_rule_version"),)
@@ -110,7 +105,7 @@ class RuleVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # Free-text policy description. The shipped ruleset uses up to 74
     # characters, which PostgreSQL rejects outright at String(60).
     rounding_policy: Mapped[str | None] = mapped_column(String(200))
-    review_status: Mapped[str] = mapped_column(String(40), default="pending_domain_review")
+    review_status: Mapped[str] = mapped_column(String(40), default="not_required")
     reviewed_by: Mapped[str | None] = mapped_column(String(160))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -122,15 +117,7 @@ class RuleVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 
 class RuleReview(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    """A metrology reviewer's decision about a rule, or about a whole rule set.
-
-    Audit item 6: metrology correctness cannot be established by software tests
-    alone. Every rule that becomes part of a production ruleset therefore
-    carries the name of the qualified reviewer who validated it, the revision of
-    the controlled source they worked from, their decision and a change note.
-    Boundary-case coverage is recorded alongside, because a rule is only as
-    trustworthy as the edges that were exercised against it.
-    """
+    """Historical review record retained for databases created by earlier releases."""
 
     __tablename__ = "rule_reviews"
 

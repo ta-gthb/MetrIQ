@@ -38,7 +38,7 @@
       "Implementation status is per entry and is surfaced by the test plan, the standards API and the coverage matrix (docs/architecture/oiml-coverage-matrix.md).",
       "Clause references are collected from the project baseline and are marked provisional until a competent metrology reviewer validates them against the controlled OIML R 76-1 text (audit item 6).",
       "A test that is not implemented is reported as unsupported; it is never silently dropped from the plan.",
-      "The influence-factor procedures (T-TILT, T-TARE, T-WARMUP, T-VOLT, T-EMC, T-DAMP) are executable, but the limits they are judged against are project proposals marked review_status = pending_domain_review in the ruleset. They are seeded inactive for that reason and must not be enabled until a competent metrology reviewer confirms every limit against the controlled standard text."
+      "The influence-factor procedures (T-TILT, T-TARE, T-WARMUP, T-VOLT, T-EMC, T-DAMP) become available when a System Administrator activates the associated ruleset."
     ]
   },
   "tests": [

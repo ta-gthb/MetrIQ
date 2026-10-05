@@ -586,16 +586,6 @@ def _worst_row(rows: list[RowResult]) -> RowResult:
     )
 
 
-def _pending_review_warning(tolerance_key: str, tol: dict[str, Any]) -> str | None:
-    if tol.get("review_status") == "pending_domain_review":
-        return (
-            f"The limit for '{tolerance_key}' is awaiting metrology review"
-            f" ({tol.get('clause_reference') or 'no clause reference recorded'});"
-            " the verdict depends on that limit."
-        )
-    return None
-
-
 def _sequence_outcome(
     ctx: CalcContext,
     *,
@@ -661,9 +651,6 @@ def _sequence_outcome(
         "comparator": tol.get("comparator", "abs_lte"),
         **(extra_intermediates or {}),
     }
-    pending = _pending_review_warning(tolerance_key, tol)
-    if pending:
-        outcome.warnings.append(pending)
     outcome.explanation = (
         f"Governing deviation {worst.error} {ctx.unit} at row {worst.observation_no}"
         f" against the limit {worst.mpe} {ctx.unit} that applies to it."
@@ -1016,9 +1003,6 @@ def calc_tare(ctx: CalcContext) -> CalcOutcome:
         "rows_outside_limit": [row.observation_no for row in outcome.rows if row.within is False],
         "tolerance": tol,
     }
-    pending = _pending_review_warning(tolerance_key, tol)
-    if pending:
-        outcome.warnings.append(pending)
     outcome.explanation = (
         f"Governing tare error {worst.error} {ctx.unit} at row {worst.observation_no}"
         f" against the limit {worst.mpe} {ctx.unit} that applies to it."

@@ -129,14 +129,22 @@ def test_health_reports_database_readiness(client):
 
 
 def test_startup_bootstrap_skips_seeding_when_reference_data_is_present(accounts):
+    from app.models import Permission, RolePermission
+
     with SessionLocal() as db:
         assert bootstrap.reference_data_present(db) is True
+        db.add(Permission(code="rules.review", description="legacy", category="standards"))
+        db.add(RolePermission(role_code=SUPER_ADMIN, permission_code="rules.review"))
+        db.commit()
 
     report = bootstrap.initialise_database()
     assert report["connected"] is True
     assert report["tables"] == len(Base.metadata.tables)
     assert report["reference_data"] == "present"
-    assert report["seeded"] == {}
+    assert report["seeded"]["roles"] == 5
+    assert report["seeded"]["rulesets"] == []
+    with SessionLocal() as db:
+        assert db.get(Permission, "rules.review") is None
 
 
 def test_bootstrap_seeding_is_idempotent(accounts):
@@ -147,6 +155,52 @@ def test_bootstrap_seeding_is_idempotent(accounts):
         assert bootstrap.reference_data_present(db) is True
     assert counts["roles"] == 5
     assert counts["test_definitions"] >= 11
+
+
+def test_bootstrap_discovers_new_rule_files_on_an_existing_database(
+    tmp_path, monkeypatch, client, tokens, accounts
+):
+    import json
+
+    from app.rules import loader
+    from app.models import StandardVersion
+
+    label = "r76-1-government-order-test"
+    payload = {
+        "standard": "OIML R 76-1",
+        "version_label": label,
+        "edition": "Government Order 2026",
+        "mpe": {
+            "clause_reference": "Government Order 2026 section 4",
+            "unit": "e",
+            "bands": {"III": [{"min_m": 0, "max_m": 10, "factor": "0.5"}]},
+        },
+        "tolerances": {},
+    }
+    (tmp_path / f"{label}.json").write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(loader, "DATA_DIR", tmp_path)
+    loader.load_ruleset.cache_clear()
+
+    try:
+        report = bootstrap.initialise_database()
+        assert report["reference_data"] == "present"
+        assert report["seeded"]["rulesets"] == [label]
+
+        with SessionLocal() as db:
+            version = db.execute(
+                select(StandardVersion).where(StandardVersion.version_label == label)
+            ).scalars().one()
+            assert version.is_active is False
+            assert version.status == "inactive"
+
+        listed = client.get(f"{API}/rulesets", headers=tokens[SUPER_ADMIN])
+        assert listed.status_code == 200, listed.text
+        entry = next(row for row in listed.json() if row["version_label"] == label)
+        assert entry["is_active"] is False
+        assert entry["status"] == "inactive"
+        assert entry["rule_count"] > 0
+    finally:
+        loader.load_ruleset.cache_clear()
 
 
 def test_manage_admin_create_produces_working_credentials(client, temporary_super_admin):

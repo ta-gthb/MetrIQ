@@ -290,10 +290,8 @@ variables and a verification checklist: `docs/deployment/README.md`.
 
 ## Standards notice
 
-The rule values shipped with this repository are **configuration data, not
-verified metrological truth**. Every rule version is marked
-`pending_domain_review`. Before production use, a qualified metrology authority
-must confirm every band, tolerance and clause reference against the controlled
-copies of OIML R 76-1:2006 and OIML R 76-2:2007 and the laboratory's approved
-procedures. This software is a documentation and workflow tool; it does not
-constitute statutory approval.
+Rule values shipped with this repository are versioned developer-supplied
+configuration. New versions are inactive after deployment and only apply to
+new evaluations after a System Administrator activates them in Standards &
+rules. Activation controls software use; it does not constitute statutory
+approval or certify a legal interpretation.

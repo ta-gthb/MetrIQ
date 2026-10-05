@@ -121,15 +121,6 @@ class Settings(BaseSettings):
         default_factory=lambda: ["nameplate_photograph"]
     )
 
-    # --- Governed rulesets (audit items 6 and 10) -------------------------
-    # A ruleset reaches production only through the review lifecycle. The
-    # development/demo bootstrap is the one exception: it may activate the
-    # shipped catalogue provisionally so a fresh instance is usable without a
-    # metrology reviewer on hand. That path is refused in production, and
-    # anything activated that way is labelled provisional in the API, the UI
-    # and the report footer.
-    ALLOW_PROVISIONAL_RULESET_ACTIVATION: bool | None = None
-
     # --- Bootstrap --------------------------------------------------------
     # A deployed instance provisions itself at start-up because Render's free
     # plan offers neither a pre-deploy command nor a shell. Create any missing
@@ -318,13 +309,6 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
-
-    @property
-    def allow_provisional_ruleset(self) -> bool:
-        """May the bootstrap activate the shipped ruleset without a review?"""
-        if self.ALLOW_PROVISIONAL_RULESET_ACTIVATION is not None:
-            return bool(self.ALLOW_PROVISIONAL_RULESET_ACTIVATION)
-        return self.ENVIRONMENT != "production" or self.DEMO_MODE
 
     @property
     def supabase_auth_url(self) -> str | None:

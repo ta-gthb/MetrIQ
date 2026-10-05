@@ -279,11 +279,7 @@ def _outside_plan_reason(definition: TestDefinition) -> str:
     if definition.implementation_status == TestImplementationStatus.NOT_IMPLEMENTED:
         return "Defined in the catalogue but not implemented in this release."
     if not definition.is_active:
-        return (
-            "Implemented, but not active in this ruleset version: its limit and "
-            "clause reference were added from the standard as a proposal and are "
-            "pending metrology review."
-        )
+        return "Implemented, but disabled in this ruleset version."
     return (
         "Active in the ruleset, but not part of this case's plan - the stored "
         "plan was generated from a different set of definitions."
@@ -295,8 +291,7 @@ def plan_scope(db: Session, case: EvaluationCase) -> dict:
 
     A reader must be able to see that the plan of this evaluation is narrower
     than the catalogue, and why - an unstated gap is the failure this guards
-    against. Definitions outside the plan carry the reason and the limits that
-    are still proposals.
+    against. Definitions outside the plan carry the reason they are excluded.
     """
     definitions = db.execute(
         select(TestDefinition).where(
@@ -312,7 +307,6 @@ def plan_scope(db: Session, case: EvaluationCase) -> dict:
             "name": definition.name,
             "phase": definition.phase,
             "implementation_status": definition.implementation_status,
-            "proposed_limits": _pending_review_limits(db, case, definition),
         }
         if definition.id in planned:
             in_plan.append(entry)
@@ -320,41 +314,6 @@ def plan_scope(db: Session, case: EvaluationCase) -> dict:
             entry["reason"] = _outside_plan_reason(definition)
             outside_plan.append(entry)
     return {"in_plan": in_plan, "outside_plan": outside_plan}
-
-
-def _rule_key(definition) -> str | None:
-    rules = definition.calculation_rules or {}
-    key = rules.get("tolerance_key")
-    if isinstance(key, str) and key.strip():
-        return key.strip()
-    source = (definition.compliance_rules or {}).get("limit_source")
-    if isinstance(source, str) and source.startswith("tolerance:"):
-        return source.split(":", 1)[1].strip()
-    return None
-
-
-def _pending_review_limits(db: Session, case: EvaluationCase, definition) -> list[dict]:
-    """Limits this test is judged against that are still proposals."""
-    if definition is None:
-        return []
-    ruleset, _version = ruleset_for_standard_version(db, case.standard_version_id)
-    tolerances = ruleset.get("tolerances") or {}
-    keys = [key for key in (_rule_key(definition),) if key]
-    pending = []
-    for key in keys:
-        tolerance = tolerances.get(key) or {}
-        if str(tolerance.get("review_status") or "").startswith("pending"):
-            pending.append(
-                {
-                    "key": key,
-                    "rule_id": tolerance.get("rule_id"),
-                    "clause_reference": tolerance.get("clause_reference"),
-                    "factor": tolerance.get("factor"),
-                    "unit": tolerance.get("unit"),
-                    "description": tolerance.get("description"),
-                }
-            )
-    return pending
 
 
 def _number(value: Any) -> str:
@@ -508,7 +467,6 @@ def test_explanation(db: Session, case: EvaluationCase, test: TestInstance) -> d
         "errors": details.get("errors") or [],
         "outstanding": outstanding,
         "investigation": _investigation(test, result),
-        "pending_review_limits": _pending_review_limits(db, case, definition) if definition else [],
         "retest": {
             "allowed": can_retest(case, test),
             "revision_no": test.revision_no,

@@ -8,7 +8,7 @@ backend/scripts/seed_identity.py and the start-up bootstrap.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.models import Permission, Role, RolePermission, SystemSetting
 from app.security.permissions import (
@@ -20,6 +20,15 @@ from app.security.permissions import (
 
 def seed_roles_and_permissions(db) -> tuple[int, int]:
     """Upsert every permission, role and role-permission grant."""
+
+    removed_permission_codes = {"rules.review", "rules.approve"}
+    db.execute(
+        delete(RolePermission).where(
+            RolePermission.permission_code.in_(removed_permission_codes)
+        )
+    )
+    db.execute(delete(Permission).where(Permission.code.in_(removed_permission_codes)))
+    db.flush()
 
     for code, description, category in PERMISSION_CATALOGUE:
         permission = db.get(Permission, code)

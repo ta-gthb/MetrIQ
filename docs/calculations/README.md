@@ -6,11 +6,10 @@ boundary examples. It describes what the implementation in
 `backend/app/services/calculation_engine/` and `compliance_engine/` actually
 does; it is **not** a substitute for the controlled standard.
 
-> **Review status.** Every rule version ships with
-> `review_status = "pending_domain_review"`. The numeric bands and tolerances are
-> configuration data. A qualified metrology authority must confirm every value
-> and clause reference against the controlled copy of OIML R 76-1:2006 and the
-> laboratory's approved procedures before production use (PRD 25).
+> Ruleset activation controls whether a version applies to new evaluations. A
+> System Administrator activates or deactivates versions in Standards & rules.
+> Activation does not certify the legal interpretation of the versioned source
+> data; rule definitions remain the developer-supplied configuration.
 
 ## 1. Common conventions
 
@@ -77,9 +76,8 @@ class III instrument in band 2. Every band carries
 `clause_reference = "OIML R 76-1:2006 Table 1"`.
 
 In-service (subsequent verification) bands are also present in the rule data at
-`3x` the initial-verification allowances and are marked `REVIEW REQUIRED`; the
-verification stage is selected with the `stage` parameter of
-`POST /calculations/mpe`.
+`3x` the initial-verification allowances; the verification stage is selected
+with the `stage` parameter of `POST /calculations/mpe`.
 
 An at-zero allowance of `0.25 e` for electronic instruments is configured in
 the rule set (`R76-MPE-ZERO`).
@@ -164,19 +162,15 @@ Reference: `GET /test-definitions` (catalogue) and `GET /rules` (rule data).
 | `T-STAB` | Stability of equilibrium | `value(t_i) - value(t_0)` | `1.0 e` | `R76-STAB-01` | R 76-1:2006 4.5.3 / T.3.7 |
 | `T-CHK-CON` | Examination of construction | boolean conformance of each item | all mandatory items conform | `R76-CONST` | R 76-1:2006 6 / T.4 |
 | `T-CHK-ID` | Identification and markings | boolean conformance of each item | all mandatory items present and consistent | `R76-MARKING` | R 76-1:2006 7 / T.4 |
-| `T-TILT` | Tilting | `value(tilted) - value(reference position)` | MPE at the test load (`R76-TILT-01`, provisional) | `R76-TILT-01` | R 76-1:2006 4.4.4 / T.3.6 |
-| `T-TARE` | Tare device (subtractive) | error of indication of the tared reading | `0.5 e` (`R76-TARE-01`, provisional) | `R76-TARE-01` | R 76-1:2006 4.6.4 / T.3.13 |
-| `T-WARMUP` | Warm-up time | `value(t) - value(power-on)` | `1.0 e` (`R76-WARMUP-01`, provisional) | `R76-WARMUP-01` | R 76-1:2006 4.4.2 / T.3.8 |
-| `T-VOLT` | Voltage variation, dips and interruptions | `value(supply condition) - value(nominal)` | `1.0 e` (`R76-VOLT-01`, provisional) | `R76-VOLT-01` | R 76-1:2006 4.4.3 / T.3.9 |
-| `T-EMC` | Bursts, surges, ESD and RF immunity | `value(after disturbance) - value(before)` | `1.0 e` (`R76-EMC-01`, provisional) | `R76-EMC-01` | R 76-1:2006 4.4.5 / T.3.10 |
-| `T-DAMP` | Damp heat, span stability and endurance | `value(after conditioning) - value(before)` | MPE at the test load (`R76-DAMP-01`, provisional) | `R76-DAMP-01` | R 76-1:2006 4.4.6 / T.3.11 |
+| `T-TILT` | Tilting | `value(tilted) - value(reference position)` | MPE at the test load (`R76-TILT-01`) | `R76-TILT-01` | R 76-1:2006 4.4.4 / T.3.6 |
+| `T-TARE` | Tare device (subtractive) | error of indication of the tared reading | `0.5 e` (`R76-TARE-01`) | `R76-TARE-01` | R 76-1:2006 4.6.4 / T.3.13 |
+| `T-WARMUP` | Warm-up time | `value(t) - value(power-on)` | `1.0 e` (`R76-WARMUP-01`) | `R76-WARMUP-01` | R 76-1:2006 4.4.2 / T.3.8 |
+| `T-VOLT` | Voltage variation, dips and interruptions | `value(supply condition) - value(nominal)` | `1.0 e` (`R76-VOLT-01`) | `R76-VOLT-01` | R 76-1:2006 4.4.3 / T.3.9 |
+| `T-EMC` | Bursts, surges, ESD and RF immunity | `value(after disturbance) - value(before)` | `1.0 e` (`R76-EMC-01`) | `R76-EMC-01` | R 76-1:2006 4.4.5 / T.3.10 |
+| `T-DAMP` | Damp heat, span stability and endurance | `value(after conditioning) - value(before)` | MPE at the test load (`R76-DAMP-01`) | `R76-DAMP-01` | R 76-1:2006 4.4.6 / T.3.11 |
 
-Procedures whose limit is marked *provisional* are executable, but the factor
-they are judged against is a project proposal recorded in the ruleset with
-`review_status = "pending_domain_review"`; the outcome carries a warning to that
-effect, and the catalogue seeds those tests inactive. A metrology reviewer
-confirms the limit, or replaces it, before they are enabled (see
-`docs/governance/metrology-review-register.md`).
+These procedures are inactive in the catalogue until the associated ruleset is
+activated by a System Administrator.
 
 ### 4.1 Sequence procedures (`T-ZR`, `T-CREEP`, `T-TEMP-NL`, `T-STAB`, `T-TILT`,
 `T-TARE`, `T-WARMUP`, `T-VOLT`, `T-EMC`, `T-DAMP`)

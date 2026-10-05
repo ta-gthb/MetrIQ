@@ -40,10 +40,7 @@ class RuleVersionOut(ORMModel):
     formula: str | None = None
     threshold: str | None = None
     unit: str | None = None
-    review_status: str
     is_active: bool
-    reviewed_by: str | None = None
-    reviewed_at: datetime | None = None
     active_from: date | None = None
     active_to: date | None = None
 
@@ -56,7 +53,6 @@ class RuleOut(ORMModel):
     clause_reference: str | None = None
     description: str | None = None
     is_active: bool
-    review_status: str | None = None
     version_label: str | None = None
     standard_version_id: uuid.UUID | None = None
     standard_label: str | None = None
@@ -70,25 +66,13 @@ class RuleSetOut(BaseModel):
     edition: str | None = None
     status: str
     is_active: bool
-    review_status: str | None = None
     source_reference: str | None = None
     notes: str | None = None
     rule_count: int = 0
     rules: list[dict] = Field(default_factory=list)
-    # Governed lifecycle (audit items 6 and 10).
-    lifecycle_state: str | None = None
-    activation_basis: str | None = None
-    submitted_at: datetime | None = None
-    approved_at: datetime | None = None
-    approved_by_name: str | None = None
-    approval_note: str | None = None
-    scheduled_for: date | None = None
     activated_at: datetime | None = None
     deactivated_at: datetime | None = None
     deactivation_reason: str | None = None
-    approved_fingerprint: str | None = None
-    can_activate: bool = False
-    review_gate: dict = Field(default_factory=dict)
 
 
 class ReportTemplateVersionOut(ORMModel):

@@ -205,10 +205,7 @@ def _limit(ruleset: dict, entry: dict) -> str:
         tol = (ruleset.get("tolerances") or {}).get(key)
         if tol is None:
             return "tolerance `%s` - NOT PRESENT IN THE RULESET" % key
-        rendered = "%s %s (%s)" % (tol.get("factor"), tol.get("unit"), key)
-        if tol.get("review_status") == "pending_domain_review":
-            rendered += " - PROVISIONAL, pending metrology review"
-        return rendered
+        return "%s %s (%s)" % (tol.get("factor"), tol.get("unit"), key)
     return _cell(source)
 
 
@@ -269,23 +266,10 @@ def build_matrix(boundary_cases: dict[str, str] | None = None) -> str:
     add("| Edition | %s |" % _cell(ruleset.get("edition")))
     add("| Ruleset version | `%s` |" % _cell(version))
     add("| Report template | `%s` (%s) |" % (_cell(template_label), _cell(template.get("standard"))))
-    add("| Ruleset review status | %s |" % _cell(ruleset.get("review_status")))
+    add("| Activation | Inactive after deployment; only a System Administrator can activate or deactivate it. |")
     add(
-        "| Clause references | Provisional until a competent metrology reviewer validates"
-        " them against the controlled OIML text (audit item 6). The numeric boundary cases"
-        " that back each rule live in `tests/test_rule_boundaries.py`. |"
-    )
-    provisional = sorted(
-        key for key, tol in (ruleset.get("tolerances") or {}).items()
-        if tol.get("review_status") == "pending_domain_review"
-    )
-    add(
-        "| Limits pending metrology review | %s |"
-        % (
-            _cell(", ".join("`%s`" % key for key in provisional))
-            if provisional
-            else "none"
-        )
+        "| Rule source | Definitions and clause references are versioned with this ruleset."
+        " The numeric boundary cases that back each rule live in `tests/test_rule_boundaries.py`. |"
     )
     add("")
     add(
@@ -344,7 +328,7 @@ def build_matrix(boundary_cases: dict[str, str] | None = None) -> str:
     add("")
     add(
         "| Rule ID | Clause | Rule | Definition / formula | Threshold | Unit | Rounding |"
-        " Used by | Automated test | Limit review |"
+        " Used by | Automated test | Activation |"
     )
     add("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for rule in flatten_rules(ruleset):
@@ -364,7 +348,7 @@ def build_matrix(boundary_cases: dict[str, str] | None = None) -> str:
                 _automated_test(
                     ["MPE-BANDS", "MPE-IN-SERVICE", "MPE-ZERO", rule["code"]], boundary_cases
                 ),
-                "inherits the ruleset review status",
+                "controlled by ruleset activation",
             )
         )
     for key, tol in sorted((ruleset.get("tolerances") or {}).items()):
@@ -387,7 +371,7 @@ def build_matrix(boundary_cases: dict[str, str] | None = None) -> str:
                 _cell(tol.get("unit")),
                 _cell(used_by),
                 _automated_test([tol.get("rule_id"), "R76-%s" % key.upper().replace("_", "-")], boundary_cases),
-                _cell(tol.get("review_status") or "inherits the ruleset review status"),
+                "controlled by ruleset activation",
             )
         )
     add("")

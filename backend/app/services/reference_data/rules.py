@@ -24,6 +24,7 @@ from app.models import (
     utcnow,
 )
 from app.rules.loader import (  # noqa: E402
+    available_rulesets,
     flatten_rules,
     load_report_template,
     load_ruleset,
@@ -65,7 +66,7 @@ def _standard_version(db, standard: Standard, payload: dict) -> StandardVersion:
             standard_id=standard.id,
             edition=payload.get("edition", "unknown"),
             version_label=label,
-            status=payload.get("status", "draft"),
+            status="inactive",
             effective_from=date.fromisoformat(effective_from) if effective_from else None,
             source_reference=payload.get("source_reference"),
             notes="\n".join(payload.get("notes", [])) or None,
@@ -114,18 +115,25 @@ def _upsert_rule_version(db, rule: Rule, standard_version: StandardVersion, entr
     version.unit = entry.get("unit")
     version.applicability = entry.get("applicability")
     version.rounding_policy = entry.get("rounding_policy")
-    version.review_status = entry.get("review_status", "pending_domain_review")
+    version.review_status = "not_required"
     db.flush()
     return version
 
 
-def seed_ruleset(db) -> StandardVersion:
-    payload = load_ruleset("r76-1-2006-v1")
+def seed_ruleset(db, version_label: str = "r76-1-2006-v1") -> StandardVersion:
+    payload = load_ruleset(version_label)
+    standard_code = payload.get("standard_code") or payload["standard"]
+    existing_standard = db.execute(
+        select(Standard).where(Standard.code == standard_code)
+    ).scalars().first()
     standard = _standard(
         db,
-        R76_1,
-        "Non-automatic weighing instruments - Part 1: Metrological and technical requirements - Tests",
-        "Initial technical baseline for the application's metrological requirements and test procedures.",
+        standard_code,
+        payload.get("standard_title") or (existing_standard.title if existing_standard else standard_code),
+        payload.get("standard_description") or (
+            existing_standard.description if existing_standard else "Government or standards-body rule set."
+        ),
+        payload.get("publisher") or (existing_standard.publisher if existing_standard else "OIML"),
     )
     version = _standard_version(db, standard, payload)
 
@@ -145,7 +153,7 @@ def seed_ruleset(db) -> StandardVersion:
             "formula": "see mpe.formula and tolerances.*",
             "unit": "e",
             "rounding_policy": "Exact decimal arithmetic; ROUND_HALF_UP only when a rule requests rounding",
-            "review_status": payload.get("review_status", "pending_domain_review"),
+            "review_status": "not_required",
         },
     )
 
@@ -158,33 +166,37 @@ def seed_ruleset(db) -> StandardVersion:
         )
         _upsert_rule_version(db, rule, version, entry)
 
-    # 3. A placeholder future edition, inactive, to prove that versioning is real.
-    revision = db.execute(
-        select(StandardVersion).where(
-            StandardVersion.standard_id == standard.id,
-            StandardVersion.version_label == "r76-1-rev-1.1-CD-2024",
-        )
-    ).scalars().first()
-    if revision is None:
-        db.add(
-            StandardVersion(
-                standard_id=standard.id,
-                edition="revision 1.1 committee draft",
-                version_label="r76-1-rev-1.1-CD-2024",
-                status="draft",
-                is_active=False,
-                source_reference="https://www.oiml.org/en/tc-sc-pg/committee-drafts",
-                notes=(
-                    "Placeholder for the OIML R 76 revision project (1.1 committee draft circulated "
-                    "April 2024). Load its rule definitions before activating; historical cases keep "
-                    "the version they were created with."
-                ),
-            )
-        )
     logger.info(
         "ruleset %s: 1 rule set + %s individual rules", version.version_label, len(entries)
     )
     return version
+
+
+def seed_new_rulesets(db) -> list[StandardVersion]:
+    """Seed only version files that are not yet represented in the database."""
+    seeded = []
+    for version_label in available_rulesets():
+        payload = load_ruleset(version_label)
+        standard_code = payload.get("standard_code") or payload["standard"]
+        standard = db.execute(
+            select(Standard).where(Standard.code == standard_code)
+        ).scalars().first()
+        if standard is not None:
+            existing = db.execute(
+                select(StandardVersion).where(
+                    StandardVersion.standard_id == standard.id,
+                    StandardVersion.version_label == version_label,
+                )
+            ).scalars().first()
+            if existing is not None:
+                continue
+
+        version = seed_ruleset(db, version_label)
+        catalogue = load_test_catalogue(version_label)
+        if catalogue.get("tests") or catalogue.get("phase2_tests"):
+            seed_test_catalogue(db, version)
+        seeded.append(version)
+    return seeded
 
 
 def seed_report_template(db, standard_version: StandardVersion) -> ReportTemplateVersion:
@@ -235,7 +247,7 @@ def seed_report_template(db, standard_version: StandardVersion) -> ReportTemplat
 
 
 def seed_test_catalogue(db, standard_version: StandardVersion) -> int:
-    catalogue = load_test_catalogue("r76-1-2006-v1")
+    catalogue = load_test_catalogue(standard_version.version_label)
     created = 0
     for entry in catalogue["tests"]:
         created += _upsert_test_definition(db, standard_version, entry, is_active=True, phase="MVP")
