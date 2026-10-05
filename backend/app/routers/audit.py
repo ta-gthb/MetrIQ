@@ -24,7 +24,7 @@ def _require_super_admin(user: User) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "Audit logs are visible to the Super Admin only. "
+                "Audit logs are visible to the System Administrator only. "
                 "Your role keeps the evaluation record itself: the case workflow history."
             ),
         )

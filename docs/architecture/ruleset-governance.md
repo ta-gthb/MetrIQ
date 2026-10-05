@@ -25,11 +25,11 @@ draft ──► under_review ──► approved ──► scheduled ──► ac
 * **superseded** - it was active and a newer version of the same standard took over.
 * **retired** - deliberately withdrawn.
 
-The Super Admin can activate any populated version directly from the
+The System Administrator can activate any populated version directly from the
 Standards & rules console; completing the review lifecycle is not a prerequisite.
 If an optional review has been completed, activation records that basis. Otherwise
 the version is marked `super_admin_direct`. Active versions can be deactivated
-directly by the Super Admin. Versions with no rule definitions remain ineligible:
+directly by the System Administrator. Versions with no rule definitions remain ineligible:
 they cannot generate an evaluation plan.
 
 ## The activation gate
@@ -37,14 +37,14 @@ they cannot generate an evaluation plan.
 The optional review workflow remains content-bound. A `RuleReview` carries a
 fingerprint of the reviewed content, so editing a band or tolerance makes that
 review stale. These records remain visible for governance and audit, but a stale
-or missing review does not block a direct Super Admin activation.
+or missing review does not block a direct System Administrator activation.
 
 The review package still reports review gaps for informational purposes. An empty
 ruleset is refused at activation because it has no definitions from which to
 generate tests for an evaluation.
 
 The review package continues to describe gaps for auditing, independently of
-whether the Super Admin activates the version directly:
+whether the System Administrator activates the version directly:
 
 ```json
 {
@@ -61,20 +61,20 @@ whether the Super Admin activates the version directly:
 ```
 
 When the optional review workflow is used, each rule sign-off is separate from
-the whole-ruleset approval; direct Super Admin activation does not require either.
+the whole-ruleset approval; direct System Administrator activation does not require either.
 
 ## Permissions
 
 | Permission | Held by | Allows |
 |---|---|---|
 | `rules.view` | all roles | read standards, rules and the review package |
-| `rules.manage` | Super Admin | submit a draft for optional review |
-| `rules.review` | Super Admin | record an optional metrology review of a rule |
-| `rules.approve` | Super Admin | optionally approve or schedule; directly activate or deactivate |
+| `rules.manage` | System Administrator | submit a draft for optional review |
+| `rules.review` | System Administrator | record an optional metrology review of a rule |
+| `rules.approve` | System Administrator | optionally approve or schedule; directly activate or deactivate |
 
-Every activation and deactivation is restricted to the Super Admin and is
+Every activation and deactivation is restricted to the System Administrator and is
 recorded in the audit trail. Review metadata remains available, but the
-Super Admin does not have to complete a separate review/approval workflow before
+System Administrator does not have to complete a separate review/approval workflow before
 activating a populated version.
 
 ## The review record
@@ -107,7 +107,7 @@ activates the shipped version as follows:
 * outside production, or with `DEMO_MODE` on, it activates it **provisionally** -
   `activation_basis='provisional'`, no reviewer is invented, and the API, the
   admin console and the report footer all label it;
-* in production it leaves the version in **draft**. A Super Admin can activate
+* in production it leaves the version in **draft**. A System Administrator can activate
   this populated version directly from Standards & rules; no review workflow is
   required.
 

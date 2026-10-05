@@ -148,7 +148,7 @@ Every account is named by a user ID the platform issues for it:
 
 | Role | Prefix | Example |
 | --- | --- | --- |
-| Super Admin | `stmadm` | `stmadm2026042` |
+| System Administrator | `stmadm` | `stmadm2026042` |
 | Laboratory Admin / Manager | `labadm` | `labadm2026007` |
 | Test Engineer / Metrologist | `temadm` | `temadm2026118` |
 | Technical Reviewer / Verifier | `trvadm` | `trvadm2026053` |
@@ -157,7 +157,7 @@ Every account is named by a user ID the platform issues for it:
 The identifier is a six-letter prefix that names the role, the four-digit year
 the account was created, and three digits drawn at random.
 `app/services/identity/user_codes.py` issues it when the account is created -
-`manage_admin.py` for a Super Admin, `POST /api/v1/users` for every other role -
+`manage_admin.py` for a System Administrator, `POST /api/v1/users` for every other role -
 and the unique index on `users.user_code` is what makes a draw safe. Revision
 `0008` gives one to every account that already existed, and an account that has
 none is given one at its first sign-in.

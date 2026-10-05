@@ -149,7 +149,7 @@ def update_user(
     if "laboratory_id" in changes and user.role_code != SUPER_ADMIN:
         raise HTTPException(
             status_code=403,
-            detail="Only the Super Admin may assign a user to a laboratory.",
+            detail="Only the System Administrator may assign a user to a laboratory.",
         )
     if "laboratory_id" in changes and changes["laboratory_id"] is not None:
         if db.get(Laboratory, changes["laboratory_id"]) is None:
@@ -238,7 +238,7 @@ def delete_user(
         if not remaining:
             raise HTTPException(
                 status_code=409,
-                detail="The last Super Admin account cannot be deleted.",
+                detail="The last System Administrator account cannot be deleted.",
             )
 
     assigned = db.execute(
@@ -487,7 +487,7 @@ def update_role_permissions(
         raise HTTPException(
             status_code=403,
             detail=(
-                "Super Admin permissions are pre-set by the software developer and "
+                "System Administrator permissions are pre-set by the software developer and "
                 "cannot be edited."
             ),
         )

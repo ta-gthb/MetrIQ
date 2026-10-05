@@ -7,11 +7,11 @@ These tests hold the boundaries added with the laboratory-assignment model:
 * the instrument register publishes only approved evaluations;
 * a report is released only after the Approving Authority approves, and the
   released document is downloadable by the Laboratory Admin / Manager (its own
-  laboratory) and the Super Admin alone;
-* case personnel must come from the case's own laboratory, and the Super Admin
+  laboratory) and the System Administrator alone;
+* case personnel must come from the case's own laboratory, and the System Administrator
   assigns users to a laboratory in the first place;
 * every case carries a discussion for its team, and every role has one support
-  thread with the Super Admin.
+  thread with the System Administrator.
 
 Runs against the throwaway SQLite database built by ``conftest``.
 """
@@ -405,7 +405,7 @@ def test_a_case_discussion_is_open_to_its_team(client, tokens, case_factory):
     assert empty.status_code == 422, empty.text
 
 
-# ------------------------------------------------------- Super Admin support
+# ------------------------------------------------------- System Administrator support
 def test_every_role_can_contact_the_super_admin(client, tokens, accounts):
     for role in (LAB_ADMIN, ENGINEER, REVIEWER, APPROVER):
         posted = client.post(
@@ -419,7 +419,7 @@ def test_every_role_can_contact_the_super_admin(client, tokens, accounts):
         assert own_thread.status_code == 200, own_thread.text
         assert any(row["body"] == f"Support question from {role}" for row in own_thread.json())
 
-        # A conversation with the Super Admin is private to its owner.
+        # A conversation with the System Administrator is private to its owner.
         assert client.get(f"{API}/support/threads", headers=tokens[role]).status_code == 403
         assert (
             client.get(
@@ -439,9 +439,9 @@ def test_every_role_can_contact_the_super_admin(client, tokens, accounts):
 
     reply = client.post(
         f"{API}/support/threads/{accounts['user_ids'][ENGINEER]}",
-        json={"body": "Super Admin reply for the regression check"},
+        json={"body": "System Administrator reply for the regression check"},
         headers=tokens[SUPER_ADMIN],
     )
     assert reply.status_code == 201, reply.text
     engineer_thread = client.get(f"{API}/support/messages", headers=tokens[ENGINEER]).json()
-    assert any(row["body"] == "Super Admin reply for the regression check" for row in engineer_thread)
+    assert any(row["body"] == "System Administrator reply for the regression check" for row in engineer_thread)

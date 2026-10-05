@@ -1,7 +1,7 @@
 """Effective role permissions, resolved from the database (FR-02).
 
 The catalogue in ``app.security.permissions`` is the shipped default and stays
-the reference for a fresh installation. Once a Super Admin edits a role in the
+the reference for a fresh installation. Once a System Administrator edits a role in the
 administration console, the database rows for that role become the source of
 truth: the reference-data seeding sees the customisation marker and leaves the
 role alone, so an edit survives restarts and redeploys. A short-lived cache
@@ -53,7 +53,7 @@ def invalidate(role_code: str | None = None) -> None:
 
 
 def is_customised(db: Session, role_code: str) -> bool:
-    """True when a Super Admin has edited this role's permissions."""
+    """True when a System Administrator has edited this role's permissions."""
     if role_code == SUPER_ADMIN:
         return False
     marker = db.execute(
@@ -113,7 +113,7 @@ def set_role_permissions(
             key=CUSTOMISED_SETTING_PREFIX + role_code,
             category="administration",
             description=(
-                "Set when a Super Admin edits this role's permissions; the "
+                "Set when a System Administrator edits this role's permissions; the "
                 "reference-data seeding then leaves the role untouched."
             ),
         )

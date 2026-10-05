@@ -62,7 +62,7 @@ ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 REVIEW_DECISIONS = ("approved", "rejected", "needs_changes")
 
 # How a version came to be active. "provisional" is only ever set by the
-# development/demo bootstrap; direct Super Admin activation is recorded separately.
+# development/demo bootstrap; direct System Administrator activation is recorded separately.
 BASIS_DOMAIN_REVIEW = "domain_review"
 BASIS_PROVISIONAL = "provisional"
 BASIS_SUPER_ADMIN = "super_admin_direct"
@@ -411,7 +411,7 @@ def activate(
     force_provisional: bool = False,
     direct_admin: bool = False,
 ) -> StandardVersion:
-    """Make a populated version active, optionally by direct Super Admin action.
+    """Make a populated version active, optionally by direct System Administrator action.
 
     Deactivating the siblings happens in the same transaction so there is never
     a moment with two active versions of one standard.

@@ -190,7 +190,7 @@ function navItems() {
     { href: '/evaluations.html#instruments', label: 'Instruments', icon: ICONS.instruments, show: canAny('cases.view', 'cases.view.scope'), key: 'instruments' },
     { href: '/reports.html', label: 'Reports', icon: ICONS.reports, show: can('reports.download'), key: 'reports' },
     { href: '/assistant.html', label: 'R 76 assistant', icon: ICONS.assistant, show: can('ai.view') && !is('APPROVER'), key: 'assistant' },
-    { href: '/support.html', label: 'Contact Super Admin', icon: ICONS.support, show: !is('SUPER_ADMIN'), key: 'support' },
+    { href: '/support.html', label: 'Contact System Administrator', icon: ICONS.support, show: !is('SUPER_ADMIN'), key: 'support' },
     { href: '/support.html', label: 'Support inbox', icon: ICONS.support, show: is('SUPER_ADMIN'), key: 'support' },
   ];
   return items.filter((item) => item.show);

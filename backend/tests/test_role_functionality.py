@@ -92,6 +92,8 @@ def test_every_role_reaches_its_dashboard_and_profile(client, tokens, accounts):
         assert body["user"]["email"] == email
         assert body["user"]["role_code"] == role
         assert body["role_name"]
+        if role == SUPER_ADMIN:
+            assert body["role_name"] == "System Administrator"
 
         permissions = client.get(f"{API}/me/permissions", headers=tokens[role])
         assert permissions.status_code == 200, permissions.text
@@ -111,7 +113,7 @@ def test_every_role_reaches_its_dashboard_and_profile(client, tokens, accounts):
     assert seen_roles == set(PINNED_ROLE_ORDER)
 
 
-# --------------------------------------------------------------- super admin
+# --------------------------------------------------------------- system administrator
 def test_super_admin_administers_every_platform_function(client, tokens, accounts):
     profile = client.get(f"{API}/me", headers=tokens[SUPER_ADMIN]).json()
     assert set(profile["permissions"]) == set(ALL_PERMISSIONS - {P.CASES_WORKSPACE})
@@ -201,7 +203,7 @@ def test_super_admin_administers_every_platform_function(client, tokens, account
     # Master data.
     manufacturer = client.post(
         f"{API}/manufacturers",
-        json={"name": "Super Admin Balances", "code": f"MFR-{uuid.uuid4().hex[:6]}"},
+        json={"name": "System Administrator Balances", "code": f"MFR-{uuid.uuid4().hex[:6]}"},
         headers=tokens[SUPER_ADMIN],
     )
     assert manufacturer.status_code == 201, manufacturer.text

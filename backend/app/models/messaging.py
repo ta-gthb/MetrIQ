@@ -1,11 +1,11 @@
-"""Case discussion and Super Admin support messages (FR-05, PRD 18.3).
+"""Case discussion and System Administrator support messages (FR-05, PRD 18.3).
 
 Two threads exist:
 
 * ``case_messages`` - the discussion attached to one evaluation case, between
   the laboratory that owns the case and the people assigned to it;
 * ``support_messages`` - a per-user conversation with the platform
-  administrator, so every role has a direct way to reach the Super Admin.
+  administrator, so every role has a direct way to reach the System Administrator.
 
 Both are append-only: a message is never edited or deleted.
 """
@@ -42,7 +42,7 @@ class SupportMessage(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """One message in a user's support thread with the platform administrator.
 
     ``thread_user_id`` identifies the thread: the user sees only their own
-    conversation, while the Super Admin sees every thread.
+    conversation, while the System Administrator sees every thread.
     """
 
     __tablename__ = "support_messages"

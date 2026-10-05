@@ -183,7 +183,7 @@ def test_super_admin_can_directly_activate_a_populated_unreviewed_ruleset(client
     version_id = fixture["version_id"]
     response = client.post(
         f"{API}/rulesets/{version_id}/activate",
-        json={"reason": "Direct activation approved by Super Admin."},
+        json={"reason": "Direct activation approved by System Administrator."},
         headers=tokens[SUPER_ADMIN],
     )
     assert response.status_code == 200, response.text
@@ -219,7 +219,7 @@ def test_rule_reviews_are_not_required_for_direct_activation(client, tokens, dra
     package = client.get(f"{API}/rulesets/{version_id}/review-package", headers=tokens[SUPER_ADMIN]).json()
     assert package["reviewed_rule_count"] == package["rule_count"]
     # The review package still describes review completeness, but it is no
-    # longer an activation prerequisite for a direct Super Admin action.
+    # longer an activation prerequisite for a direct System Administrator action.
     assert package["can_activate"] is False
     assert "whole" in package["activation_gate"]["summary"]
 

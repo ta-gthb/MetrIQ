@@ -235,7 +235,7 @@ class _RecordingSession:
 
 
 def test_a_principal_without_a_laboratory_is_not_scoped():
-    """The platform super admin is authorised by the application layer, not by
+    """The platform system administrator is authorised by the application layer, not by
     a tenant scope, so no setting is pushed."""
     session = _RecordingSession()
 

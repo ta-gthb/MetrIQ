@@ -8,7 +8,7 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel
 
-#: The designations a registration may carry (Super Admin portal, Users).
+#: The designations a registration may carry (System Administrator portal, Users).
 DESIGNATIONS: tuple[str, ...] = ("Officer", "Operator", "Assistant")
 
 
@@ -133,7 +133,7 @@ class LaboratoryCreate(BaseModel):
 
 
 class RolePermissionUpdate(BaseModel):
-    """The complete permission set a Super Admin wants a role to hold."""
+    """The complete permission set a System Administrator wants a role to hold."""
 
     permissions: list[str] = Field(default_factory=list, max_length=200)
 

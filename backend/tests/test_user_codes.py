@@ -3,7 +3,7 @@
 Every account signs in the same way - the identifier the platform gave it and
 its password - and the role is read from the account that identifier names,
 never chosen by the caller. These tests hold the identifier to the format the
-specification fixes, one prefix per role, and check that a Super Admin is
+specification fixes, one prefix per role, and check that a System Administrator is
 issued only through the operator script.
 """
 

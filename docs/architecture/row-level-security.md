@@ -66,7 +66,7 @@ apply_session_scope(db, user.laboratory_id)
 
 It uses `set_config(..., true)`, the transaction-local form. A pooled connection
 therefore cannot carry one request's laboratory into the next request, and a
-principal without a laboratory - the platform super admin - is not scoped at all
+principal without a laboratory - the platform system administrator - is not scoped at all
 and is authorised by the application layer instead.
 
 ## Why the owner is exempt, and why there is no escape hatch

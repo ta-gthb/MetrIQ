@@ -2043,7 +2043,7 @@ function reportPanel() {
           ? (canDownload
             ? '<button class="btn-sm" data-download="' + report.id + '" data-fmt="pdf">PDF</button> ' +
               '<button class="btn-sm" data-download="' + report.id + '" data-fmt="docx">DOCX</button>'
-            : '<span class="faint small">Download is restricted to the Laboratory Admin / Manager and the Super Admin</span>')
+            : '<span class="faint small">Download is restricted to the Laboratory Admin / Manager and the System Administrator</span>')
           : '<span class="faint small">awaiting final approval</span>') + '</td></tr>').join('') +
       '</tbody></table></div>'
     : '<div class="faint small mt-2">' + (released

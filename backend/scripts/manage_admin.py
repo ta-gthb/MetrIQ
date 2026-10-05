@@ -1,4 +1,4 @@
-"""Create and manage Super Admin credentials (PRD 20.2).
+"""Create and manage System Administrator credentials (PRD 20.2).
 
 Only accounts whose role is SUPER_ADMIN are touched. The script runs against
 whatever DATABASE_URL points at, so the same command manages a local SQLite
@@ -121,11 +121,11 @@ def validate_password(password: str) -> None:
 
 
 def find_super_admin(db, identifier: str):
-    """The Super Admin account ``identifier`` names, by user ID or by email.
+    """The System Administrator account ``identifier`` names, by user ID or by email.
 
     Both are accepted so an administrator can be reached the way the
     application names it. Either way the account must already exist and already
-    hold the role, because this script only administers Super Admins.
+    hold the role, because this script only administers System Administrators.
     """
     ctx = context()
     user = ctx.find_sign_in_user(db, identifier)
@@ -150,10 +150,10 @@ def active_super_admins(db) -> list:
 
 
 def ensure_not_last_active(db, user, action: str) -> None:
-    """Refuse an action that would remove the last usable Super Admin login."""
+    """Refuse an action that would remove the last usable System Administrator login."""
     if user.is_active and len(active_super_admins(db)) <= 1:
         raise RuntimeError(
-            f"refusing to {action} the last active Super Admin - it would lock everyone out"
+            f"refusing to {action} the last active System Administrator - it would lock everyone out"
         )
 
 
@@ -165,7 +165,7 @@ def upsert_super_admin(
     password: str | None = None,
     laboratory_code: str | None = None,
 ) -> AdminResult:
-    """Create or refresh a Super Admin account. Shared with reinit_db.py."""
+    """Create or refresh a System Administrator account. Shared with reinit_db.py."""
     ctx = context()
     address = normalise_email(email)
     if not address or "@" not in address:
@@ -204,7 +204,7 @@ def upsert_super_admin(
     user.password_hash = ctx.hash_password(password)
     # The platform issues the identifier and it is never supplied - an account
     # keeps the one it holds, and this script is the only thing that issues one
-    # for a Super Admin. It is set before the flush so it is part of the insert.
+    # for a System Administrator. It is set before the flush so it is part of the insert.
     user.user_code = user.user_code or ctx.generate_user_code(db, user.role_code)
     db.flush()
     return AdminResult(
@@ -224,12 +224,12 @@ def command_create(args) -> int:
             laboratory_code=args.laboratory_code,
         )
         ok(
-            f"Super Admin {'created' if result.created else 'updated'}:"
+            f"System Administrator {'created' if result.created else 'updated'}:"
             f" {result.user.email}"
         )
     print(f"  user ID: {result.user_id}")
     if result.previous_role and result.previous_role != ctx.SUPER_ADMIN:
-        warn(f"this account was a {result.previous_role} and has been promoted to Super Admin")
+        warn(f"this account was a {result.previous_role} and has been promoted to System Administrator")
     if result.generated:
         print()
         print(f"  Temporary password (shown once): {result.password}")
@@ -255,13 +255,13 @@ def command_list(args) -> int:
         ]
         rows.sort()
     if not rows:
-        warn("no Super Admin accounts exist yet")
+        warn("no System Administrator accounts exist yet")
         print("  Create one with: manage_admin.py create --email you@lab.example")
         return 0
     print(f"  {'USER ID':<17} {'EMAIL':<32} {'NAME':<26} {'STATE':<9} LAST LOGIN")
     for user_id, email, name, state, last_login in rows:
         print(f"  {user_id:<17} {email:<32} {name[:25]:<26} {state:<9} {last_login}")
-    ok(f"{len(rows)} Super Admin account(s)")
+    ok(f"{len(rows)} System Administrator account(s)")
     return 0
 
 
@@ -317,7 +317,7 @@ def command_delete(args) -> int:
             return 1
         ensure_not_last_active(db, user, "delete")
         db.delete(user)
-        ok(f"deleted Super Admin {user.email}")
+        ok(f"deleted System Administrator {user.email}")
     return 0
 
 
@@ -336,19 +336,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="manage_admin.py",
-        description="Create and manage MetrIQ Super Admin credentials.",
+        description="Create and manage MetrIQ System Administrator credentials.",
         parents=[common],
     )
     subcommands = parser.add_subparsers(dest="command")
 
-    create = subcommands.add_parser("create", parents=[common], help="create or update the Super Admin")
+    create = subcommands.add_parser("create", parents=[common], help="create or update the System Administrator")
     create.add_argument("--email", default=None)
     create.add_argument("--name", default=DEFAULT_FULL_NAME)
     create.add_argument("--password", default=None)
     create.add_argument("--laboratory-code", default=None)
     create.set_defaults(func=command_create)
 
-    listing = subcommands.add_parser("list", parents=[common], help="list Super Admin accounts")
+    listing = subcommands.add_parser("list", parents=[common], help="list System Administrator accounts")
     listing.set_defaults(func=command_list)
 
     rotate = subcommands.add_parser("set-password", parents=[common], help="rotate the password")
@@ -378,8 +378,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 GUIDED_ACTIONS = (
-    ("create", "create or update the Super Admin account"),
-    ("list", "show every Super Admin account"),
+    ("create", "create or update the System Administrator account"),
+    ("list", "show every System Administrator account"),
     ("set-password", "rotate a login password"),
     ("set-email", "change a login email"),
     ("enable", "re-activate a disabled account"),
@@ -400,7 +400,7 @@ def guided_argv() -> list[str]:
 
     email = None
     if command in ACTIONS_NEEDING_EMAIL:
-        label = "Super Admin email" if command == "create" else "Super Admin user ID or email"
+        label = "System Administrator email" if command == "create" else "System Administrator user ID or email"
         email = prompt(label)
         argv += ["--email", email]
 
@@ -445,9 +445,9 @@ def resolve_inputs(args, parser: argparse.ArgumentParser) -> None:
 
     if args.command in ACTIONS_NEEDING_EMAIL:
         label = (
-            "Super Admin email"
+            "System Administrator email"
             if args.command == "create"
-            else "Super Admin user ID or email"
+            else "System Administrator user ID or email"
         )
         args.email = required(getattr(args, "email", None), "email", label)
 
@@ -472,7 +472,7 @@ def main(argv: list[str] | None = None) -> int:
 
     announced = False
     if not argv and interactive():
-        banner("MetrIQ - Super Admin management")
+        banner("MetrIQ - System Administrator management")
         announced = True
         argv = guided_argv()
         if not argv:
@@ -496,7 +496,7 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["DB_SCHEMA"] = schema
 
     if not announced:
-        banner("MetrIQ - Super Admin management")
+        banner("MetrIQ - System Administrator management")
     ctx = context()
     print(f"  target: {ctx.engine.url.render_as_string(hide_password=True)}")
     if ctx.settings.DB_SCHEMA:

@@ -466,7 +466,7 @@ def test_every_workflow_step_is_recorded_in_the_audit_trail(client, tokens, case
         assert expected in sequence, sequence
     assert sequence.index("SUBMIT") < sequence.index("VERIFY") < sequence.index("APPROVE")
 
-    # The case audit trail is reserved for the Super Admin; the workflow
+    # The case audit trail is reserved for the System Administrator; the workflow
     # actions above are what the evaluation workspace itself may read.
     logs = client.get(f"{API}/cases/{case_id}/audit-logs", headers=tokens[SUPER_ADMIN]).json()
     assert logs

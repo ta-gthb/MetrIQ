@@ -2,15 +2,15 @@
 
 An identifier is ``<role prefix><four-digit year><three digits>``::
 
-    stmadm2026042   Super Admin
+    stmadm2026042   System Administrator
     labadm2026007   Laboratory Admin / Manager
     temadm2026118   Test Engineer / Metrologist
     trvadm2026053   Technical Reviewer / Verifier
     apradm2026002   Approving Authority / Signatory
 
-A Super Admin identifier is issued only by ``backend/scripts/manage_admin.py``,
+A System Administrator identifier is issued only by ``backend/scripts/manage_admin.py``,
 because that script is the supported way to create a platform administrator.
-Every other identifier is issued when the account is created - by a Super Admin
+Every other identifier is issued when the account is created - by a System Administrator
 through ``POST /api/v1/users``, or by the demonstration seed, which stands
 in for that administrator on a deployed demonstration.
 

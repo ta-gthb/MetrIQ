@@ -1,4 +1,4 @@
-"""Message payloads for case discussions and the Super Admin support channel."""
+"""Message payloads for case discussions and the System Administrator support channel."""
 
 from __future__ import annotations
 

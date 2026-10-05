@@ -112,7 +112,7 @@ CUSTOMISED_SETTING_PREFIX = "permissions.customised."
 ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
     SUPER_ADMIN: RoleDefinition(
         code=SUPER_ADMIN,
-        name="Super Admin",
+        name="System Administrator",
         description="Platform and configuration control",
         rank=10,
         permissions=ALL_PERMISSIONS - {P.CASES_WORKSPACE},

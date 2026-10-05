@@ -1,4 +1,4 @@
-"""Create or update the Super Admin account (PRD 20.2).
+"""Create or update the System Administrator account (PRD 20.2).
 
     python backend/scripts/create_admin.py --email admin@metriq.local \
         --name "Platform Administrator" --password "ChangeMe123!"
@@ -22,8 +22,8 @@ from scripts._bootstrap import banner, ok, warn  # noqa: E402
 
 
 def main() -> int:
-    banner("MetrIQ - create Super Admin")
-    parser = argparse.ArgumentParser(description="Create or update the MetrIQ Super Admin account.")
+    banner("MetrIQ - create System Administrator")
+    parser = argparse.ArgumentParser(description="Create or update the MetrIQ System Administrator account.")
     parser.add_argument("--email", default="admin@metriq.local")
     parser.add_argument("--name", default="Platform Administrator")
     parser.add_argument("--password", default=None)
@@ -41,10 +41,10 @@ def main() -> int:
             password=args.password,
             laboratory_code=args.laboratory_code,
         )
-        ok(f"Super Admin {'created' if result.created else 'updated'}: {result.user.email}")
+        ok(f"System Administrator {'created' if result.created else 'updated'}: {result.user.email}")
 
     if result.previous_role and result.previous_role != "SUPER_ADMIN":
-        warn(f"that account was a {result.previous_role} and has been promoted to Super Admin")
+        warn(f"that account was a {result.previous_role} and has been promoted to System Administrator")
 
     if result.generated:
         print()

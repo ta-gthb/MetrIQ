@@ -23,7 +23,7 @@ async function renderDemoAccounts() {
   const panel = document.getElementById('demo-panel');
   const label = document.getElementById('demo-label');
   const list = document.getElementById('demo-accounts');
-  const superAdminCredential = document.getElementById('demo-super-admin-credential');
+  const superAdminCredential = document.getElementById('demo-system-administrator-credential');
 
   let payload;
   try {
@@ -41,7 +41,7 @@ async function renderDemoAccounts() {
     (password ? '.' : ' - the password is supplied separately.') +
     ' Selecting one fills the form; each role sees a different slice of the workflow.';
   if (superAdmin && password) {
-    superAdminCredential.textContent = `Super Admin demo sign-in: ${superAdmin.email} / ${password}`;
+    superAdminCredential.textContent = `System Administrator demo sign-in: ${superAdmin.email} / ${password}`;
     superAdminCredential.hidden = false;
   }
 

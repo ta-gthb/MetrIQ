@@ -7,7 +7,7 @@ supported way to (re)initialise the deployed database from your own device:
 
 It can run with no arguments at all, which is the easiest way to do this from
 another machine: it asks for the connection string, the schema and the new
-Super Admin account, and makes you type REINITIALISE before anything happens.
+System Administrator account, and makes you type REINITIALISE before anything happens.
 The flags below remain for scripted use:
 
     python backend/scripts/reinit_db.py --yes
@@ -19,7 +19,7 @@ DESTRUCTIVE: every MetrIQ table in the target schema is dropped, so all cases,
 users, audit history and generated report rows are deleted. Objects already in the storage bucket are
 left where they are; they simply become unreferenced. After a re-run the
 instance is immediately usable again, because the reference catalogue and a
-Super Admin account are recreated in the same pass.
+System Administrator account are recreated in the same pass.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--admin-email", default="admin@metriq.local")
     parser.add_argument("--admin-name", default="Platform Administrator")
     parser.add_argument("--admin-password", default=None)
-    parser.add_argument("--no-admin", action="store_true", help="do not recreate a Super Admin")
+    parser.add_argument("--no-admin", action="store_true", help="do not recreate a System Administrator")
     parser.add_argument(
         "--seed-demo-users",
         action="store_true",
@@ -130,7 +130,7 @@ def collect_inputs(args) -> bool:
     args.yes = True
 
     print()
-    if confirm("Recreate a Super Admin account as well?", default=True):
+    if confirm("Recreate a System Administrator account as well?", default=True):
         args.admin_email = prompt("Admin email", default=args.admin_email)
         args.admin_name = prompt("Admin display name", default=args.admin_name)
         secret = prompt_secret("Admin password (blank to generate one)")
@@ -178,7 +178,7 @@ def drop_rls_policies(connection, schema: str | None) -> int:
 
 
 def seed_demo_user_accounts(db, password: str) -> int:
-    """Seed demo staff accounts without replacing reinit's Super Admin."""
+    """Seed demo staff accounts without replacing reinit's System Administrator."""
     from scripts.seed_db import seed_laboratory, seed_users
 
     laboratory = seed_laboratory(db)
@@ -277,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.no_admin:
-        warn("no Super Admin created; run manage_admin.py create before signing in")
+        warn("no System Administrator created; run manage_admin.py create before signing in")
     else:
         from scripts.manage_admin import upsert_super_admin
 
@@ -288,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
                 full_name=args.admin_name,
                 password=args.admin_password,
             )
-        ok(f"Super Admin {'created' if result.created else 'updated'}: {result.user.email}")
+        ok(f"System Administrator {'created' if result.created else 'updated'}: {result.user.email}")
         print(f"  user ID: {result.user_id}")
         if result.generated:
             print()
@@ -301,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         ok(
             f"{demo_users} demo users seeded; their password is configured by DEMO_PASSWORD. "
-            "The Super Admin keeps its separate password."
+            "The System Administrator keeps its separate password."
         )
 
     print()

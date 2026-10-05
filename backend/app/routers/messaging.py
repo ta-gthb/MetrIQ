@@ -1,9 +1,9 @@
-"""Case discussions and the Super Admin support channel (FR-05, PRD 18.3).
+"""Case discussions and the System Administrator support channel (FR-05, PRD 18.3).
 
 * Every evaluation case carries a discussion between the laboratory that owns
   it and the people assigned to it.
 * Every account has one support thread with the platform administrator, so any
-  role can reach the Super Admin without leaving the application.
+  role can reach the System Administrator without leaving the application.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def _require_super_admin(user: User) -> None:
     if user.role_code != SUPER_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Support threads are visible to the Super Admin only.",
+            detail="Support threads are visible to the System Administrator only.",
         )
 
 
@@ -155,7 +155,7 @@ def post_case_message(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 "Only the laboratory's administrator, the people assigned to this case "
-                "and the Super Admin may post in its discussion."
+                "and the System Administrator may post in its discussion."
             ),
         )
     body = _require_body(payload)
@@ -182,7 +182,7 @@ def post_case_message(
 @router.get(
     "/support/messages",
     response_model=list[SupportMessageOut],
-    summary="My conversation with the Super Admin",
+    summary="My conversation with the System Administrator",
 )
 def list_my_support_messages(
     db: Session = Depends(get_db),
@@ -202,7 +202,7 @@ def list_my_support_messages(
     "/support/messages",
     response_model=SupportMessageOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Contact the Super Admin",
+    summary="Contact the System Administrator",
 )
 def post_support_message(
     payload: MessageCreate,
@@ -234,11 +234,11 @@ def post_support_message(
     return _support_payload(message, user)
 
 
-# --------------------------------------------------- support: Super Admin side
+# --------------------------------------------------- support: System Administrator side
 @router.get(
     "/support/threads",
     response_model=list[SupportThreadOut],
-    summary="Support threads (Super Admin)",
+    summary="Support threads (System Administrator)",
 )
 def list_support_threads(
     db: Session = Depends(get_db),
@@ -284,7 +284,7 @@ def list_support_threads(
 @router.get(
     "/support/threads/{thread_user_id}",
     response_model=list[SupportMessageOut],
-    summary="One support thread (Super Admin)",
+    summary="One support thread (System Administrator)",
 )
 def get_support_thread(
     thread_user_id: uuid.UUID,
@@ -308,7 +308,7 @@ def get_support_thread(
     "/support/threads/{thread_user_id}",
     response_model=SupportMessageOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Reply to a support thread (Super Admin)",
+    summary="Reply to a support thread (System Administrator)",
 )
 def reply_support_thread(
     thread_user_id: uuid.UUID,
@@ -332,7 +332,7 @@ def reply_support_thread(
     audit_service.notify(
         db,
         user_id=thread_user.id,
-        title="Reply from the Super Admin",
+        title="Reply from the System Administrator",
         body=body[:200],
         category="support",
         link_url="/support.html",

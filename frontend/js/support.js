@@ -1,4 +1,4 @@
-/* Support channel: every role can contact the Super Admin, and the Super Admin
+/* Support channel: every role can contact the System Administrator, and the System Administrator
    answers the threads from the same page (PRD 18.3). */
 
 import { api, requireSession, formatApiError, getUser } from './api.js';
@@ -11,7 +11,7 @@ const isSuperAdmin = (getUser() || {}).role_code === 'SUPER_ADMIN';
 const content = renderShell({
   active: 'support',
   crumb: 'Governance',
-  title: isSuperAdmin ? 'Support inbox' : 'Contact Super Admin',
+  title: isSuperAdmin ? 'Support inbox' : 'Contact System Administrator',
   actionsHtml: '<button class="btn-sm" id="refresh-support">Refresh</button>',
 });
 
@@ -28,7 +28,7 @@ function messageRows(messages) {
 }
 
 function threadList() {
-  if (!state.threads.length) return '<div class="faint small">No user has contacted the Super Admin yet.</div>';
+  if (!state.threads.length) return '<div class="faint small">No user has contacted the System Administrator yet.</div>';
   return '<div class="thread-list">' + state.threads.map((thread) => '<button class="btn-sm thread-item ' +
     (state.threadId === thread.user_id ? 'btn-primary' : '') + '" data-thread="' + thread.user_id + '">' +
     '<strong>' + escapeHtml(thread.user_name) + '</strong>' +
@@ -41,7 +41,7 @@ function threadList() {
 function composer() {
   const disabled = isSuperAdmin && !state.threadId;
   return '<div class="field mt-3"><label for="support-body">' +
-    (isSuperAdmin ? 'Reply to this thread' : 'Message the Super Admin') + '</label>' +
+    (isSuperAdmin ? 'Reply to this thread' : 'Message the System Administrator') + '</label>' +
     '<textarea id="support-body" rows="3" placeholder="' +
     (isSuperAdmin ? 'Write your reply\u2026' : 'Describe what you need help with\u2026') + '"' +
     (disabled ? ' disabled' : '') + '></textarea></div>' +
@@ -61,7 +61,7 @@ function render() {
         composer() + '</div></div>';
   } else {
     content.innerHTML = '<div class="card" style="max-width:760px">' +
-      '<div class="card-title"><h3>Your conversation with the Super Admin</h3></div>' +
+      '<div class="card-title"><h3>Your conversation with the System Administrator</h3></div>' +
       '<div class="hint">Use this channel for account, registration or process questions. ' +
       'Messages are kept with your account.</div>' +
       '<div class="msg-list">' + messageRows(state.messages) + '</div>' +

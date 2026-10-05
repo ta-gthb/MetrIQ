@@ -51,7 +51,7 @@ def _require_super_admin(user: User, action: str) -> None:
         raise HTTPException(
             status_code=403,
             detail=(
-                f"Only the Super Admin may {action} a rule set or standard. "
+                f"Only the System Administrator may {action} a rule set or standard. "
                 "Your role has view-only access to Standards & rules."
             ),
         )
@@ -524,7 +524,7 @@ def activate_ruleset(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission(P.RULES_APPROVE)),
 ) -> dict:
-    """Activate a populated ruleset directly by Super Admin decision."""
+    """Activate a populated ruleset directly by System Administrator decision."""
     _require_super_admin(user, "activate")
     version = _ruleset_or_404(db, standard_version_id)
     try:

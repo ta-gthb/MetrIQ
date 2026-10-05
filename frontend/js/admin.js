@@ -17,7 +17,7 @@ const content = renderShell({
   actionsHtml: '<button class="btn-sm" id="refresh">Refresh</button>',
 });
 
-/* Super Admin accounts are created only through manage_admin.py, so they are
+/* System Administrator accounts are created only through manage_admin.py, so they are
    never offered here. A laboratory administrator may not create platform or
    laboratory administrators either - the backend enforces the same rule. */
 const CREATABLE_ROLES = ['LAB_ADMIN', 'ENGINEER', 'REVIEWER', 'APPROVER'];
@@ -53,7 +53,7 @@ function isSuperAdmin() {
 }
 
 /* Test equipment is maintained by the Laboratory Admin / Manager. Every other
-   role - the Super Admin included - reads the register without write controls. */
+   role - the System Administrator included - reads the register without write controls. */
 function managesEquipment() {
   return (getUser() || {}).role_code === 'LAB_ADMIN';
 }
@@ -83,7 +83,7 @@ function tabs() {
   ];
   // The Laboratory Admin / Manager administers its own laboratory, not the
   // platform: users, role permissions, templates, AI and audit stay with the
-  // Super Admin, and standards are visible to the laboratory as reference only.
+  // System Administrator, and standards are visible to the laboratory as reference only.
   const labAdminHidden = new Set(['users', 'work', 'roles', 'templates', 'ai', 'audit']);
   return items.filter((item) => item[2] && !(isLabAdmin && labAdminHidden.has(item[0])));
 }
@@ -427,7 +427,7 @@ function roleEditorHtml(role) {
     (categories[permission.category] = categories[permission.category] || []).push(permission);
   });
   return '<div class="hint" style="margin-bottom:8px">Changes take effect immediately for every ' +
-    'signed-in user of this role. Super Admin permissions are pre-set and cannot be edited.</div>' +
+    'signed-in user of this role. System Administrator permissions are pre-set and cannot be edited.</div>' +
     Object.entries(categories).map(([category, items]) =>
       '<fieldset style="margin:10px 0"><legend class="mono small">' + escapeHtml(category) + '</legend>' +
       items.map((permission) => '<label class="inline" style="display:flex;gap:8px;margin:3px 0">' +
@@ -499,7 +499,7 @@ function lifecyclePill(ruleset) {
       'without a metrology review. Its results are not from a verified ruleset.">provisional</span>';
   }
   if (state === 'active' && ruleset.activation_basis === 'super_admin_direct') {
-    html += ' <span class="pill pill-info" title="Activated directly by a Super Admin">direct activation</span>';
+    html += ' <span class="pill pill-info" title="Activated directly by a System Administrator">direct activation</span>';
   }
   return html;
 }
@@ -565,7 +565,7 @@ async function renderStandards() {
     '<td class="mono small">' + escapeHtml(rule.version_label || '\u2014') + '</td>' +
     '<td>' + reviewPill(rule.review_status) + '</td></tr>').join('');
 
-  return '<div class="banner warn"><div><strong>Ruleset activation is a Super Admin decision</strong>' +
+  return '<div class="banner warn"><div><strong>Ruleset activation is a System Administrator decision</strong>' +
     'A populated version can be activated directly without a review workflow. Empty placeholders cannot be activated. ' +
     'Activation applies to new evaluations; historical cases keep the version they were created with.</div></div>' +
     '<div class="card"><div class="card-title"><h3>Standards</h3></div>' + standardsHtml + '</div>' +

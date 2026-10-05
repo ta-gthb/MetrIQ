@@ -43,7 +43,7 @@ def seed_roles_and_permissions(db) -> tuple[int, int]:
             role.rank = definition.rank
         db.flush()
 
-        # A role whose permissions were edited by a Super Admin is left alone:
+        # A role whose permissions were edited by a System Administrator is left alone:
         # otherwise a restart would silently revert the edit.
         customised = db.execute(
             select(SystemSetting).where(

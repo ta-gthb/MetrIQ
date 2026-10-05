@@ -166,7 +166,7 @@ def apply_session_scope(session: Session, laboratory_id: uuid.UUID | str | None)
     """Bind the connection to a laboratory for the current transaction.
 
     A no-op on SQLite (used by the demonstration deployment and the test suite)
-    and for a principal without a laboratory, such as the platform super admin,
+    and for a principal without a laboratory, such as the platform system administrator,
     who is authorised by the application layer instead.
     """
     if laboratory_id is None:

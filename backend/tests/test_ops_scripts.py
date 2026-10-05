@@ -39,7 +39,7 @@ FIXTURE_PASSWORD = "FixturePass1!"
 
 @pytest.fixture
 def temporary_super_admin():
-    """A Super Admin that is deleted again, leaving the shared data untouched."""
+    """A System Administrator that is deleted again, leaving the shared data untouched."""
     email = f"ops-{uuid.uuid4().hex[:10]}@lab.example"
     with SessionLocal() as db:
         result = upsert_super_admin(
@@ -460,7 +460,7 @@ def test_prompt_retries_until_a_required_value_is_typed(monkeypatch, capsys):
     answers = iter(["", "", "engineer@lab.example"])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
-    assert _bootstrap.prompt("Super Admin email") == "engineer@lab.example"
+    assert _bootstrap.prompt("System Administrator email") == "engineer@lab.example"
     assert "a value is required" in capsys.readouterr().out
 
 

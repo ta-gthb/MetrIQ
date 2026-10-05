@@ -45,7 +45,7 @@ python scripts/seed_db.py
 python scripts/manage_admin.py create --email admin@metriq.local \
        --name "Platform Administrator" --password "MetrIQ@2026"
 # Prints the user ID issued to the new administrator;
-# `manage_admin.py list` shows every Super Admin and its user ID.
+# `manage_admin.py list` shows every System Administrator and its user ID.
 
 python -m uvicorn app.main:app --port 8000
 ```
@@ -57,7 +57,7 @@ Demo accounts all use the password `MetrIQ@2026`:
 
 | Email | Role |
 | --- | --- |
-| `admin@metriq.local` (or `demo-superadmin@metriq.local` if a real admin already uses the first address) | Super Admin |
+| `admin@metriq.local` (or `demo-superadmin@metriq.local` if a real admin already uses the first address) | System Administrator |
 | `labadmin@metriq.local` | Laboratory Admin / Manager |
 | `engineer@metriq.local` | Test Engineer / Metrologist |
 | `reviewer@metriq.local` | Technical Reviewer / Verifier |
@@ -70,13 +70,13 @@ three digits drawn at random:
 
 | Role | User ID |
 | --- | --- |
-| Super Admin | `stmadm<year><nnn>` |
+| System Administrator | `stmadm<year><nnn>` |
 | Laboratory Admin / Manager | `labadm<year><nnn>` |
 | Test Engineer / Metrologist | `temadm<year><nnn>` |
 | Technical Reviewer / Verifier | `trvadm<year><nnn>` |
 | Approving Authority / Signatory | `apradm<year><nnn>` |
 
-An administrator never types one: `manage_admin.py` issues it for a Super Admin
+An administrator never types one: `manage_admin.py` issues it for a System Administrator
 when the account is created, and **Administration -> Users** issues it for every
 other role. The demo panel on the sign-in page fills the form with the seeded
 account's user ID.
@@ -139,22 +139,22 @@ evaluation; submission is blocked until it is attached. All uploads are validate
 (extension, MIME, size), SHA-256 recorded, signed download URLs, and advisory AI
 classification.
 
-**Laboratory-scoped teams** - the Super Admin registers every account against a
+**Laboratory-scoped teams** - the System Administrator registers every account against a
 laboratory. A case is opened by that laboratory's manager and is staffed only
 from its register, so personnel from different laboratories are never mixed.
 
 **Approval-gated reports** - a report is generated and released only after the
 Approving Authority approves the case. Each laboratory sees its own report
-register; the Super Admin sees every laboratory.
+register; the System Administrator sees every laboratory.
 
 **Case discussion and support** - every case carries a discussion for its
 manager, engineer, reviewer and approver, and every account can raise a private
-support thread with the Super Admin.
+support thread with the System Administrator.
 
 **Reports** - a frozen JSON snapshot of versions, results, rules and evidence
 rendered to PDF (reportlab) and DOCX (python-docx), with a content hash,
 verification code and immutable revisions. An approved report is downloadable by
-the Laboratory Admin / Manager (its own laboratory) and the Super Admin; other
+the Laboratory Admin / Manager (its own laboratory) and the System Administrator; other
 roles keep the snapshot and revision history.
 
 **Approval, not a digital signature** - a report becomes final when the assigned

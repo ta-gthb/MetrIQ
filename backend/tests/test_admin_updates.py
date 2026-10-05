@@ -388,7 +388,7 @@ def test_equipment_registration_requires_every_field_and_supports_deletion(
     equipment_id = created.json()["id"]
 
     # Equipment is written by the laboratory that owns it; every other role,
-    # including the Super Admin, only reads the register.
+    # including the System Administrator, only reads the register.
     denied = client.post(
         f"{API}/equipment", json=equipment_payload("sa-denied"), headers=tokens[SUPER_ADMIN]
     )

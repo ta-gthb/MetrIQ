@@ -2,7 +2,7 @@
 
 Frontend route hiding is a usability measure only; every protected endpoint
 declares the permission it needs here. Permissions are resolved through the
-database-backed service, so an edit a Super Admin makes in the administration
+database-backed service, so an edit a System Administrator makes in the administration
 console takes effect immediately, without a restart.
 """
 

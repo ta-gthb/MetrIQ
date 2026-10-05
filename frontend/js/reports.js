@@ -260,7 +260,7 @@ async function load() {
       '<th>Status</th><th>Result</th>' +
       '<th>Ruleset</th><th>Verification code</th><th>Generated</th><th></th></tr></thead><tbody>' + rows +
       '</tbody></table></div><div class="small faint mt-3">' + data.meta.total + ' report(s)' +
-      (canDownload ? '' : ' \u00b7 Download is available to the Laboratory Admin / Manager and the Super Admin; snapshots and revision history stay readable here.') +
+      (canDownload ? '' : ' \u00b7 Download is available to the Laboratory Admin / Manager and the System Administrator; snapshots and revision history stay readable here.') +
       '</div>'
       : empty('No reports found.', 'Reports appear here once generated from a submitted case. Widen the filters or generate a report from a submitted case.')) +
     '</div>';

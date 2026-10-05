@@ -210,14 +210,14 @@ def create_case(
         if latest_version is not None:
             detail = (
                 f"The seeded OIML R 76-1 ruleset '{latest_version.version_label}' is "
-                f"'{latest_version.status or 'draft'}' and is not active. A Super Admin "
+                f"'{latest_version.status or 'draft'}' and is not active. A System Administrator "
                 "must complete its metrology review and activate an approved version "
                 "in Administration > Standards & rules before new evaluations can be created."
             )
         else:
             detail = (
                 "No OIML R 76-1 standards version is seeded. Run the ruleset seed first, "
-                "then have a Super Admin review and activate an approved version."
+                "then have a System Administrator review and activate an approved version."
             )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

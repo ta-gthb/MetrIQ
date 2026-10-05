@@ -46,7 +46,7 @@ SUPABASE_ISSUER = SUPABASE_URL + "/auth/v1"
 TOKEN_REFUSED = "The sign-in token could not be verified."
 
 #: Every permission the engineer's role does not carry. None of these may appear
-#: in a session created from a token that claims to be a super admin.
+#: in a session created from a token that claims to be a system administrator.
 ADMIN_ONLY = sorted(role_permissions(SUPER_ADMIN) - role_permissions(ENGINEER))
 assert ADMIN_ONLY, "the fixture is meaningless if both roles carry the same permissions"
 
@@ -320,7 +320,7 @@ def test_an_hs256_token_without_the_project_secret_is_refused(client, accounts, 
 
 def test_a_claim_in_the_token_cannot_elevate_the_role(client, accounts, supabase):
     """The audit's third requirement. The token is genuinely signed by the
-    project, and every role-shaped claim in it says super admin."""
+    project, and every role-shaped claim in it says system administrator."""
     email = accounts["emails"][ENGINEER]
     token = supabase_token(
         email=email,

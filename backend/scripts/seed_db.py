@@ -190,7 +190,7 @@ def seed_users(
     *,
     include_super_admin: bool = True,
 ) -> dict[str, User]:
-    """Seed demo roles, optionally leaving Super Admin to the caller."""
+    """Seed demo roles, optionally leaving System Administrator to the caller."""
     people = [
         (SUPER_ADMIN, "Platform Administrator", "admin@metriq.local", "Platform Owner"),
         (LAB_ADMIN, "Lakshmi Rao", "labadmin@metriq.local", "Laboratory Manager"),
@@ -208,7 +208,7 @@ def seed_users(
             user = db.execute(select(User).where(User.email == email)).scalars().first()
             if user is not None and not user.is_demo:
                 raise RuntimeError(
-                    f"refusing to reuse non-demo Super Admin account {email!r} for demonstration"
+                    f"refusing to reuse non-demo System Administrator account {email!r} for demonstration"
                 )
         if user is None:
             user = User(

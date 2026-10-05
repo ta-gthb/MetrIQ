@@ -58,7 +58,7 @@ Useful scripts:
 | `scripts/seed_rules.py` | Load `app/rules/data/*.json` as standards, versions, rules, test definitions, templates |
 | `scripts/seed_identity.py` | Seed the 35 permissions, 5 roles and 99 grants |
 | `scripts/seed_db.py` | Demo laboratory, manufacturer, applicant, instrument, environmental conditions, demo case |
-| `scripts/manage_admin.py` | Create and manage **only** Super Admin credentials: `create`, `list`, `set-password`, `set-email`, `enable`, `disable`, `delete` |
+| `scripts/manage_admin.py` | Create and manage **only** System Administrator credentials: `create`, `list`, `set-password`, `set-email`, `enable`, `disable`, `delete` |
 | `scripts/create_admin.py` | Shortcut for `manage_admin.py create` |
 | `scripts/reinit_db.py` | Drop, recreate and reseed any database reachable from this machine (destructive; needs `--yes`) |
 
@@ -410,7 +410,7 @@ accounts can only sign in if they also exist in Supabase.
    against that database - otherwise every button on the page reports a failed
    sign-in, which looks like a broken deployment but is a missing seed.
 
-   If step 5 already created a real Super Admin at `admin@metriq.local`, seeding
+   If step 5 already created a real System Administrator at `admin@metriq.local`, seeding
    preserves that account and creates the separate demo account
    `demo-superadmin@metriq.local` with the demo password. Rerun this seed command
    against existing deployments to add the missing demo account; the real
@@ -509,14 +509,14 @@ machine: each reads `DATABASE_URL` and also accepts
   template and the test catalogue when they are absent. Re-running is harmless.
 * **Initialize** (additive, safe): `python backend/scripts/init_db.py`.
 * **Reinitialize remotely** (destructive): drops every table, recreates the
-  schema, reseeds the catalogue and re-creates a Super Admin in one pass.
+  schema, reseeds the catalogue and re-creates a System Administrator in one pass.
 
   ```bash
   python backend/scripts/reinit_db.py --yes --admin-email you@lab.example
   ```
 
   Run it with **no arguments** instead and it asks for the connection string, the
-  schema and the new Super Admin account, then requires the word `REINITIALISE`
+  schema and the new System Administrator account, then requires the word `REINITIALISE`
   before touching anything. If the target schema already holds tables that do not
   match MetrIQ's own - the signature of a database shared with another application
   - the guided run stops instead of dropping them.
@@ -546,7 +546,7 @@ machine: each reads `DATABASE_URL` and also accepts
   `python backend/scripts/reset_db.py --yes`.
 * **Seed** (idempotent): `seed_rules.py`, `seed_identity.py` and `seed_db.py`
   may be re-run; they upsert by natural key.
-* **Super Admin credentials** - only accounts whose role is `SUPER_ADMIN` are
+* **System Administrator credentials** - only accounts whose role is `SUPER_ADMIN` are
   touched:
 
   ```bash
@@ -568,7 +568,7 @@ machine: each reads `DATABASE_URL` and also accepts
 
   Passwords must be at least 8 characters; omitting `--password` - or leaving the
   prompt blank - generates one and prints it once. `disable` and `delete` refuse to touch the last active
-  Super Admin, so you cannot lock yourself out. `create_admin.py` remains as a
+  System Administrator, so you cannot lock yourself out. `create_admin.py` remains as a
   shortcut for `manage_admin.py create`.
 
 ## 8. Seed data
@@ -588,7 +588,7 @@ demo case and its mandatory nameplate photograph. All demo accounts use the pass
 
 | Email | Role |
 | --- | --- |
-| `admin@metriq.local` | Super Admin |
+| `admin@metriq.local` | System Administrator |
 | `labadmin@metriq.local` | Laboratory Admin |
 | `engineer@metriq.local` | Test Engineer |
 | `reviewer@metriq.local` | Technical Reviewer |

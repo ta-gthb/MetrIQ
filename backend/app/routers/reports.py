@@ -475,7 +475,7 @@ def download_report(
     if user.role_code not in {SUPER_ADMIN, LAB_ADMIN}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the Super Admin or Laboratory Admin / Manager may download approved reports.",
+            detail="Only the System Administrator or Laboratory Admin / Manager may download approved reports.",
         )
     report = _load_report(db, report_id, user, require_approved=True)
     fmt = fmt.lower()
