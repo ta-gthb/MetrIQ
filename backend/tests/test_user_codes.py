@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import User
+from app.models import Laboratory, User
 from app.security.permissions import (
     APPROVER,
     ENGINEER,
@@ -229,6 +229,49 @@ def test_a_demonstration_deployment_lists_each_account_by_its_identifier(
     listed = {account["role_code"]: account["user_id"] for account in body["accounts"]}
     for role, code in accounts["codes"].items():
         assert listed[role] == code
+
+
+def test_demo_seed_preserves_a_real_super_admin_and_lists_a_demo_one(
+    db, client, accounts, monkeypatch
+):
+    from app.config import settings
+    from scripts.seed_db import seed_users
+
+    monkeypatch.setattr(settings, "DEMO_MODE", True)
+    real_admin = db.execute(
+        select(User).where(User.email == accounts["emails"][SUPER_ADMIN])
+    ).scalars().one()
+    original_password_hash = real_admin.password_hash
+    real_admin.is_demo = False
+    real_admin.password_hash = "preserved-real-admin-hash"
+    db.commit()
+
+    demo_admin = None
+    try:
+        laboratory = db.execute(
+            select(Laboratory).where(Laboratory.code == "LAB-001")
+        ).scalars().one()
+        seeded = seed_users(db, laboratory, accounts["password"])
+        demo_admin = seeded[SUPER_ADMIN]
+        assert demo_admin.email != real_admin.email
+        assert demo_admin.is_demo is True
+        assert real_admin.is_demo is False
+        assert real_admin.password_hash == "preserved-real-admin-hash"
+        db.commit()
+
+        response = client.get(f"{API}/auth/demo-accounts")
+        assert response.status_code == 200
+        assert any(
+            account["role_code"] == SUPER_ADMIN
+            and account["email"] == demo_admin.email
+            for account in response.json()["accounts"]
+        )
+    finally:
+        if demo_admin is not None and demo_admin.id != real_admin.id:
+            db.delete(demo_admin)
+        real_admin.is_demo = True
+        real_admin.password_hash = original_password_hash
+        db.commit()
 
 
 # ------------------------------------------------- how the IDs are issued

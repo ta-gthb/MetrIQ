@@ -203,6 +203,13 @@ def seed_users(
     users: dict[str, User] = {}
     for role, name, email, designation in people:
         user = db.execute(select(User).where(User.email == email)).scalars().first()
+        if role == SUPER_ADMIN and user is not None and not user.is_demo:
+            email = "demo-superadmin@metriq.local"
+            user = db.execute(select(User).where(User.email == email)).scalars().first()
+            if user is not None and not user.is_demo:
+                raise RuntimeError(
+                    f"refusing to reuse non-demo Super Admin account {email!r} for demonstration"
+                )
         if user is None:
             user = User(
                 user_code=generate_user_code(db, role),

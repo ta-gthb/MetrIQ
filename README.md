@@ -57,7 +57,7 @@ Demo accounts all use the password `MetrIQ@2026`:
 
 | Email | Role |
 | --- | --- |
-| `admin@metriq.local` | Super Admin |
+| `admin@metriq.local` (or `demo-superadmin@metriq.local` if a real admin already uses the first address) | Super Admin |
 | `labadmin@metriq.local` | Laboratory Admin / Manager |
 | `engineer@metriq.local` | Test Engineer / Metrologist |
 | `reviewer@metriq.local` | Technical Reviewer / Verifier |
