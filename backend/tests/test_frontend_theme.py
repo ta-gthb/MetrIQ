@@ -88,6 +88,21 @@ def test_clock_corrects_itself_from_the_server_clock():
     assert "setInterval" in module
 
 
+def test_case_review_submission_is_only_rendered_for_the_assigned_reviewer():
+    module = read("js/evaluation.js")
+    assert "user.role_code === 'REVIEWER'" in module
+    assert "user.id === c.reviewer_id" in module
+    assert "Confirm review &amp; submit for approval" in module
+    assert "api.post('/cases/' + caseId + '/verify'" in module
+
+
+def test_case_approval_actions_are_only_rendered_for_the_assigned_approver():
+    module = read("js/evaluation.js")
+    assert "currentUser.role_code === 'APPROVER'" in module
+    assert "currentUser.id === c.approver_id" in module
+    assert "id=\"btn-approve\">Approve report" in module
+
+
 def test_light_theme_restates_every_colour_token():
     css = read("css/app.css")
     start = css.index('[data-theme="light"]')

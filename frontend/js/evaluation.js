@@ -1903,9 +1903,11 @@ function timelineHtml() {
 
 function stepReview() {
   const c = state.case;
-  const canReview = can('cases.review') && ['TESTING_COMPLETED', 'UNDER_REVIEW', 'CORRECTION_REQUIRED'].includes(c.status);
+  const user = getUser() || {};
+  const canReview = user.role_code === 'REVIEWER' && user.id === c.reviewer_id &&
+    can('cases.review') && ['TESTING_COMPLETED', 'UNDER_REVIEW', 'CORRECTION_REQUIRED'].includes(c.status);
   const actions = canReview
-    ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-verify">Verify (pass review)</button>' +
+    ? '<div class="inline mt-3"><button class="btn-primary btn-sm" id="btn-verify">Confirm review &amp; submit for approval</button>' +
       '<button class="btn-sm" id="btn-correction">Return for retest\u2026</button>' +
       '<span class="faint small">Returning the case sends it back to the assigned Test Engineer / ' +
       'Metrologist. It must be resolved and submitted again before it can reach approval.</span></div>'
@@ -2059,9 +2061,12 @@ function reportPanel() {
 
 function stepApproval() {
   const c = state.case;
-  const canApprove = can('cases.approve') && ['VERIFIED', 'UNDER_APPROVAL'].includes(c.status);
-  const canFinalize = can('cases.finalize') && ['APPROVED', 'FINALIZED'].includes(c.status);
   const currentUser = getUser() || {};
+  const assignedApprover = currentUser.role_code === 'APPROVER' && currentUser.id === c.approver_id;
+  const canApprove = assignedApprover && can('cases.approve') &&
+    ['VERIFIED', 'UNDER_APPROVAL'].includes(c.status);
+  const canFinalize = assignedApprover && can('cases.finalize') &&
+    ['APPROVED', 'FINALIZED'].includes(c.status);
   const canCancel = ['LAB_ADMIN', 'APPROVER'].includes(currentUser.role_code) &&
     canAny('cases.assign', 'cases.approve') &&
     !['FINALIZED', 'CANCELLED'].includes(c.status);
